@@ -63,8 +63,20 @@ def _problems_for_prompt(katas: list[dict]) -> list[dict]:
 
 
 def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
-                   client, *, on_progress=None, fix_attempts: int = 5,
-                   mechanical: bool = True) -> dict:
+                   client, *, on_progress=None, fix_attempts: int = 3,
+                   mechanical: bool = True,
+                   time_budget_s: float = 90.0) -> dict:
+    """Translate the pack with a HARD wall-clock budget.
+
+    Without a budget, a stubborn language (LLM keeps producing broken refs)
+    can spend 5 attempts × 1 LLM call × 12 katas × multiple safety-net
+    layers ≈ 60+ LLM calls = several minutes. Past `time_budget_s`,
+    everything still pending is stub-rescued so the user sees katas appear
+    on a predictable timeline.
+
+    fix_attempts is also tightened from 5 to 3: the case-analysis safety
+    net runs at attempt 3 now, which means most kata fix-up burns at most
+    3 LLM calls per stuck kata (was 5)."""
     """Translate every kata in `pack_template` into the language's dialect.
 
     Returns a pack dict with `katas` (those that survived self-validation)
@@ -77,6 +89,11 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
         if on_progress:
             try: on_progress(msg)
             except Exception: pass
+
+    import time as _time
+    deadline = _time.monotonic() + time_budget_s
+    def budget_exhausted() -> bool:
+        return _time.monotonic() >= deadline
 
     sample = _pick_working_sample(lang_dir, spec) or ""
     originals = pack_template["katas"]
@@ -181,6 +198,10 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
         ok, reason = _self_validate(kata, lang_dir, spec)
         attempts = 0
         while not ok and attempts < fix_attempts:
+            if budget_exhausted():
+                # Stop the slow LLM-fix loop; the safety nets below will
+                # stub-rescue everything that's still failing.
+                break
             attempts += 1
             new_ref = _escalating_fix(kata, reason, spec, sample, client, attempts)
             if not new_ref:
@@ -206,6 +227,18 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
         oid = original["id"]
         existing = by_id_results.get(oid)
         if existing is not None and existing[1]:  # already valid, skip
+            continue
+        # Skip the (slow, LLM-heavy) per-kata retry if either (a) the budget
+        # is exhausted or (b) the batch returned SOMETHING for this kata
+        # already — the escalating fix-up just couldn't make it pass. A
+        # fresh translation rarely beats fix-up; if both fail, stub-rescue
+        # is the right exit.
+        if budget_exhausted():
+            _emit(f"  skip  {oid}: time budget exhausted, will stub-rescue")
+            continue
+        if existing is not None:
+            # Batch had this kata but couldn't fix; jump straight to single-
+            # test reduction below instead of re-translating.
             continue
         _emit(f"  retry {oid}: per-kata fresh translation")
         single_kata = _translate_one_kata(original, spec, lang_dir, sample, client)
@@ -250,13 +283,18 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
         idx, (kata, ok, reason, attempts) = by_id_results[oid]
         if ok:
             continue
-        _emit(f"  reduce {oid}: single-test minimal translation (last resort)")
-        reduced = _single_test_reduction(original, spec, lang_dir, sample, client)
-        if reduced is not None:
-            kata2, ok2, reason2, attempts2 = _validate_one(reduced)
-            if ok2:
-                results[idx] = (kata2, True, "reduced to single-test", attempts + attempts2 + 1)
-                continue
+        # Skip single-test reduction if the budget's blown — go straight
+        # to stub-rescue so the user sees the kata appear.
+        if budget_exhausted():
+            _emit(f"  skip  {oid}: time budget exhausted, jumping to stub-rescue")
+        else:
+            _emit(f"  reduce {oid}: single-test minimal translation (last resort)")
+            reduced = _single_test_reduction(original, spec, lang_dir, sample, client)
+            if reduced is not None:
+                kata2, ok2, reason2, attempts2 = _validate_one(reduced)
+                if ok2:
+                    results[idx] = (kata2, True, "reduced to single-test", attempts + attempts2 + 1)
+                    continue
         # Absolute last resort: save the problem with an empty tests array
         # and a stub reference. The user gets to SEE the kata, even if
         # auto-check isn't available. Better than dropping it entirely.
