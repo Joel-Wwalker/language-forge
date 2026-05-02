@@ -1,0 +1,991 @@
+"""Curated kata packs. Hand-written, deterministic, no LLM call.
+
+These supplement the dynamic kata generation with known-good problems
+(LeetCode-style classics). Each kata's `reference_solution` is verified
+to compile and produce the documented `expected` output on the standard
+toylang reference compiler. When loaded onto a non-toylang c_like
+language, the self-validation step in `katas.generate_katas` (or its
+deterministic cousin `validate_pack`) will catch any keyword-spelling
+or stdlib coverage mismatches and drop just those.
+
+Linked-list and binary-tree problems represent nodes as nested dicts:
+  - linked list:  `dict("val", v, "next", node_or_null)`
+  - binary tree:  `dict("val", v, "left", left_or_null, "right", right_or_null)`
+
+This avoids needing user-defined types (which we don't generate yet)
+while still letting the problems exercise the relevant algorithms.
+"""
+from __future__ import annotations
+
+# Each entry is a complete kata dict. The c_like reference solutions use
+# only stdlib functions every healthy generated language has: print, len,
+# get, set, push, pop, list, dict, has, keys, range, str, split, join,
+# upper, lower, replace, int, float.
+
+CLASSICS_C_LIKE: list[dict] = [
+    {
+        "id": "two_sum",
+        "title": "Two Sum",
+        "difficulty": "easy",
+        "problem": (
+            "Given a list of integers `nums` and an integer `target`, return "
+            "the two indices i, j (i < j) such that nums[i] + nums[j] == target. "
+            "Assume exactly one solution exists. Return them as list(i, j)."
+        ),
+        "function_name": "two_sum",
+        "starter_code": "func two_sum(nums, target) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func two_sum(nums, target) {\n"
+            "    var seen = dict();\n"
+            "    var i = 0;\n"
+            "    while (i < len(nums)) {\n"
+            "        var n = get(nums, i);\n"
+            "        var need = target - n;\n"
+            "        if (has(seen, need)) {\n"
+            "            return list(get(seen, need), i);\n"
+            "        }\n"
+            "        set(seen, n, i);\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return list();\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "two_sum(list(2, 7, 11, 15), 9)", "expected": "[0, 1]"},
+            {"call": "two_sum(list(3, 2, 4), 6)",      "expected": "[1, 2]"},
+            {"call": "two_sum(list(3, 3), 6)",         "expected": "[0, 1]"},
+            {"call": "two_sum(list(-1, 0, 1), 0)",     "expected": "[0, 2]"},
+        ],
+    },
+    {
+        "id": "reverse_list",
+        "title": "Reverse a list",
+        "difficulty": "easy",
+        "problem": "Return a new list with the elements of the input in reverse order.",
+        "function_name": "reverse",
+        "starter_code": "func reverse(lst) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func reverse(lst) {\n"
+            "    var out = list();\n"
+            "    var i = len(lst) - 1;\n"
+            "    while (i >= 0) {\n"
+            "        push(out, get(lst, i));\n"
+            "        i = i - 1;\n"
+            "    }\n"
+            "    return out;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "reverse(list(1, 2, 3))",   "expected": "[3, 2, 1]"},
+            {"call": "reverse(list())",          "expected": "[]"},
+            {"call": "reverse(list(\"a\"))",     "expected": "[a]"},
+            {"call": "reverse(list(1, 1, 2))",   "expected": "[2, 1, 1]"},
+        ],
+    },
+    {
+        "id": "valid_parens",
+        "title": "Valid parentheses",
+        "difficulty": "easy",
+        "problem": (
+            "Return true if the string contains a balanced sequence of `(`, `)`, "
+            "`[`, `]`, `{`, `}`. Empty input is balanced."
+        ),
+        "function_name": "valid_parens",
+        "starter_code": "func valid_parens(s) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func valid_parens(s) {\n"
+            "    var stack = list();\n"
+            "    var pairs = dict(\")\", \"(\", \"]\", \"[\", \"}\", \"{\");\n"
+            "    var i = 0;\n"
+            "    while (i < len(s)) {\n"
+            "        var c = get(s, i);\n"
+            "        if (c == \"(\" || c == \"[\" || c == \"{\") {\n"
+            "            push(stack, c);\n"
+            "        } else if (c == \")\" || c == \"]\" || c == \"}\") {\n"
+            "            if (len(stack) == 0) { return false; }\n"
+            "            var top = pop(stack);\n"
+            "            if (top != get(pairs, c)) { return false; }\n"
+            "        }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return len(stack) == 0;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "valid_parens(\"\")",            "expected": "true"},
+            {"call": "valid_parens(\"()\")",          "expected": "true"},
+            {"call": "valid_parens(\"()[]{}\")",      "expected": "true"},
+            {"call": "valid_parens(\"(]\")",          "expected": "false"},
+            {"call": "valid_parens(\"([{}])\")",      "expected": "true"},
+            {"call": "valid_parens(\"(((\")",         "expected": "false"},
+        ],
+    },
+    {
+        "id": "anagram",
+        "title": "Anagram check",
+        "difficulty": "easy",
+        "problem": (
+            "Return true if `a` and `b` are anagrams (same letters, same counts). "
+            "Case-insensitive; ignore spaces."
+        ),
+        "function_name": "is_anagram",
+        "starter_code": "func is_anagram(a, b) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func count_chars(s) {\n"
+            "    var s2 = lower(replace(s, \" \", \"\"));\n"
+            "    var counts = dict();\n"
+            "    var i = 0;\n"
+            "    while (i < len(s2)) {\n"
+            "        var c = get(s2, i);\n"
+            "        if (has(counts, c)) {\n"
+            "            set(counts, c, get(counts, c) + 1);\n"
+            "        } else {\n"
+            "            set(counts, c, 1);\n"
+            "        }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return counts;\n"
+            "}\n"
+            "\n"
+            "func is_anagram(a, b) {\n"
+            "    var ca = count_chars(a);\n"
+            "    var cb = count_chars(b);\n"
+            "    if (len(keys(ca)) != len(keys(cb))) { return false; }\n"
+            "    var ks = keys(ca);\n"
+            "    var i = 0;\n"
+            "    while (i < len(ks)) {\n"
+            "        var k = get(ks, i);\n"
+            "        if (!has(cb, k)) { return false; }\n"
+            "        if (get(ca, k) != get(cb, k)) { return false; }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return true;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "is_anagram(\"listen\", \"silent\")",          "expected": "true"},
+            {"call": "is_anagram(\"hello\", \"world\")",            "expected": "false"},
+            {"call": "is_anagram(\"Dormitory\", \"Dirty room\")",   "expected": "true"},
+            {"call": "is_anagram(\"a\", \"a\")",                    "expected": "true"},
+            {"call": "is_anagram(\"a\", \"b\")",                    "expected": "false"},
+        ],
+    },
+    {
+        "id": "max_subarray",
+        "title": "Maximum subarray sum (Kadane)",
+        "difficulty": "medium",
+        "problem": (
+            "Return the largest sum of any contiguous subarray. The array is "
+            "non-empty. Negative numbers are allowed."
+        ),
+        "function_name": "max_subarray",
+        "starter_code": "func max_subarray(nums) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func max_subarray(nums) {\n"
+            "    var best = get(nums, 0);\n"
+            "    var here = get(nums, 0);\n"
+            "    var i = 1;\n"
+            "    while (i < len(nums)) {\n"
+            "        var n = get(nums, i);\n"
+            "        if (here + n > n) { here = here + n; } else { here = n; }\n"
+            "        if (here > best) { best = here; }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return best;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "max_subarray(list(-2, 1, -3, 4, -1, 2, 1, -5, 4))", "expected": "6"},
+            {"call": "max_subarray(list(1))",                            "expected": "1"},
+            {"call": "max_subarray(list(-1, -2, -3))",                   "expected": "-1"},
+            {"call": "max_subarray(list(5, 4, -1, 7, 8))",               "expected": "23"},
+        ],
+    },
+    {
+        "id": "move_zeros",
+        "title": "Move zeros to end",
+        "difficulty": "easy",
+        "problem": (
+            "Return a new list where all 0s are moved to the end, preserving "
+            "the relative order of the non-zero elements."
+        ),
+        "function_name": "move_zeros",
+        "starter_code": "func move_zeros(nums) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func move_zeros(nums) {\n"
+            "    var out = list();\n"
+            "    var zeros = 0;\n"
+            "    var i = 0;\n"
+            "    while (i < len(nums)) {\n"
+            "        var n = get(nums, i);\n"
+            "        if (n == 0) {\n"
+            "            zeros = zeros + 1;\n"
+            "        } else {\n"
+            "            push(out, n);\n"
+            "        }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    var z = 0;\n"
+            "    while (z < zeros) { push(out, 0); z = z + 1; }\n"
+            "    return out;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "move_zeros(list(0, 1, 0, 3, 12))",  "expected": "[1, 3, 12, 0, 0]"},
+            {"call": "move_zeros(list(0))",               "expected": "[0]"},
+            {"call": "move_zeros(list(1, 2, 3))",         "expected": "[1, 2, 3]"},
+            {"call": "move_zeros(list(0, 0, 0))",         "expected": "[0, 0, 0]"},
+        ],
+    },
+    {
+        "id": "two_pointer_pair_sum",
+        "title": "Two-pointer pair sum (sorted)",
+        "difficulty": "medium",
+        "problem": (
+            "Given a SORTED list of integers and a target, return list(i, j) "
+            "(i < j) such that nums[i] + nums[j] == target, or list() if no "
+            "such pair exists. Use two pointers."
+        ),
+        "function_name": "pair_sum_sorted",
+        "starter_code": "func pair_sum_sorted(nums, target) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func pair_sum_sorted(nums, target) {\n"
+            "    var lo = 0;\n"
+            "    var hi = len(nums) - 1;\n"
+            "    while (lo < hi) {\n"
+            "        var s = get(nums, lo) + get(nums, hi);\n"
+            "        if (s == target) { return list(lo, hi); }\n"
+            "        if (s < target) { lo = lo + 1; } else { hi = hi - 1; }\n"
+            "    }\n"
+            "    return list();\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "pair_sum_sorted(list(1, 2, 3, 4, 6), 6)", "expected": "[1, 3]"},
+            {"call": "pair_sum_sorted(list(2, 7, 11, 15), 9)", "expected": "[0, 1]"},
+            {"call": "pair_sum_sorted(list(1, 2, 3), 7)",      "expected": "[]"},
+            {"call": "pair_sum_sorted(list(-3, 0, 3), 0)",     "expected": "[0, 2]"},
+        ],
+    },
+    {
+        "id": "longest_unique_substring",
+        "title": "Longest substring without repeating chars",
+        "difficulty": "medium",
+        "problem": (
+            "Return the LENGTH of the longest substring of `s` that has no "
+            "repeated characters. Use a sliding window."
+        ),
+        "function_name": "longest_unique",
+        "starter_code": "func longest_unique(s) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func longest_unique(s) {\n"
+            "    var seen = dict();\n"
+            "    var lo = 0;\n"
+            "    var best = 0;\n"
+            "    var i = 0;\n"
+            "    while (i < len(s)) {\n"
+            "        var c = get(s, i);\n"
+            "        if (has(seen, c)) {\n"
+            "            if (get(seen, c) >= lo) { lo = get(seen, c) + 1; }\n"
+            "        }\n"
+            "        set(seen, c, i);\n"
+            "        if (i - lo + 1 > best) { best = i - lo + 1; }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return best;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "longest_unique(\"abcabcbb\")", "expected": "3"},
+            {"call": "longest_unique(\"bbbbb\")",    "expected": "1"},
+            {"call": "longest_unique(\"pwwkew\")",   "expected": "3"},
+            {"call": "longest_unique(\"\")",         "expected": "0"},
+            {"call": "longest_unique(\"abcdef\")",   "expected": "6"},
+        ],
+    },
+    {
+        "id": "best_time_to_buy_sell",
+        "title": "Best time to buy and sell stock",
+        "difficulty": "easy",
+        "problem": (
+            "Given a list of daily prices, return the maximum profit from a "
+            "single buy + later sell. Return 0 if no profit is possible."
+        ),
+        "function_name": "max_profit",
+        "starter_code": "func max_profit(prices) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func max_profit(prices) {\n"
+            "    if (len(prices) == 0) { return 0; }\n"
+            "    var lo = get(prices, 0);\n"
+            "    var best = 0;\n"
+            "    var i = 1;\n"
+            "    while (i < len(prices)) {\n"
+            "        var p = get(prices, i);\n"
+            "        if (p < lo) { lo = p; }\n"
+            "        if (p - lo > best) { best = p - lo; }\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return best;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "max_profit(list(7, 1, 5, 3, 6, 4))", "expected": "5"},
+            {"call": "max_profit(list(7, 6, 4, 3, 1))",    "expected": "0"},
+            {"call": "max_profit(list())",                 "expected": "0"},
+            {"call": "max_profit(list(2, 4, 1))",          "expected": "2"},
+        ],
+    },
+    {
+        "id": "climb_stairs",
+        "title": "Climbing stairs (DP)",
+        "difficulty": "easy",
+        "problem": (
+            "There are n stairs; you can take 1 or 2 steps at a time. Return "
+            "the number of distinct ways to reach the top."
+        ),
+        "function_name": "climb",
+        "starter_code": "func climb(n) {\n    // your code\n}\n",
+        "reference_solution": (
+            "func climb(n) {\n"
+            "    if (n <= 2) { return n; }\n"
+            "    var a = 1;\n"
+            "    var b = 2;\n"
+            "    var i = 3;\n"
+            "    while (i <= n) {\n"
+            "        var c = a + b;\n"
+            "        a = b;\n"
+            "        b = c;\n"
+            "        i = i + 1;\n"
+            "    }\n"
+            "    return b;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "climb(1)",  "expected": "1"},
+            {"call": "climb(2)",  "expected": "2"},
+            {"call": "climb(3)",  "expected": "3"},
+            {"call": "climb(5)",  "expected": "8"},
+            {"call": "climb(10)", "expected": "89"},
+        ],
+    },
+    {
+        "id": "linked_list_reverse",
+        "title": "Reverse a linked list",
+        "difficulty": "medium",
+        "problem": (
+            "Linked-list nodes are dicts: `dict(\"val\", v, \"next\", node_or_null)`. "
+            "Given the head, return the new head of the reversed list. Empty "
+            "input returns null."
+        ),
+        "function_name": "reverse_ll",
+        # Starter shows the helpers as a (read-only-style) preamble so the
+        # user knows they can use to_ll() / ll_to_list() in their solution.
+        "starter_code": (
+            "// Provided helpers (always available to your solution):\n"
+            "//   to_ll(items)     - build a linked list from a list of values\n"
+            "//   ll_to_list(head) - convert linked list back to a list\n"
+            "\n"
+            "func reverse_ll(head) {\n"
+            "    // your code\n"
+            "}\n"
+        ),
+        # Helpers are PREPENDED to both the reference (during self-validation)
+        # and the user's solution (during check_solution), so test calls like
+        # `ll_to_list(reverse_ll(to_ll(...)))` work even when the user only
+        # writes `reverse_ll`. Without this separation the tests crashed with
+        # "name 'll_to_list' is not defined" on user submissions.
+        "helpers": (
+            "// Build a linked list from a list of values.\n"
+            "func to_ll(items) {\n"
+            "    var head = null;\n"
+            "    var i = len(items) - 1;\n"
+            "    while (i >= 0) {\n"
+            "        head = dict(\"val\", get(items, i), \"next\", head);\n"
+            "        i = i - 1;\n"
+            "    }\n"
+            "    return head;\n"
+            "}\n"
+            "\n"
+            "// Convert a linked list back to a list, for printing.\n"
+            "func ll_to_list(head) {\n"
+            "    var out = list();\n"
+            "    while (head != null) {\n"
+            "        push(out, get(head, \"val\"));\n"
+            "        head = get(head, \"next\");\n"
+            "    }\n"
+            "    return out;\n"
+            "}\n"
+        ),
+        "reference_solution": (
+            "func reverse_ll(head) {\n"
+            "    var prev = null;\n"
+            "    var curr = head;\n"
+            "    while (curr != null) {\n"
+            "        var nxt = get(curr, \"next\");\n"
+            "        set(curr, \"next\", prev);\n"
+            "        prev = curr;\n"
+            "        curr = nxt;\n"
+            "    }\n"
+            "    return prev;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "ll_to_list(reverse_ll(to_ll(list(1, 2, 3, 4))))",
+             "expected": "[4, 3, 2, 1]"},
+            {"call": "ll_to_list(reverse_ll(to_ll(list())))", "expected": "[]"},
+            {"call": "ll_to_list(reverse_ll(to_ll(list(42))))", "expected": "[42]"},
+        ],
+    },
+    {
+        "id": "tree_max_depth",
+        "title": "Binary tree max depth",
+        "difficulty": "medium",
+        "problem": (
+            "Tree nodes are dicts: `dict(\"val\", v, \"left\", l, \"right\", r)`. "
+            "Return the maximum depth (number of nodes on the longest root-to-leaf "
+            "path). Empty tree (null) has depth 0."
+        ),
+        "function_name": "max_depth",
+        "starter_code": (
+            "// Provided helpers (always available to your solution):\n"
+            "//   node(v, left, right) - build a tree node\n"
+            "//   leaf(v)              - shortcut for a leaf node\n"
+            "\n"
+            "func max_depth(root) {\n"
+            "    // your code\n"
+            "}\n"
+        ),
+        "helpers": (
+            "func node(v, l, r) {\n"
+            "    return dict(\"val\", v, \"left\", l, \"right\", r);\n"
+            "}\n"
+            "\n"
+            "func leaf(v) { return node(v, null, null); }\n"
+        ),
+        "reference_solution": (
+            "func max_depth(root) {\n"
+            "    if (root == null) { return 0; }\n"
+            "    var l = max_depth(get(root, \"left\"));\n"
+            "    var r = max_depth(get(root, \"right\"));\n"
+            "    if (l > r) { return l + 1; }\n"
+            "    return r + 1;\n"
+            "}\n"
+        ),
+        "tests": [
+            {"call": "max_depth(null)", "expected": "0"},
+            {"call": "max_depth(leaf(1))", "expected": "1"},
+            {"call": "max_depth(node(1, leaf(2), leaf(3)))", "expected": "2"},
+            {"call": "max_depth(node(1, node(2, leaf(4), null), leaf(3)))", "expected": "3"},
+            {"call": "max_depth(node(1, node(2, node(3, leaf(4), null), null), null))", "expected": "4"},
+        ],
+    },
+]
+
+
+# ===========================================================================
+# Recursive variant: same problems and tests as CLASSICS_C_LIKE, but the
+# reference_solution uses recursion instead of `while` + reassignment. For
+# `no_mutation` languages (love-style) where `i = i + 1` is illegal but
+# function calls and stdlib mutation (`set`, `push`) are fine.
+#
+# We mirror the IDs and tests verbatim — only `reference_solution` and
+# `starter_code` differ. The load-pack endpoint picks this variant when
+# `customization.feature_bans` includes `no_mutation`.
+# ===========================================================================
+
+def _recursive_kata(template: dict, recursive_reference: str,
+                    starter: str | None = None,
+                    helpers: str | None = None) -> dict:
+    """Helper: copy a CLASSICS_C_LIKE entry and swap in the recursive ref.
+    Optionally override the helpers (defaulting to the template's, if any)."""
+    new = dict(template)
+    new["reference_solution"] = recursive_reference
+    new["starter_code"] = starter or template["starter_code"]
+    if helpers is not None:
+        new["helpers"] = helpers
+    elif "helpers" in template:
+        new["helpers"] = template["helpers"]
+    return new
+
+
+_BY_ID = {k["id"]: k for k in CLASSICS_C_LIKE}
+
+CLASSICS_C_LIKE_RECURSIVE: list[dict] = [
+    _recursive_kata(_BY_ID["two_sum"],
+        "func two_sum_loop(nums, target, seen, i) {\n"
+        "    if (i >= len(nums)) { return list(); }\n"
+        "    var n = get(nums, i);\n"
+        "    var need = target - n;\n"
+        "    if (has(seen, need)) {\n"
+        "        return list(get(seen, need), i);\n"
+        "    }\n"
+        "    set(seen, n, i);\n"
+        "    return two_sum_loop(nums, target, seen, i + 1);\n"
+        "}\n"
+        "\n"
+        "func two_sum(nums, target) {\n"
+        "    var seen = dict();\n"
+        "    return two_sum_loop(nums, target, seen, 0);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["reverse_list"],
+        "func reverse_loop(lst, out, i) {\n"
+        "    if (i < 0) { return out; }\n"
+        "    push(out, get(lst, i));\n"
+        "    return reverse_loop(lst, out, i - 1);\n"
+        "}\n"
+        "\n"
+        "func reverse(lst) {\n"
+        "    return reverse_loop(lst, list(), len(lst) - 1);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["valid_parens"],
+        "func vp_loop(s, stack, pairs, i) {\n"
+        "    if (i >= len(s)) { return len(stack) == 0; }\n"
+        "    var c = get(s, i);\n"
+        "    if (c == \"(\" || c == \"[\" || c == \"{\") {\n"
+        "        push(stack, c);\n"
+        "    } else if (c == \")\" || c == \"]\" || c == \"}\") {\n"
+        "        if (len(stack) == 0) { return false; }\n"
+        "        var top = pop(stack);\n"
+        "        if (top != get(pairs, c)) { return false; }\n"
+        "    }\n"
+        "    return vp_loop(s, stack, pairs, i + 1);\n"
+        "}\n"
+        "\n"
+        "func valid_parens(s) {\n"
+        "    var stack = list();\n"
+        "    var pairs = dict(\")\", \"(\", \"]\", \"[\", \"}\", \"{\");\n"
+        "    return vp_loop(s, stack, pairs, 0);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["anagram"],
+        "func cc_loop(s, counts, i) {\n"
+        "    if (i >= len(s)) { return counts; }\n"
+        "    var c = get(s, i);\n"
+        "    if (has(counts, c)) {\n"
+        "        set(counts, c, get(counts, c) + 1);\n"
+        "    } else {\n"
+        "        set(counts, c, 1);\n"
+        "    }\n"
+        "    return cc_loop(s, counts, i + 1);\n"
+        "}\n"
+        "\n"
+        "func count_chars(s) {\n"
+        "    var s2 = lower(replace(s, \" \", \"\"));\n"
+        "    return cc_loop(s2, dict(), 0);\n"
+        "}\n"
+        "\n"
+        "func ana_loop(ca, cb, ks, i) {\n"
+        "    if (i >= len(ks)) { return true; }\n"
+        "    var k = get(ks, i);\n"
+        "    if (!has(cb, k)) { return false; }\n"
+        "    if (get(ca, k) != get(cb, k)) { return false; }\n"
+        "    return ana_loop(ca, cb, ks, i + 1);\n"
+        "}\n"
+        "\n"
+        "func is_anagram(a, b) {\n"
+        "    var ca = count_chars(a);\n"
+        "    var cb = count_chars(b);\n"
+        "    if (len(keys(ca)) != len(keys(cb))) { return false; }\n"
+        "    return ana_loop(ca, cb, keys(ca), 0);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["max_subarray"],
+        "func max_of(a, b) {\n"
+        "    if (a > b) { return a; }\n"
+        "    return b;\n"
+        "}\n"
+        "\n"
+        "func ms_loop(nums, here, best, i) {\n"
+        "    if (i >= len(nums)) { return best; }\n"
+        "    var n = get(nums, i);\n"
+        "    var new_here = max_of(here + n, n);\n"
+        "    var new_best = max_of(new_here, best);\n"
+        "    return ms_loop(nums, new_here, new_best, i + 1);\n"
+        "}\n"
+        "\n"
+        "func max_subarray(nums) {\n"
+        "    return ms_loop(nums, get(nums, 0), get(nums, 0), 1);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["move_zeros"],
+        "func mz_pad(out, zeros, z) {\n"
+        "    if (z >= zeros) { return out; }\n"
+        "    push(out, 0);\n"
+        "    return mz_pad(out, zeros, z + 1);\n"
+        "}\n"
+        "\n"
+        "func mz_loop(nums, out, zeros, i) {\n"
+        "    if (i >= len(nums)) { return mz_pad(out, zeros, 0); }\n"
+        "    var n = get(nums, i);\n"
+        "    if (n == 0) {\n"
+        "        return mz_loop(nums, out, zeros + 1, i + 1);\n"
+        "    }\n"
+        "    push(out, n);\n"
+        "    return mz_loop(nums, out, zeros, i + 1);\n"
+        "}\n"
+        "\n"
+        "func move_zeros(nums) {\n"
+        "    return mz_loop(nums, list(), 0, 0);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["two_pointer_pair_sum"],
+        "func tp_loop(nums, target, lo, hi) {\n"
+        "    if (lo >= hi) { return list(); }\n"
+        "    var s = get(nums, lo) + get(nums, hi);\n"
+        "    if (s == target) { return list(lo, hi); }\n"
+        "    if (s < target) {\n"
+        "        return tp_loop(nums, target, lo + 1, hi);\n"
+        "    }\n"
+        "    return tp_loop(nums, target, lo, hi - 1);\n"
+        "}\n"
+        "\n"
+        "func pair_sum_sorted(nums, target) {\n"
+        "    return tp_loop(nums, target, 0, len(nums) - 1);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["longest_unique_substring"],
+        "func max_of(a, b) {\n"
+        "    if (a > b) { return a; }\n"
+        "    return b;\n"
+        "}\n"
+        "\n"
+        # Don't combine `has(...) && get(...) >= lo` into one expression — some
+        # languages evaluate `&&` eagerly, which would call get() on a missing
+        # key and crash on the comparison. Nested if is portable.
+        "func lu_compute_lo(seen, c, lo) {\n"
+        "    if (has(seen, c)) {\n"
+        "        if (get(seen, c) >= lo) {\n"
+        "            return get(seen, c) + 1;\n"
+        "        }\n"
+        "    }\n"
+        "    return lo;\n"
+        "}\n"
+        "\n"
+        "func lu_loop(s, seen, lo, best, i) {\n"
+        "    if (i >= len(s)) { return best; }\n"
+        "    var c = get(s, i);\n"
+        "    var new_lo = lu_compute_lo(seen, c, lo);\n"
+        "    set(seen, c, i);\n"
+        "    var new_best = max_of(best, i - new_lo + 1);\n"
+        "    return lu_loop(s, seen, new_lo, new_best, i + 1);\n"
+        "}\n"
+        "\n"
+        "func longest_unique(s) {\n"
+        "    return lu_loop(s, dict(), 0, 0, 0);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["best_time_to_buy_sell"],
+        "func min_of(a, b) {\n"
+        "    if (a < b) { return a; }\n"
+        "    return b;\n"
+        "}\n"
+        "\n"
+        "func max_of2(a, b) {\n"
+        "    if (a > b) { return a; }\n"
+        "    return b;\n"
+        "}\n"
+        "\n"
+        "func mp_loop(prices, lo, best, i) {\n"
+        "    if (i >= len(prices)) { return best; }\n"
+        "    var p = get(prices, i);\n"
+        "    var new_lo = min_of(lo, p);\n"
+        "    var new_best = max_of2(best, p - new_lo);\n"
+        "    return mp_loop(prices, new_lo, new_best, i + 1);\n"
+        "}\n"
+        "\n"
+        "func max_profit(prices) {\n"
+        "    if (len(prices) == 0) { return 0; }\n"
+        "    return mp_loop(prices, get(prices, 0), 0, 1);\n"
+        "}\n"
+    ),
+    _recursive_kata(_BY_ID["climb_stairs"],
+        "func cs_loop(a, b, i, n) {\n"
+        "    if (i > n) { return b; }\n"
+        "    return cs_loop(b, a + b, i + 1, n);\n"
+        "}\n"
+        "\n"
+        "func climb(n) {\n"
+        "    if (n <= 2) { return n; }\n"
+        "    return cs_loop(1, 2, 3, n);\n"
+        "}\n"
+    ),
+    # linked_list_reverse: recursion-only reference + recursion-only helpers
+    # so no_mutation languages can run them. Helpers field is separate so
+    # the user's solution gets to_ll/ll_to_list automatically.
+    _recursive_kata(_BY_ID["linked_list_reverse"],
+        recursive_reference=(
+            "func rl_loop(prev, curr) {\n"
+            "    if (curr == null) { return prev; }\n"
+            "    var nxt = get(curr, \"next\");\n"
+            "    set(curr, \"next\", prev);\n"
+            "    return rl_loop(curr, nxt);\n"
+            "}\n"
+            "\n"
+            "func reverse_ll(head) {\n"
+            "    return rl_loop(null, head);\n"
+            "}\n"
+        ),
+        helpers=(
+            "func to_ll_loop(items, head, i) {\n"
+            "    if (i < 0) { return head; }\n"
+            "    var new_head = dict(\"val\", get(items, i), \"next\", head);\n"
+            "    return to_ll_loop(items, new_head, i - 1);\n"
+            "}\n"
+            "\n"
+            "func to_ll(items) {\n"
+            "    return to_ll_loop(items, null, len(items) - 1);\n"
+            "}\n"
+            "\n"
+            "func ll_to_list_loop(head, out) {\n"
+            "    if (head == null) { return out; }\n"
+            "    push(out, get(head, \"val\"));\n"
+            "    return ll_to_list_loop(get(head, \"next\"), out);\n"
+            "}\n"
+            "\n"
+            "func ll_to_list(head) {\n"
+            "    return ll_to_list_loop(head, list());\n"
+            "}\n"
+        ),
+    ),
+    # tree_max_depth: already recursive; helpers stay the same as base variant
+    # (they're already recursion-only). Inherits helpers from _BY_ID via
+    # _recursive_kata's default behavior.
+    _recursive_kata(_BY_ID["tree_max_depth"],
+        recursive_reference=(
+            "func max_depth(root) {\n"
+            "    if (root == null) { return 0; }\n"
+            "    var l = max_depth(get(root, \"left\"));\n"
+            "    var r = max_depth(get(root, \"right\"));\n"
+            "    if (l > r) { return l + 1; }\n"
+            "    return r + 1;\n"
+            "}\n"
+        ),
+    ),
+]
+
+
+# Curated packs surfaced by /api/kata-packs and the GUI's preset list.
+# ===========================================================================
+# Per-kata metadata for the LeetCode-style problem library: tags, examples,
+# constraints, and which test indices are "sample" (visible / Run button)
+# vs "hidden" (Submit button). Layered onto CLASSICS_C_LIKE + RECURSIVE so
+# both variants share the same metadata.
+#
+# `examples` are PUBLIC: shown on the problem page. They have explanation
+# text in addition to input/output.
+# `constraints` are PUBLIC: shown on the problem page.
+# `sample_test_indices`: which entries of `tests[]` Run executes (default
+#   is the first one if not specified). Submit always runs ALL tests.
+# `acceptance_rate`: rough difficulty stat for the library list, just
+#   indicative — we don't track real submissions yet.
+# ===========================================================================
+
+CLASSICS_META: dict[str, dict] = {
+    "two_sum": {
+        "tags": ["array", "hash-table"],
+        "acceptance_rate": 0.51,
+        "examples": [
+            {"input": "nums = [2, 7, 11, 15], target = 9", "output": "[0, 1]",
+             "explanation": "nums[0] + nums[1] == 2 + 7 == 9, so we return [0, 1]."},
+            {"input": "nums = [3, 2, 4], target = 6", "output": "[1, 2]",
+             "explanation": "nums[1] + nums[2] == 2 + 4 == 6."},
+        ],
+        "constraints": [
+            "2 <= len(nums) <= 10^4",
+            "-10^9 <= nums[i], target <= 10^9",
+            "Exactly one valid pair exists.",
+        ],
+        "sample_test_indices": [0],
+    },
+    "reverse_list": {
+        "tags": ["array", "two-pointer"],
+        "acceptance_rate": 0.78,
+        "examples": [
+            {"input": "list(1, 2, 3)", "output": "[3, 2, 1]"},
+            {"input": "list()", "output": "[]"},
+        ],
+        "constraints": ["0 <= len(lst) <= 10^4"],
+        "sample_test_indices": [0],
+    },
+    "valid_parens": {
+        "tags": ["stack", "string"],
+        "acceptance_rate": 0.42,
+        "examples": [
+            {"input": "\"()\"", "output": "true"},
+            {"input": "\"()[]{}\"", "output": "true"},
+            {"input": "\"(]\"", "output": "false"},
+        ],
+        "constraints": ["0 <= len(s) <= 10^4", "s contains only `()[]{}`"],
+        "sample_test_indices": [0, 1, 2, 3],  # show enough to cover patterns
+    },
+    "anagram": {
+        "tags": ["hash-table", "string", "sorting"],
+        "acceptance_rate": 0.65,
+        "examples": [
+            {"input": "a = \"listen\", b = \"silent\"", "output": "true"},
+            {"input": "a = \"hello\", b = \"world\"", "output": "false"},
+        ],
+        "constraints": [
+            "1 <= len(a), len(b) <= 5 * 10^4",
+            "Comparison is case-insensitive and ignores spaces.",
+        ],
+        "sample_test_indices": [0, 1],
+    },
+    "max_subarray": {
+        "tags": ["array", "dynamic-programming", "divide-and-conquer"],
+        "acceptance_rate": 0.50,
+        "examples": [
+            {"input": "[-2, 1, -3, 4, -1, 2, 1, -5, 4]", "output": "6",
+             "explanation": "Subarray [4, -1, 2, 1] sums to 6."},
+            {"input": "[1]", "output": "1"},
+        ],
+        "constraints": ["1 <= len(nums) <= 10^5", "-10^4 <= nums[i] <= 10^4"],
+        "sample_test_indices": [0, 1],
+    },
+    "move_zeros": {
+        "tags": ["array", "two-pointer"],
+        "acceptance_rate": 0.61,
+        "examples": [
+            {"input": "[0, 1, 0, 3, 12]", "output": "[1, 3, 12, 0, 0]"},
+            {"input": "[0]", "output": "[0]"},
+        ],
+        "constraints": ["1 <= len(nums) <= 10^4"],
+        "sample_test_indices": [0],
+    },
+    "two_pointer_pair_sum": {
+        "tags": ["array", "two-pointer", "sorted"],
+        "acceptance_rate": 0.60,
+        "examples": [
+            {"input": "nums = [1, 2, 3, 4, 6], target = 6", "output": "[1, 3]",
+             "explanation": "nums[1] + nums[3] = 2 + 4 = 6."},
+            {"input": "nums = [1, 2, 3], target = 7", "output": "[]",
+             "explanation": "No pair sums to 7."},
+        ],
+        "constraints": [
+            "0 <= len(nums) <= 10^4",
+            "nums is sorted in non-decreasing order.",
+        ],
+        "sample_test_indices": [0, 1],
+    },
+    "longest_unique_substring": {
+        "tags": ["hash-table", "string", "sliding-window"],
+        "acceptance_rate": 0.34,
+        "examples": [
+            {"input": "\"abcabcbb\"", "output": "3",
+             "explanation": "The longest unique-char substring is \"abc\" (length 3)."},
+            {"input": "\"bbbbb\"", "output": "1"},
+            {"input": "\"\"", "output": "0"},
+        ],
+        "constraints": ["0 <= len(s) <= 5 * 10^4"],
+        "sample_test_indices": [0, 1, 3],
+    },
+    "best_time_to_buy_sell": {
+        "tags": ["array", "dynamic-programming", "greedy"],
+        "acceptance_rate": 0.54,
+        "examples": [
+            {"input": "[7, 1, 5, 3, 6, 4]", "output": "5",
+             "explanation": "Buy at 1, sell at 6, profit 5."},
+            {"input": "[7, 6, 4, 3, 1]", "output": "0",
+             "explanation": "Prices only fall, no profitable trade."},
+        ],
+        "constraints": ["0 <= len(prices) <= 10^5"],
+        "sample_test_indices": [0, 1],
+    },
+    "climb_stairs": {
+        "tags": ["math", "dynamic-programming", "recursion"],
+        "acceptance_rate": 0.52,
+        "examples": [
+            {"input": "n = 2", "output": "2",
+             "explanation": "Two ways: [1,1] or [2]."},
+            {"input": "n = 3", "output": "3",
+             "explanation": "Three ways: [1,1,1], [1,2], [2,1]."},
+        ],
+        "constraints": ["1 <= n <= 45"],
+        "sample_test_indices": [1, 2, 3],
+    },
+    "linked_list_reverse": {
+        "tags": ["linked-list", "recursion"],
+        "acceptance_rate": 0.74,
+        "examples": [
+            {"input": "to_ll(list(1, 2, 3, 4))", "output": "head of [4, 3, 2, 1]",
+             "explanation": "Reversing pointers in-place."},
+        ],
+        "constraints": ["0 <= length <= 5000", "Node values fit in int."],
+        "sample_test_indices": [0, 1],
+    },
+    "tree_max_depth": {
+        "tags": ["tree", "dfs", "binary-tree", "recursion"],
+        "acceptance_rate": 0.74,
+        "examples": [
+            {"input": "leaf(1)", "output": "1"},
+            {"input": "node(1, leaf(2), leaf(3))", "output": "2"},
+        ],
+        "constraints": ["0 <= number of nodes <= 10^4"],
+        "sample_test_indices": [0, 1, 2],
+    },
+}
+
+
+def _enrich(katas: list[dict]) -> list[dict]:
+    """Layer CLASSICS_META on top of each kata. Idempotent."""
+    out = []
+    for k in katas:
+        meta = CLASSICS_META.get(k["id"], {})
+        merged = dict(k)
+        for field in ("tags", "examples", "constraints",
+                      "acceptance_rate", "sample_test_indices"):
+            if field in meta:
+                merged[field] = meta[field]
+        out.append(merged)
+    return out
+
+
+# Apply metadata enrichment to both variants. The kata's tests[] stays as
+# the FULL (sample + hidden) set — sample_test_indices flags which are
+# visible/runnable via the Run button.
+CLASSICS_C_LIKE = _enrich(CLASSICS_C_LIKE)
+CLASSICS_C_LIKE_RECURSIVE = _enrich(CLASSICS_C_LIKE_RECURSIVE)
+
+
+PACKS: dict[str, dict] = {
+    "classics": {
+        "title": "LeetCode classics",
+        "description": "Two sum, valid parens, sliding window, Kadane, climbing stairs, "
+                       "linked-list reverse, binary tree max depth, plus more.",
+        "katas": CLASSICS_C_LIKE,
+        "syntax_family": "c_like",
+    },
+}
+
+
+def get_classics_for(spec: dict) -> list[dict]:
+    """Return the classics variant best suited to a language's constraints.
+
+    For `no_mutation` (love-style), use the recursion-only variant — same
+    problems and tests, but the reference solutions don't rely on
+    `i = i + 1`-style reassignment. Returns a deep copy."""
+    import copy
+    bans = (spec.get("customization") or {}).get("feature_bans") or []
+    if "no_mutation" in bans or "no_loops" in bans:
+        return copy.deepcopy(CLASSICS_C_LIKE_RECURSIVE)
+    return copy.deepcopy(CLASSICS_C_LIKE)
+
+
+def list_packs() -> list[dict]:
+    """Compact listing for the GUI."""
+    return [
+        {"key": k, "title": v["title"], "description": v["description"],
+         "syntax_family": v["syntax_family"], "kata_count": len(v["katas"])}
+        for k, v in PACKS.items()
+    ]
+
+
+def get_pack(key: str) -> dict | None:
+    """Return a deep-ish copy of the pack so callers can mutate freely."""
+    pack = PACKS.get(key)
+    if pack is None:
+        return None
+    import copy
+    return copy.deepcopy(pack)

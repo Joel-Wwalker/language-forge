@@ -1,0 +1,7 @@
+// Canonical: arithmetic — basic int math + operator precedence.
+print(1 + 2 * 3);          // 7
+print((1 + 2) * 3);        // 9
+print(20 - 4 - 3);         // 13 (left-assoc)
+print(17 % 5);             // 2
+print(2 + 3 * 4 - 5);      // 9
+print(-7 + 10);            // 3

@@ -1,0 +1,26 @@
+// Print a small triangle/tree with a stem.
+func line(s, n) {
+    var out = "";
+    var i = 0;
+    while (i < n) {
+        out = out + s;
+        i = i + 1;
+    }
+    return out;
+}
+
+var height = 8;
+var row = 0;
+while (row < height) {
+    var pad = line(" ", height - row - 1);
+    var stars = line("*", 2 * row + 1);
+    print(pad + stars);
+    row = row + 1;
+}
+
+// Trunk
+var t = 0;
+while (t < 3) {
+    print(line(" ", height - 2) + "###");
+    t = t + 1;
+}

@@ -1,0 +1,16 @@
+// Each counter has its own state
+func make_counter() {
+    var n = 0;
+    func step() {
+        n = n + 1;
+        return n;
+    }
+    return step;
+}
+
+var a = make_counter();
+var b = make_counter();
+print(a());   // 1
+print(a());   // 2
+print(b());   // 1
+print(a());   // 3

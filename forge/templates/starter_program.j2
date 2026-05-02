@@ -1,0 +1,27 @@
+{% if syntax == 'python_like' -%}
+# {{ project_name }}: a starter program in {{ lang_name }}.
+# Run: {{ lang_name }} main{{ file_extension }} && python main{{ file_extension }}.out.py
+
+def greet(name):
+    return join("", list("Hello, ", name, "!"))
+
+let names = list("world", "{{ project_name }}", "you")
+let i = 0
+while i < len(names):
+    print(greet(get(names, i)))
+    i = i + 1
+{%- else -%}
+// {{ project_name }}: a starter program in {{ lang_name }}.
+// Run: {{ lang_name }} main{{ file_extension }} && python main{{ file_extension }}.out.py
+
+func greet(name) {
+    return join("", list("Hello, ", name, "!"));
+}
+
+var names = list("world", "{{ project_name }}", "you");
+var i = 0;
+while (i < len(names)) {
+    print(greet(get(names, i)));
+    i = i + 1;
+}
+{%- endif %}

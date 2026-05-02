@@ -1,0 +1,19 @@
+// Canonical: closures — function returning a function that captures a variable.
+func make_counter() {
+    var count = 0;
+    func inc() {
+        count = count + 1;     // mutates enclosing 'count' (requires nonlocal)
+        return count;
+    }
+    return inc;
+}
+
+var counter = make_counter();
+print(counter());   // 1
+print(counter());   // 2
+print(counter());   // 3
+
+// Independent counters don't share state.
+var other = make_counter();
+print(other());     // 1
+print(counter());   // 4

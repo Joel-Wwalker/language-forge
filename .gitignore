@@ -1,0 +1,21 @@
+.agent-state/
+uploads/
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+venv/
+env/
+.env
+.DS_Store
+*.log
+
+# Forge output — keep the hand-written toylang reference, ignore everything else
+generated/*
+!generated/toylang/
+generated/toylang/.forge_log/
+generated/toylang/tests/*.out.py
+*.egg-info/
+.pytest_cache/
+build/
+dist/

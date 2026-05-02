@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>toylang. In-browser REPL</title>
+
+  <!-- Pyodide: runs Python (and our generated compiler) in the browser via WASM -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <!-- CodeMirror 5 (CDN-friendly; the basic c-like and python modes work for both syntax styles) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0d12; --bg-2: #11141b; --card: #161a23;
+      --line: #242a38; --line-2: #2d3447;
+      --text: #ecf0f6; --text-2: #aab2c0; --muted: #6f7a8e;
+      --accent: #ff7a45; --good: #5dd99a; --bad: #ff6679;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      background:
+        radial-gradient(1100px 700px at 18% -10%, rgba(255,122,69,.08), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 28px; margin: 0; letter-spacing: -0.02em;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h1 .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: rgba(255,122,69,.15); color: var(--accent);
+      border: 1px solid rgba(255,122,69,.3);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .lede { color: var(--text-2); font-size: 15px; margin: 6px 0 0; }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    select, button {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--line-2); border-radius: 8px;
+      padding: 9px 14px; font: 500 14px/1 'Inter', sans-serif;
+      cursor: pointer;
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), #ff5c1f);
+      color: #14080a; border: none; font-weight: 700;
+      box-shadow: 0 4px 16px rgba(255,122,69,.3);
+    }
+    button.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .grid {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;
+      height: calc(100vh - 200px); min-height: 480px;
+    }
+    .pane {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 16px; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .pane h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-2); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+    .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+    .output {
+      flex: 1; margin: 0; padding: 12px; overflow: auto;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+      white-space: pre-wrap; color: var(--text-2); line-height: 1.5;
+    }
+    .output.error { color: var(--bad); }
+    .output.success { color: var(--text); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .status.loading { background: rgba(124,182,255,.15); color: #7cb6ff; }
+    .status.ready { background: rgba(93,217,154,.15); color: var(--good); }
+    .status.running { background: rgba(255,209,102,.15); color: #ffd166; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .footer {
+      margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-2); }
+    .keyword-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--muted);
+      background: var(--bg-2); padding: 3px 7px; border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      .pane { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>toylang <span class="badge">.toy</span></h1>
+        <p class="lede">In-browser REPL: runs without installing anything. Powered by Pyodide + CodeMirror.</p>
+      </div>
+      <div class="toolbar">
+        <select id="example-picker"><option value="">Load example…</option></select>
+        <span class="keyword-hint">⌘/Ctrl + Enter to run</span>
+        <button class="primary" id="run-btn">▶ Run</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="pane">
+        <h3>Source <span class="status loading" id="boot-status"><span class="dot"></span> Booting Pyodide…</span></h3>
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="pane">
+        <h3>Output <span class="status" id="run-status" style="display:none;"></span></h3>
+        <pre class="output" id="output">Click <strong>Run</strong> to compile + execute your program. The first run downloads the Lark parser (≈ 2 MB), then everything is local.</pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated with <a href="https://example.com/forge" style="color: var(--accent); text-decoration: none;">Language Forge</a>.
+      Read the <code>LANGUAGE.md</code> in the project for the full reference.
+      Source goes through your real <code>toylang</code> compiler, no fakes, no mocks.
+    </div>
+  </div>
+
+  <!-- Embedded compiler files. Each entry maps a relative path to its content. -->
+  <script id="compiler-files" type="application/json">{"__init__.py": "\"\"\"toylang \u2014 generated by Language Forge.\n\nOptions: syntax=c_like, typing=dynamic, memory=host_gc.\nFile extension: .toy\n\nThis package is self-contained: install with `pip install -e .` from this\ndirectory and the `toylang` console command becomes available.\n\"\"\"\n__version__ = \"0.1.0\"\n", "lexer.py": "\"\"\"Toylang lexer.\n\nToylang is c_like + dynamic + host_gc. We use Lark for both lexing and parsing\nin the MVP; this module exposes a thin `tokenize` view over Lark's lexer so the\n'lexer' component is a real, addressable artifact (rather than a no-op).\n\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Lark\nfrom .parser import GRAMMAR\n\n\n_LEXER_PARSER = Lark(GRAMMAR, parser=\"lalr\", start=\"start\")\n\n\ndef tokenize(src: str):\n    \"\"\"Yield Lark Tokens for `src`. Useful for debugging and component tests.\"\"\"\n    return list(_LEXER_PARSER.lex(src))\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    for tok in tokenize(text):\n        print(f\"{tok.type:<20} {tok!r}\")\n", "parser.py": "\"\"\"Toylang parser (Lark grammar + `parse` entrypoint).\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Lark, Tree\n\n\n# Toylang grammar: c_like syntax, dynamic typing.\n# Statements end with ';'. Blocks use braces. Comments: //...\n#\n# Lark resolves keyword/identifier collisions automatically: anonymous string\n# literals in rules outrank regex-based terminals like NAME. Booleans/null are\n# given an explicit priority so they cannot be misread as identifiers.\nGRAMMAR = r\"\"\"\nstart: stmt*\n\n?stmt: var_decl\n     | func_def\n     | if_stmt\n     | while_stmt\n     | return_stmt\n     | block\n     | expr_stmt\n\nvar_decl:    \"var\" NAME \"=\" expr \";\"\nfunc_def:    \"func\" NAME \"(\" params? \")\" block\nparams:      NAME (\",\" NAME)*\nif_stmt:     \"if\" \"(\" expr \")\" block else_clause?\nelse_clause: \"else\" (if_stmt | block)\nwhile_stmt:  \"while\" \"(\" expr \")\" block\nreturn_stmt: \"return\" expr? \";\"\nblock:       \"{\" stmt* \"}\"\nexpr_stmt:   expr \";\"\n\n?expr:       assign\nassign:      NAME \"=\" assign      -> assign_op\n           | logical_or            -> passthru\n\nlogical_or:  logical_and (OR_OP logical_and)*\nOR_OP:       \"||\"\nlogical_and: equality (AND_OP equality)*\nAND_OP:      \"&&\"\nequality:    comparison (EQ_OP comparison)*\nEQ_OP:       \"==\" | \"!=\"\ncomparison:  term (CMP_OP term)*\nCMP_OP:      \"<=\" | \">=\" | \"<\" | \">\"\nterm:        factor (TERM_OP factor)*\nTERM_OP:     \"+\" | \"-\"\nfactor:      unary (FACTOR_OP unary)*\nFACTOR_OP:   \"*\" | \"/\" | \"%\"\nunary:       UNARY_OP unary\n           | call\nUNARY_OP:    \"!\" | \"-\"\ncall:        primary trailer*\ntrailer:     \"(\" args? \")\"\nargs:        expr (\",\" expr)*\n\nprimary:     INT       -> int_lit\n           | FLOAT     -> float_lit\n           | STRING    -> string_lit\n           | TRUE      -> true_lit\n           | FALSE     -> false_lit\n           | NULL      -> null_lit\n           | NAME      -> name_ref\n           | \"(\" expr \")\" -> paren\n\nTRUE.2:  \"true\"\nFALSE.2: \"false\"\nNULL.2:  \"null\"\n\n%import common.CNAME -> NAME\n%import common.INT\n%import common.FLOAT\n%import common.ESCAPED_STRING -> STRING\n%import common.WS\n%ignore WS\n\nLINE_COMMENT: \"//\" /[^\\n]*/\nBLOCK_COMMENT: \"/*\" /(.|\\n)*?/ \"*/\"\n%ignore LINE_COMMENT\n%ignore BLOCK_COMMENT\n\"\"\"\n\n\n_PARSER = Lark(GRAMMAR, parser=\"lalr\", start=\"start\", propagate_positions=True)\n\n\ndef parse(src: str) -> Tree:\n    \"\"\"Parse toylang source and return a Lark Tree.\"\"\"\n    return _PARSER.parse(src)\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    print(parse(text).pretty())\n", "codegen.py": "\"\"\"Toylang codegen \u2014 walk the Lark Tree, emit Python source.\n\nThe generated Python is self-contained: a small prelude imports the toylang\nruntime helpers (toy_print as `print`, toy_truthy, etc.) and then user code\nfollows in transpiled form.\n\nThe trickiest piece is closure handling: when a nested function assigns to a\nname from an enclosing function scope, we must emit a Python `nonlocal`\ndeclaration. We do this with a small scope-analysis pass per function:\n\n  declared = parameters \u222a var-decls \u222a inner-func-defs in this body\n  assigned = names appearing as LHS of `assign_op` (no `var`) in this body\n  free_assigned = assigned \u2212 declared\n  for each name in free_assigned:\n    if name is in any enclosing function's `declared` \u2192 emit `nonlocal name`\n    else \u2192 emit `global name`\n\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Tree, Token\n\n\nPRELUDE = '''\\\n# --- toylang generated python ---\nfrom toylang.runtime import (\n    toy_print as print,\n    toy_input as input,\n    toy_list as list,\n    toy_len as len,\n    toy_get as get,\n    toy_set as set,\n    toy_push as push,\n    toy_pop as pop,\n    toy_dict as dict,\n    toy_has as has,\n    toy_keys as keys,\n    toy_range as range,\n    toy_str as str,\n    toy_split as split,\n    toy_join as join,\n    toy_upper as upper,\n    toy_lower as lower,\n    toy_replace as replace,\n    toy_int as int,\n    toy_float as float,\n    toy_read_file as read_file,\n    toy_write_file as write_file,\n    toy_argv as argv,\n    toy_exit as exit,\n    toy_truthy as _toy_truthy,\n)\n\n'''\n\n\n# ---------------------------------------------------------------------------\n# Scope analysis helpers\n# ---------------------------------------------------------------------------\n\ndef _declared_in_stmts(stmts):\n    \"\"\"Names that this scope declares at the given list of statements.\n\n    Walks into control-flow blocks (if/while/bare block) but NOT into nested\n    func_def bodies \u2014 those introduce their own scope.\n    \"\"\"\n    out = set()\n    for stmt in stmts:\n        if not isinstance(stmt, Tree):\n            continue\n        if stmt.data == \"var_decl\":\n            out.add(str(stmt.children[0]))\n        elif stmt.data == \"func_def\":\n            # `func name(...) { ... }` binds `name` in the enclosing scope.\n            out.add(str(stmt.children[0]))\n        elif stmt.data == \"if_stmt\":\n            out |= _declared_in_stmts(stmt.children[1].children)\n            if len(stmt.children) > 2:\n                out |= _declared_in_else(stmt.children[2])\n        elif stmt.data == \"while_stmt\":\n            out |= _declared_in_stmts(stmt.children[1].children)\n        elif stmt.data == \"block\":\n            out |= _declared_in_stmts(stmt.children)\n    return out\n\n\ndef _declared_in_else(else_tree):\n    inner = else_tree.children[0]\n    if inner.data == \"block\":\n        return _declared_in_stmts(inner.children)\n    if inner.data == \"if_stmt\":\n        out = _declared_in_stmts(inner.children[1].children)\n        if len(inner.children) > 2:\n            out |= _declared_in_else(inner.children[2])\n        return out\n    return set()\n\n\ndef _assigned_in_stmts(stmts):\n    \"\"\"Names that appear as LHS of plain assignment (assign_op).\n\n    Recurses through control-flow constructs, but stops at nested func_def\n    bodies (their assignments belong to a deeper scope).\n    \"\"\"\n    out = set()\n\n    def walk(node):\n        if not isinstance(node, Tree):\n            return\n        if node.data == \"func_def\":\n            return\n        if node.data == \"assign_op\":\n            out.add(str(node.children[0]))\n        for c in node.children:\n            walk(c)\n\n    for s in stmts:\n        walk(s)\n    return out\n\n\n# ---------------------------------------------------------------------------\n# Codegen\n# ---------------------------------------------------------------------------\n\nclass Codegen:\n    def __init__(self):\n        self.lines: list[str] = []\n        self.indent: int = 0\n        # Stack of declared-locals sets, one per active scope. scopes[0] is the\n        # module scope; new scopes are pushed for each function body.\n        self.scopes: list[set[str]] = [set()]\n\n    def emit(self, line: str) -> None:\n        self.lines.append(\"    \" * self.indent + line)\n\n    def generate(self, tree: Tree) -> str:\n        # Prepopulate module scope with all top-level declarations so nested\n        # functions can attribute free assignments to globals correctly.\n        self.scopes[0] |= _declared_in_stmts(tree.children)\n        for stmt in tree.children:\n            self.visit_stmt(stmt)\n        return \"\\n\".join(self.lines) + \"\\n\"\n\n    # ---- statement visitors -------------------------------------------------\n\n    def visit_stmt(self, t):\n        method = getattr(self, f\"visit_{t.data}\", None)\n        if method is None:\n            raise SyntaxError(f\"codegen: unknown stmt {t.data!r}\")\n        method(t)\n\n    def visit_var_decl(self, t):\n        name = str(t.children[0])\n        rhs = self.expr(t.children[1])\n        self.emit(f\"{name} = {rhs}\")\n\n    def visit_func_def(self, t):\n        name = str(t.children[0])\n        params_tree = None\n        block_tree = None\n        for c in t.children[1:]:\n            if isinstance(c, Tree) and c.data == \"params\":\n                params_tree = c\n            elif isinstance(c, Tree) and c.data == \"block\":\n                block_tree = c\n\n        param_names = [str(p) for p in params_tree.children] if params_tree else []\n        body_stmts = block_tree.children\n\n        declared = set(param_names) | _declared_in_stmts(body_stmts)\n        assigned = _assigned_in_stmts(body_stmts)\n        free_assigns = assigned - declared\n\n        nonlocals: list[str] = []\n        globals_: list[str] = []\n        for nm in sorted(free_assigns):\n            found_enclosing = False\n            # Walk enclosing function scopes (skip module scope at index 0).\n            for sc in reversed(self.scopes[1:]):\n                if nm in sc:\n                    nonlocals.append(nm)\n                    found_enclosing = True\n                    break\n            if not found_enclosing:\n                globals_.append(nm)\n                # Record at module scope so subsequent free-assignments resolve.\n                self.scopes[0].add(nm)\n\n        self.emit(f\"def {name}({', '.join(param_names)}):\")\n        self.indent += 1\n        self.scopes.append(declared)\n\n        if nonlocals:\n            self.emit(f\"nonlocal {', '.join(nonlocals)}\")\n        if globals_:\n            self.emit(f\"global {', '.join(globals_)}\")\n\n        if not body_stmts:\n            self.emit(\"pass\")\n        else:\n            for s in body_stmts:\n                self.visit_stmt(s)\n\n        self.scopes.pop()\n        self.indent -= 1\n\n    def visit_if_stmt(self, t):\n        cond = self.expr(t.children[0])\n        self.emit(f\"if _toy_truthy({cond}):\")\n        self._emit_block(t.children[1])\n        if len(t.children) > 2:\n            self._emit_else(t.children[2])\n\n    def _emit_else(self, else_tree):\n        inner = else_tree.children[0]\n        if inner.data == \"if_stmt\":\n            cond = self.expr(inner.children[0])\n            self.emit(f\"elif _toy_truthy({cond}):\")\n            self._emit_block(inner.children[1])\n            if len(inner.children) > 2:\n                self._emit_else(inner.children[2])\n        else:\n            self.emit(\"else:\")\n            self._emit_block(inner)\n\n    def visit_while_stmt(self, t):\n        cond = self.expr(t.children[0])\n        self.emit(f\"while _toy_truthy({cond}):\")\n        self._emit_block(t.children[1])\n\n    def _emit_block(self, block_tree: Tree) -> None:\n        self.indent += 1\n        if not block_tree.children:\n            self.emit(\"pass\")\n        else:\n            for s in block_tree.children:\n                self.visit_stmt(s)\n        self.indent -= 1\n\n    def visit_return_stmt(self, t):\n        if t.children:\n            self.emit(f\"return {self.expr(t.children[0])}\")\n        else:\n            self.emit(\"return\")\n\n    def visit_block(self, t):\n        # Bare block as a statement. Python has no anonymous blocks, so we\n        # inline its contents at the current indent.\n        for s in t.children:\n            self.visit_stmt(s)\n\n    def visit_expr_stmt(self, t):\n        inner = t.children[0]\n        # Top-level assignment becomes a Python assignment statement.\n        if isinstance(inner, Tree) and inner.data == \"assign_op\":\n            target = str(inner.children[0])\n            rhs = self.expr(inner.children[1])\n            self.emit(f\"{target} = {rhs}\")\n            return\n        self.emit(self.expr(inner))\n\n    # ---- expression visitors ------------------------------------------------\n\n    def expr(self, n):\n        if isinstance(n, Token):\n            return str(n)\n        method = getattr(self, f\"e_{n.data}\", None)\n        if method:\n            return method(n)\n        # Passthrough for any single-child rule we forgot to special-case.\n        if len(n.children) == 1:\n            return self.expr(n.children[0])\n        raise SyntaxError(f\"codegen: unknown expr node {n.data!r}\")\n\n    def e_passthru(self, n):\n        return self.expr(n.children[0])\n\n    def e_assign_op(self, n):\n        # Assignment as a sub-expression isn't allowed in MVP. Tests don't\n        # need it; emit walrus as a defensive fallback so tools see something.\n        target = str(n.children[0])\n        rhs = self.expr(n.children[1])\n        return f\"({target} := {rhs})\"\n\n    # Binary operators: the grammar shape is `lhs (OP rhs)*` so we fold left.\n    def _binop(self, n, op_translate=lambda op: op):\n        if len(n.children) == 1:\n            return self.expr(n.children[0])\n        result = self.expr(n.children[0])\n        i = 1\n        while i < len(n.children):\n            op = op_translate(str(n.children[i]))\n            rhs = self.expr(n.children[i + 1])\n            result = f\"({result} {op} {rhs})\"\n            i += 2\n        return result\n\n    def e_logical_or(self, n):  return self._binop(n, lambda _o: \"or\")\n    def e_logical_and(self, n): return self._binop(n, lambda _o: \"and\")\n    def e_equality(self, n):    return self._binop(n)\n    def e_comparison(self, n):  return self._binop(n)\n    def e_term(self, n):        return self._binop(n)\n    def e_factor(self, n):      return self._binop(n)\n\n    def e_unary(self, n):\n        if len(n.children) == 1:\n            return self.expr(n.children[0])\n        op = str(n.children[0])\n        rhs = self.expr(n.children[1])\n        if op == \"!\":\n            return f\"(not {rhs})\"\n        return f\"(-{rhs})\"\n\n    def e_call(self, n):\n        result = self.expr(n.children[0])\n        for tr in n.children[1:]:\n            args_str = \"\"\n            if tr.children:\n                args_tree = tr.children[0]\n                args_str = \", \".join(self.expr(a) for a in args_tree.children)\n            result = f\"{result}({args_str})\"\n        return result\n\n    def e_int_lit(self, n):    return str(n.children[0])\n    def e_float_lit(self, n):  return str(n.children[0])\n    def e_string_lit(self, n): return str(n.children[0])\n    def e_true_lit(self, n):   return \"True\"\n    def e_false_lit(self, n):  return \"False\"\n    def e_null_lit(self, n):   return \"None\"\n    def e_name_ref(self, n):   return str(n.children[0])\n    def e_paren(self, n):      return f\"({self.expr(n.children[0])})\"\n\n\ndef generate(tree: Tree) -> str:\n    return PRELUDE + Codegen().generate(tree)\n", "runtime.py": "\"\"\"Toylang runtime. Injected at the top of every transpiled program.\n\nToylang has its own truthiness and stringification rules (booleans are\nspelled `true`/`false`, not `True`/`False`; `null` is spelled `null`). The\ntranspiled Python program must produce identical stdout to what a real\ntoylang interpreter would.\n\nThis module also provides the applied stdlib (lists, dicts, file I/O,\nstrings, math, conversions). Each function is named `toy_<name>` and the\nstdlib module re-exports them under the bare name.\n\"\"\"\nfrom __future__ import annotations\n\nimport builtins as _builtins\nimport os as _os\nimport sys as _sys\n\n\n# ---------------------------------------------------------------------------\n# Stringification + truthiness\n# ---------------------------------------------------------------------------\n\ndef _toy_str(v):\n    \"\"\"Toylang-flavored str(): booleans are lowercase, null is 'null'.\"\"\"\n    if v is True:\n        return \"true\"\n    if v is False:\n        return \"false\"\n    if v is None:\n        return \"null\"\n    if isinstance(v, float):\n        # Whole-number floats print as int; otherwise default repr.\n        if v.is_integer():\n            return str(int(v))\n        return repr(v)\n    if isinstance(v, list):\n        return \"[\" + \", \".join(_toy_str(x) for x in v) + \"]\"\n    if isinstance(v, dict):\n        parts = [f\"{_toy_str(k)}: {_toy_str(val)}\" for k, val in v.items()]\n        return \"{\" + \", \".join(parts) + \"}\"\n    return str(v)\n\n\ndef toy_print(*args):\n    \"\"\"print(...) in toylang. Joins with spaces, terminates with newline.\"\"\"\n    _builtins.print(\" \".join(_toy_str(a) for a in args))\n\n\ndef toy_str(v):\n    return _toy_str(v)\n\n\ndef toy_truthy(v):\n    \"\"\"Toylang truthiness: null and false are falsy; everything else is truthy.\n\n    Empty strings and 0 are TRUTHY in toylang (deliberately simple semantics).\n    \"\"\"\n    return v is not None and v is not False\n\n\n# ---------------------------------------------------------------------------\n# Collections\n# ---------------------------------------------------------------------------\n\ndef toy_list(*items):\n    \"\"\"`list(1, 2, 3)` returns a fresh list of the given items.\"\"\"\n    return _builtins.list(items)\n\n\ndef toy_len(coll):\n    return _builtins.len(coll)\n\n\n# string-indexing-support: forge-patch\ndef toy_get(coll, k, default=None):\n    \"\"\"Read element by index (list) or key (dict). Returns `default` if absent.\"\"\"\n    if isinstance(coll, _builtins.list):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            return coll[k]\n        return default\n    if isinstance(coll, dict):\n        return coll.get(k, default)\n    if isinstance(coll, str):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            return coll[k]\n        return default\n    raise TypeError(f\"get(): unsupported type {type(coll).__name__}\")\n\n\ndef toy_set(coll, k, v):\n    \"\"\"Mutate element by index or key. Returns the collection.\"\"\"\n    if isinstance(coll, _builtins.list):\n        if not isinstance(k, int):\n            raise TypeError(\"set(): list keys must be integers\")\n        while _builtins.len(coll) <= k:\n            coll.append(None)\n        coll[k] = v\n    elif isinstance(coll, dict):\n        coll[k] = v\n    else:\n        raise TypeError(\"set(): need list or dict\")\n    return coll\n\n\ndef toy_push(lst, x):\n    lst.append(x)\n    return lst\n\n\ndef toy_pop(lst):\n    return lst.pop()\n\n\ndef toy_dict(*pairs):\n    \"\"\"`dict(\"a\", 1, \"b\", 2)` returns {\"a\": 1, \"b\": 2}.\"\"\"\n    if _builtins.len(pairs) % 2 != 0:\n        raise ValueError(\"dict() needs an even number of arguments\")\n    return _builtins.dict(_builtins.zip(pairs[0::2], pairs[1::2]))\n\n\ndef toy_has(coll, k):\n    if isinstance(coll, dict):\n        return k in coll\n    if isinstance(coll, _builtins.list):\n        return isinstance(k, int) and 0 <= k < _builtins.len(coll)\n    if isinstance(coll, str):\n        return k in coll\n    return False\n\n\ndef toy_keys(d):\n    return _builtins.list(d.keys())\n\n\ndef toy_range(a, b=None):\n    \"\"\"range(n) returns 0..n-1 as a list. range(a, b) returns a..b-1.\"\"\"\n    if b is None:\n        return _builtins.list(_builtins.range(a))\n    return _builtins.list(_builtins.range(a, b))\n\n\n# ---------------------------------------------------------------------------\n# Strings\n# ---------------------------------------------------------------------------\n\ndef toy_split(s, sep):\n    return s.split(sep)\n\n\ndef toy_join(sep, lst):\n    return sep.join(_toy_str(x) for x in lst)\n\n\ndef toy_upper(s):\n    return s.upper()\n\n\ndef toy_lower(s):\n    return s.lower()\n\n\ndef toy_replace(s, old, new):\n    return s.replace(old, new)\n\n\n# ---------------------------------------------------------------------------\n# Numbers\n# ---------------------------------------------------------------------------\n\ndef toy_int(v):\n    return _builtins.int(v)\n\n\ndef toy_float(v):\n    return _builtins.float(v)\n\n\n# ---------------------------------------------------------------------------\n# Files and processes\n# ---------------------------------------------------------------------------\n\ndef toy_read_file(path):\n    with _builtins.open(path, \"r\", encoding=\"utf-8\") as f:\n        return f.read()\n\n\ndef toy_write_file(path, content):\n    with _builtins.open(path, \"w\", encoding=\"utf-8\") as f:\n        f.write(content)\n    return None\n\n\ndef toy_input(prompt=\"\"):\n    return _builtins.input(prompt)\n\n\ndef toy_argv():\n    return _builtins.list(_sys.argv[1:])\n\n\ndef toy_exit(code=0):\n    _sys.exit(_builtins.int(code))\n", "stdlib.py": "\"\"\"Toylang stdlib. The names that user programs call.\n\nThe codegen prelude imports a smaller subset of these (just the ones it\nshadows: print, len, str). Everything else is available because user\nprograms can import it explicitly, and because the runtime module is on\nsys.path during execution.\n\"\"\"\nfrom .runtime import (\n    # Output / input\n    toy_print as print,\n    toy_input as input,\n    # Collections\n    toy_list as list,\n    toy_len as len,\n    toy_get as get,\n    toy_set as set,\n    toy_push as push,\n    toy_pop as pop,\n    toy_dict as dict,\n    toy_has as has,\n    toy_keys as keys,\n    toy_range as range,\n    # Strings\n    toy_str as str,\n    toy_split as split,\n    toy_join as join,\n    toy_upper as upper,\n    toy_lower as lower,\n    toy_replace as replace,\n    # Numbers\n    toy_int as int,\n    toy_float as float,\n    # Files / processes\n    toy_read_file as read_file,\n    toy_write_file as write_file,\n    toy_argv as argv,\n    toy_exit as exit,\n)\n\n__all__ = [\n    \"print\", \"input\",\n    \"list\", \"len\", \"get\", \"set\", \"push\", \"pop\", \"dict\", \"has\", \"keys\", \"range\",\n    \"str\", \"split\", \"join\", \"upper\", \"lower\", \"replace\",\n    \"int\", \"float\",\n    \"read_file\", \"write_file\", \"argv\", \"exit\",\n]\n"}</script>
+  <script id="examples-data" type="application/json">{"hello_world": "// Canonical: hello_world\nprint(\"Hello, World!\");\n", "arithmetic": "// Canonical: arithmetic \u2014 basic int math + operator precedence.\nprint(1 + 2 * 3);          // 7\nprint((1 + 2) * 3);        // 9\nprint(20 - 4 - 3);         // 13 (left-assoc)\nprint(17 % 5);             // 2\nprint(2 + 3 * 4 - 5);      // 9\nprint(-7 + 10);            // 3\n", "variables": "// Canonical: variables \u2014 declaration, assignment, reuse.\nvar x = 10;\nvar y = 20;\nprint(x + y);          // 30\nx = x + 5;\nprint(x);              // 15\ny = x * 2;\nprint(y);              // 30\nvar name = \"forge\";\nprint(name);           // forge\n", "conditionals": "// Canonical: conditionals \u2014 if/else with comparison operators.\nvar a = 5;\nvar b = 10;\n\nif (a < b) {\n    print(\"less\");\n} else {\n    print(\"not less\");\n}\n\nif (a == 5) {\n    print(\"five\");\n}\n\nif (a > b) {\n    print(\"a bigger\");\n} else if (a == b) {\n    print(\"equal\");\n} else {\n    print(\"b bigger\");\n}\n\n// Boolean operators\nif (a < b && b > 0) {\n    print(\"both true\");\n}\nif (a > 100 || b == 10) {\n    print(\"at least one\");\n}\n", "loops": "// Canonical: loops \u2014 sum 1..10 with a while loop.\nvar i = 1;\nvar total = 0;\nwhile (i <= 10) {\n    total = total + i;\n    i = i + 1;\n}\nprint(total);   // 55\n", "functions": "// Canonical: functions \u2014 definition, call, return value, recursion.\nfunc add(a, b) {\n    return a + b;\n}\n\nfunc factorial(n) {\n    if (n <= 1) {\n        return 1;\n    }\n    return n * factorial(n - 1);\n}\n\nprint(add(3, 4));       // 7\nprint(factorial(5));    // 120\nprint(factorial(0));    // 1\nprint(factorial(10));   // 3628800\n", "closures": "// Canonical: closures \u2014 function returning a function that captures a variable.\nfunc make_counter() {\n    var count = 0;\n    func inc() {\n        count = count + 1;     // mutates enclosing 'count' (requires nonlocal)\n        return count;\n    }\n    return inc;\n}\n\nvar counter = make_counter();\nprint(counter());   // 1\nprint(counter());   // 2\nprint(counter());   // 3\n\n// Independent counters don't share state.\nvar other = make_counter();\nprint(other());     // 1\nprint(counter());   // 4\n", "strings": "// Canonical: strings \u2014 concatenation and printing.\nvar greeting = \"Hello\";\nvar name = \"Forge\";\nprint(greeting + \", \" + name + \"!\");    // Hello, Forge!\n\nvar part = \"abc\" + \"def\";\nprint(part);                              // abcdef\nprint(len(part));                         // 6\n\n// Mixing print arguments\nprint(\"answer\", \"is\", 42);                // answer is 42\n", "args_demo": "// Run the compiled .out.py with extra args to see them here.\n//   <lang> args_demo.<ext> && python args_demo.<ext>.out.py hello world 42\nvar args = argv();\nprint(\"got\", len(args), \"argument(s):\");\nvar i = 0;\nwhile (i < len(args)) {\n    print(\"  [\" + str(i) + \"]\", get(args, i));\n    i = i + 1;\n}\n", "ascii_tree": "// Print a small triangle/tree with a stem.\nfunc line(s, n) {\n    var out = \"\";\n    var i = 0;\n    while (i < n) {\n        out = out + s;\n        i = i + 1;\n    }\n    return out;\n}\n\nvar height = 8;\nvar row = 0;\nwhile (row < height) {\n    var pad = line(\" \", height - row - 1);\n    var stars = line(\"*\", 2 * row + 1);\n    print(pad + stars);\n    row = row + 1;\n}\n\n// Trunk\nvar t = 0;\nwhile (t < 3) {\n    print(line(\" \", height - 2) + \"###\");\n    t = t + 1;\n}\n", "counter_factory": "// Each counter has its own state\nfunc make_counter() {\n    var n = 0;\n    func step() {\n        n = n + 1;\n        return n;\n    }\n    return step;\n}\n\nvar a = make_counter();\nvar b = make_counter();\nprint(a());   // 1\nprint(a());   // 2\nprint(b());   // 1\nprint(a());   // 3\n", "fibonacci": "// Fibonacci 0..9\nfunc fib(n) {\n    if (n <= 1) { return n; }\n    return fib(n - 1) + fib(n - 2);\n}\n\nvar i = 0;\nwhile (i < 10) {\n    print(fib(i));\n    i = i + 1;\n}\n", "fizzbuzz": "// FizzBuzz 1..15\nvar i = 1;\nwhile (i <= 15) {\n    if (i % 15 == 0) {\n        print(\"FizzBuzz\");\n    } else if (i % 3 == 0) {\n        print(\"Fizz\");\n    } else if (i % 5 == 0) {\n        print(\"Buzz\");\n    } else {\n        print(i);\n    }\n    i = i + 1;\n}\n", "list_operations": "var nums = list(3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5);\nprint(\"count:\", len(nums));\n\n// Sum and max with explicit indexing (no foreach syntax in this lang).\nvar i = 0;\nvar total = 0;\nvar biggest = get(nums, 0);\nwhile (i < len(nums)) {\n    var x = get(nums, i);\n    total = total + x;\n    if (x > biggest) { biggest = x; }\n    i = i + 1;\n}\nprint(\"sum:\", total);\nprint(\"max:\", biggest);\nprint(\"avg:\", total / len(nums));\n", "mandelbrot": "// Mandelbrot set in ASCII. Try it. It is the same fractal in every language.\nvar width = 60;\nvar height = 22;\nvar max_iter = 30;\n\nvar y = 0;\nwhile (y < height) {\n    var row = \"\";\n    var x = 0;\n    while (x < width) {\n        var cx = -2.0 + 3.0 * x / width;\n        var cy = -1.2 + 2.4 * y / height;\n        var zx = 0.0;\n        var zy = 0.0;\n        var i = 0;\n        while (i < max_iter) {\n            if (zx * zx + zy * zy >= 4.0) {\n                i = max_iter;\n            } else {\n                var tmp = zx * zx - zy * zy + cx;\n                zy = 2.0 * zx * zy + cy;\n                zx = tmp;\n                i = i + 1;\n            }\n        }\n        if (zx * zx + zy * zy < 4.0) {\n            row = row + \"#\";\n        } else {\n            row = row + \" \";\n        }\n        x = x + 1;\n    }\n    print(row);\n    y = y + 1;\n}\n", "palindrome": "// Palindrome checker. Strips spaces and case, then mirror-compares.\nfunc is_palindrome(s) {\n    var clean = lower(replace(s, \" \", \"\"));\n    var i = 0;\n    var j = len(clean) - 1;\n    while (i < j) {\n        if (get(clean, i) != get(clean, j)) {\n            return false;\n        }\n        i = i + 1;\n        j = j - 1;\n    }\n    return true;\n}\n\nvar tests = list(\"racecar\", \"hello\", \"A man a plan a canal Panama\", \"step on no pets\", \"almost\");\nvar i = 0;\nwhile (i < len(tests)) {\n    var s = get(tests, i);\n    if (is_palindrome(s)) {\n        print(s, \"->  palindrome\");\n    } else {\n        print(s, \"->  not\");\n    }\n    i = i + 1;\n}\n", "prime_sieve": "// Sieve of Eratosthenes. Print every prime from 2 up to N.\nvar N = 100;\n\n// Build a list of N+1 booleans, all initially true.\nvar is_prime = list();\nvar i = 0;\nwhile (i <= N) {\n    push(is_prime, true);\n    i = i + 1;\n}\n\nset(is_prime, 0, false);\nset(is_prime, 1, false);\n\ni = 2;\nwhile (i * i <= N) {\n    if (get(is_prime, i)) {\n        var j = i * i;\n        while (j <= N) {\n            set(is_prime, j, false);\n            j = j + i;\n        }\n    }\n    i = i + 1;\n}\n\nvar found = list();\ni = 2;\nwhile (i <= N) {\n    if (get(is_prime, i)) {\n        push(found, i);\n    }\n    i = i + 1;\n}\n\nprint(\"primes up to\", N);\nprint(join(\", \", found));\nprint(\"count:\", len(found));\n", "string_manipulation": "var first = \"Language\";\nvar second = \"Forge\";\nvar combined = first + \" \" + second;\nprint(combined);\nprint(len(combined));\n", "wordcount": "// Word count over a small piece of text.\nvar text = \"the quick brown fox jumps over the lazy dog\";\nvar words = split(text, \" \");\nprint(\"words:\", len(words));\n\n// Tally word frequencies into a dict.\nvar counts = dict();\nvar i = 0;\nwhile (i < len(words)) {\n    var w = get(words, i);\n    if (has(counts, w)) {\n        set(counts, w, get(counts, w) + 1);\n    } else {\n        set(counts, w, 1);\n    }\n    i = i + 1;\n}\nprint(\"'the' appears\", get(counts, \"the\"), \"times\");\nprint(\"unique words:\", len(keys(counts)));\n"}</script>
+
+  <script>
+    const LANG_NAME = "toylang";
+    const FILE_EXT = ".toy";
+    const SYNTAX = "c_like";
+    const COMPILER_FILES = JSON.parse(document.getElementById('compiler-files').textContent);
+    const EXAMPLES = JSON.parse(document.getElementById('examples-data').textContent);
+
+    // Populate examples dropdown
+    const picker = document.getElementById('example-picker');
+    for (const [name, _] of Object.entries(EXAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      picker.append(opt);
+    }
+    picker.addEventListener('change', () => {
+      if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
+    });
+
+    // CodeMirror editor, pick a sensible mode based on syntax style
+    const initial = EXAMPLES["hello_world"] || `print("Hello from toylang!")${SYNTAX === 'c_like' ? ';' : ''}\n`;
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      mode: SYNTAX === 'python_like' ? 'python' : { name: 'clike', keywords: {} },
+      theme: 'material-darker',
+      lineNumbers: true,
+      matchBrackets: true,
+      indentUnit: SYNTAX === 'python_like' ? 4 : 4,
+      extraKeys: {
+        'Cmd-Enter': run,
+        'Ctrl-Enter': run,
+      },
+    });
+    editor.setValue(initial);
+
+    // Boot Pyodide and seed it with the embedded compiler files.
+    let pyodide = null;
+    async function boot() {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+      await pyodide.loadPackage(['micropip']);
+      // lark may not be in the official pyodide package list; fall back to micropip
+      try {
+        await pyodide.loadPackage(['lark']);
+      } catch (e) {
+        await pyodide.runPythonAsync(`
+          import micropip
+          await micropip.install('lark')
+        `);
+      }
+      // Write the compiler files into Pyodide's virtual filesystem under /<lang>/
+      pyodide.FS.mkdir('/' + LANG_NAME);
+      for (const [path, content] of Object.entries(COMPILER_FILES)) {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const sub = '/' + LANG_NAME + '/' + parts.slice(0, i).join('/');
+          try { pyodide.FS.mkdir(sub); } catch (_) { /* exists */ }
+        }
+        pyodide.FS.writeFile('/' + LANG_NAME + '/' + path, content);
+      }
+      await pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+      const status = document.getElementById('boot-status');
+      status.className = 'status ready';
+      status.innerHTML = '<span class="dot"></span> Ready';
+    }
+
+    async function run() {
+      if (!pyodide) {
+        toast('Still booting Pyodide… try again in a few seconds.', true);
+        return;
+      }
+      const status = document.getElementById('run-status');
+      const output = document.getElementById('output');
+      status.style.display = 'inline-flex';
+      status.className = 'status running';
+      status.innerHTML = '<span class="dot"></span> Running';
+      output.className = 'output';
+      output.textContent = 'Compiling…';
+      const userSrc = editor.getValue();
+      pyodide.FS.writeFile('/program' + FILE_EXT, userSrc);
+      let stage = 'transpile';
+      try {
+        // Transpile. Wrap in try/except so we can return a STRUCTURED
+        // result (stage + error message) rather than a raw JS exception.
+        const transpileResult = await pyodide.runPythonAsync(`
+import sys, importlib, traceback
+for _mod_name in list(sys.modules):
+    if _mod_name.startswith('${LANG_NAME}.') or _mod_name == '${LANG_NAME}':
+        del sys.modules[_mod_name]
+_ok = True
+_err = ''
+try:
+    from ${LANG_NAME}.parser import parse
+    from ${LANG_NAME}.codegen import generate
+    _src = open('/program${FILE_EXT}').read()
+    _tree = parse(_src)
+    _py = generate(_tree)
+    open('/program.out.py', 'w').write(_py)
+except Exception:
+    _ok = False
+    _err = traceback.format_exc()
+(_ok, _err)
+        `);
+        const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
+        if (transpileResult.destroy) transpileResult.destroy();
+        if (!transpileOk) {
+          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Transpile failed';
+          output.className = 'output error';
+          output.textContent = transpileErr;
+          return;
+        }
+        stage = 'execute';
+        // Execute and capture stdout. Pyodide's runPythonAsync returns the
+        // value of the last TOP-LEVEL expression. A try/except block is a
+        // statement, so we must hoist the result tuple to the final line.
+        const result = await pyodide.runPythonAsync(`
+import io, contextlib, traceback
+_buf_out = io.StringIO()
+_buf_err = io.StringIO()
+_ok = True
+_tb = ''
+try:
+    with contextlib.redirect_stdout(_buf_out), contextlib.redirect_stderr(_buf_err):
+        _code = compile(open('/program.out.py').read(), '<program>', 'exec')
+        exec(_code, {'__name__': '__main__'})
+except Exception:
+    _ok = False
+    _tb = traceback.format_exc()
+(_buf_out.getvalue(), (_buf_err.getvalue() + ('\\n' + _tb if _tb else '')), _ok)
+        `);
+        if (result === undefined || result === null) {
+          throw new Error("Pyodide returned no result, the embedded script may be malformed.");
+        }
+        const arr = result.toJs ? result.toJs() : result;
+        const [stdout, stderr, ok] = arr;
+        if (result.destroy) result.destroy();      // free the PyProxy
+        if (ok) {
+          status.className = 'status ready';
+          status.innerHTML = '<span class="dot"></span> Done';
+          output.className = 'output success';
+          output.textContent = stdout || '(no output)';
+          if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
+        } else {
+          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Runtime error';
+          output.className = 'output error';
+          output.textContent = stdout + '\n' + stderr;
+        }
+      } catch (e) {
+        status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+        status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
+        output.className = 'output error';
+        // Surface as much as Pyodide gives us. e.message is usually the Python
+        // traceback when runPythonAsync raises; e.toString as fallback.
+        let msg = '';
+        if (e && e.message) msg = String(e.message);
+        else if (e && e.toString) msg = e.toString();
+        else msg = String(e);
+        output.textContent = `(stage: ${stage})\n${msg}`;
+      }
+    }
+
+    document.getElementById('run-btn').onclick = run;
+    boot().catch(err => {
+      const status = document.getElementById('boot-status');
+      status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+      status.innerHTML = '<span class="dot"></span> Boot failed';
+      document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
+    });
+  </script>
+</body>
+</html>

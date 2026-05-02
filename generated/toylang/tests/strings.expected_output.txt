@@ -1,0 +1,4 @@
+Hello, Forge!
+abcdef
+6
+answer is 42

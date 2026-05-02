@@ -1,0 +1,19 @@
+// Word count over a small piece of text.
+var text = "the quick brown fox jumps over the lazy dog";
+var words = split(text, " ");
+print("words:", len(words));
+
+// Tally word frequencies into a dict.
+var counts = dict();
+var i = 0;
+while (i < len(words)) {
+    var w = get(words, i);
+    if (has(counts, w)) {
+        set(counts, w, get(counts, w) + 1);
+    } else {
+        set(counts, w, 1);
+    }
+    i = i + 1;
+}
+print("'the' appears", get(counts, "the"), "times");
+print("unique words:", len(keys(counts)));

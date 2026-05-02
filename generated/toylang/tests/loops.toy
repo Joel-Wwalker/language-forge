@@ -1,0 +1,8 @@
+// Canonical: loops — sum 1..10 with a while loop.
+var i = 1;
+var total = 0;
+while (i <= 10) {
+    total = total + i;
+    i = i + 1;
+}
+print(total);   // 55

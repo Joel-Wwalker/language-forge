@@ -1,0 +1,29 @@
+// Canonical: conditionals — if/else with comparison operators.
+var a = 5;
+var b = 10;
+
+if (a < b) {
+    print("less");
+} else {
+    print("not less");
+}
+
+if (a == 5) {
+    print("five");
+}
+
+if (a > b) {
+    print("a bigger");
+} else if (a == b) {
+    print("equal");
+} else {
+    print("b bigger");
+}
+
+// Boolean operators
+if (a < b && b > 0) {
+    print("both true");
+}
+if (a > 100 || b == 10) {
+    print("at least one");
+}

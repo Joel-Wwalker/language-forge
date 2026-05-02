@@ -1,0 +1,26 @@
+// Palindrome checker. Strips spaces and case, then mirror-compares.
+func is_palindrome(s) {
+    var clean = lower(replace(s, " ", ""));
+    var i = 0;
+    var j = len(clean) - 1;
+    while (i < j) {
+        if (get(clean, i) != get(clean, j)) {
+            return false;
+        }
+        i = i + 1;
+        j = j - 1;
+    }
+    return true;
+}
+
+var tests = list("racecar", "hello", "A man a plan a canal Panama", "step on no pets", "almost");
+var i = 0;
+while (i < len(tests)) {
+    var s = get(tests, i);
+    if (is_palindrome(s)) {
+        print(s, "->  palindrome");
+    } else {
+        print(s, "->  not");
+    }
+    i = i + 1;
+}

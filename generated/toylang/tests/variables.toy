@@ -1,0 +1,10 @@
+// Canonical: variables — declaration, assignment, reuse.
+var x = 10;
+var y = 20;
+print(x + y);          // 30
+x = x + 5;
+print(x);              // 15
+y = x * 2;
+print(y);              // 30
+var name = "forge";
+print(name);           // forge

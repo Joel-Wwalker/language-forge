@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Language Forge</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css">
+  <!-- CodeMirror 5 for the in-app playground editor (line numbers, syntax) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 21 L16 6 L26 21 L21 21 L16 13 L11 21 Z" fill="currentColor"/>
+          <rect x="9" y="23" width="14" height="3" rx="1" fill="currentColor"/>
+        </svg>
+      </span>
+      <div class="brand-stack">
+        <span class="brand-name">Language Forge</span>
+        <span class="brand-tag">Compiler generator</span>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="create">
+        <span class="dot"></span> Create
+      </button>
+      <button class="tab" data-view="surprise">
+        <span class="dot"></span> Surprise me
+      </button>
+      <button class="tab" data-view="library">
+        <span class="dot"></span> Library <span id="lib-count" class="count">0</span>
+      </button>
+      <button class="tab" data-view="playground">
+        <span class="dot"></span> Playground
+      </button>
+      <button class="tab" data-view="katas">
+        <span class="dot"></span> Katas
+      </button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============================== CREATE ============================== -->
+    <section id="view-create" class="view active">
+      <div class="hero">
+        <h1>New language</h1>
+        <p class="lede">Pick three options. The orchestrator generates a transpiler, runs eight canonical tests, and ships a pip-installable package.</p>
+      </div>
+
+      <form id="create-form" class="card creator">
+        <div class="grid">
+          <fieldset>
+            <legend><span class="num">1</span> Syntax</legend>
+            <label class="opt"><input type="radio" name="syntax" value="c_like" checked>
+              <div>
+                <strong>C-like</strong>
+                <span>Curly braces, semicolons, <code>//</code> comments</span>
+                <pre class="mini-code">var x = 10;
+if (x &gt; 0) { print(x); }</pre>
+              </div>
+            </label>
+            <label class="opt"><input type="radio" name="syntax" value="python_like">
+              <div>
+                <strong>Python-like</strong>
+                <span>Indented blocks, newlines, <code>#</code> comments</span>
+                <pre class="mini-code">let x = 10
+if x &gt; 0:
+    print(x)</pre>
+              </div>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">2</span> Typing</legend>
+            <label class="opt"><input type="radio" name="typing" value="dynamic" checked>
+              <div>
+                <strong>Dynamic</strong>
+                <span>No annotations. Types resolved at runtime.</span>
+                <pre class="mini-code">var x = 10
+var name = "forge"</pre>
+              </div>
+            </label>
+            <label class="opt"><input type="radio" name="typing" value="static">
+              <div>
+                <strong>Static</strong>
+                <span>Annotations checked before run.</span>
+                <pre class="mini-code">var x: int = 10
+var name: string = "forge"</pre>
+              </div>
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend><span class="num">3</span> Memory</legend>
+            <label class="opt"><input type="radio" name="memory" value="host_gc" checked>
+              <div>
+                <strong>Host GC</strong>
+                <span>Rides on the host runtime's garbage collector.</span>
+              </div>
+            </label>
+            <label class="opt"><input type="radio" name="memory" value="refcount">
+              <div>
+                <strong>Refcount</strong>
+                <span>Documents deterministic-release semantics.</span>
+              </div>
+            </label>
+          </fieldset>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            <span>Language name</span>
+            <input type="text" name="name" id="name" placeholder="mylang" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required autocomplete="off">
+            <small>Lowercase identifier. Becomes the Python package name.</small>
+          </label>
+        </div>
+
+        <details class="advanced">
+          <summary>
+            <span>Designer &amp; vibe, persona, era, theme, bans, constraints</span>
+            <span class="advanced-hint">Optional. Strong character changes per the EaC catalog.</span>
+          </summary>
+          <div class="adv-body">
+
+            <h4 class="adv-section-title">Designer persona</h4>
+            <p class="adv-section-desc">The resolver consults this designer's values when filling gaps. Same options + different persona = visibly different language.</p>
+            <div class="adv-grid persona-grid" id="persona-grid"><!-- populated by JS --></div>
+
+            <h4 class="adv-section-title">Era preset</h4>
+            <p class="adv-section-desc">Pre-vetted bundles of options that evoke a programming-language decade. Your explicit option choices always override the era.</p>
+            <div class="adv-grid era-grid" id="era-grid"><!-- populated by JS --></div>
+
+            <h4 class="adv-section-title">Keyword theme</h4>
+            <p class="adv-section-desc">Replace the keyword set with a themed variant. Composes with the keyword overrides in the Advanced section.</p>
+            <div class="adv-grid theme-grid" id="theme-grid"><!-- populated by JS --></div>
+
+            <h4 class="adv-section-title">Feature bans</h4>
+            <p class="adv-section-desc">Forbid specific constructs. The parser refuses them; tests adapt.</p>
+            <div class="adv-grid bans-grid" id="bans-grid"><!-- populated by JS --></div>
+
+            <h4 class="adv-section-title">Hostile constraints (free-form)</h4>
+            <p class="adv-section-desc">Anything you want the resolver to honor. e.g. "every program must contain a recursive function", "no two keywords share a starting letter".</p>
+            <textarea id="hostile-constraints" rows="3" placeholder="One constraint per line."></textarea>
+
+            <h4 class="adv-section-title">Natural-language phrasebook</h4>
+            <p class="adv-section-desc">Replace keywords with sentence templates. Programs read like prose. Pick a preset, or fill in your own. Use <code>&lt;name&gt;</code>, <code>&lt;value&gt;</code>, <code>&lt;cond&gt;</code>, <code>&lt;body&gt;</code>, <code>&lt;else&gt;</code>, <code>&lt;params&gt;</code>, <code>&lt;args&gt;</code> as slots.</p>
+            <div class="adv-grid phrasebook-grid" id="phrasebook-grid"><!-- populated by JS --></div>
+            <div class="adv-grid template-grid" id="phrasebook-templates">
+              <label class="field"><span>var_decl</span>
+                <input type="text" data-tpl="var_decl" placeholder="set &lt;name&gt; to &lt;value&gt;."></label>
+              <label class="field"><span>func_def</span>
+                <input type="text" data-tpl="func_def" placeholder="to &lt;name&gt; with &lt;params&gt; do &lt;body&gt;."></label>
+              <label class="field"><span>if_stmt</span>
+                <input type="text" data-tpl="if_stmt" placeholder="if &lt;cond&gt; then &lt;body&gt; otherwise &lt;else&gt;."></label>
+              <label class="field"><span>while_stmt</span>
+                <input type="text" data-tpl="while_stmt" placeholder="while &lt;cond&gt; repeat &lt;body&gt;."></label>
+              <label class="field"><span>return_stmt</span>
+                <input type="text" data-tpl="return_stmt" placeholder="give back &lt;value&gt;."></label>
+              <label class="field"><span>print form</span>
+                <input type="text" data-tpl="print_form" placeholder="say &lt;args&gt;"></label>
+              <label class="field"><span>true word</span>
+                <input type="text" data-tpl="true_word" placeholder="yes"></label>
+              <label class="field"><span>false word</span>
+                <input type="text" data-tpl="false_word" placeholder="no"></label>
+              <label class="field"><span>null word</span>
+                <input type="text" data-tpl="null_word" placeholder="nothing"></label>
+            </div>
+
+            <h4 class="adv-section-title">Docs voice</h4>
+            <p class="adv-section-desc">How the generated README is written. Honesty rule: technical content stays accurate regardless of voice.</p>
+            <fieldset class="ext-axis">
+              <label><input type="radio" name="docs_persona" value="" checked> Technical (default)</label>
+              <label><input type="radio" name="docs_persona" value="academic_paper"> Academic paper</label>
+              <label><input type="radio" name="docs_persona" value="tutorial_with_exercises"> Tutorial with exercises</label>
+              <label><input type="radio" name="docs_persona" value="historical_fiction"> Historical fiction</label>
+              <label><input type="radio" name="docs_persona" value="pirate"> Pirate</label>
+            </fieldset>
+
+          </div>
+        </details>
+
+        <details class="advanced extended-options">
+          <summary>
+            <span>Extended language design, comments, literals, mutability, errors, loops…</span>
+            <span class="advanced-hint">Defaults match a typical c-style language. Pick to differentiate.</span>
+          </summary>
+          <div class="adv-body">
+
+            <div class="ext-grid">
+
+              <fieldset class="ext-axis">
+                <legend>Comments</legend>
+                <label><input type="radio" name="comment_style" value="" checked> Default</label>
+                <label><input type="radio" name="comment_style" value="line"> Line only</label>
+                <label><input type="radio" name="comment_style" value="block"> Block only</label>
+                <label><input type="radio" name="comment_style" value="both"> Both</label>
+                <label><input type="radio" name="comment_style" value="nestable_block"> Nestable block (Rust-style)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>String literals</legend>
+                <label><input type="radio" name="string_literals" value="" checked> Default (double-quoted)</label>
+                <label><input type="radio" name="string_literals" value="single"> Single only</label>
+                <label><input type="radio" name="string_literals" value="both"> Single & double</label>
+                <label><input type="radio" name="string_literals" value="triple_quoted"> + Triple-quoted (Python-style)</label>
+                <label><input type="radio" name="string_literals" value="raw_and_normal"> + Raw strings (<code>r"…"</code>)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Numeric literals</legend>
+                <label><input type="radio" name="numeric_literals" value="" checked> Decimal only</label>
+                <label><input type="radio" name="numeric_literals" value="c_style"> + Hex/oct/bin (<code>0x</code>, <code>0o</code>, <code>0b</code>)</label>
+                <label><input type="radio" name="numeric_literals" value="extended"> + Digit separators (<code>1_000_000</code>)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Default mutability</legend>
+                <label><input type="radio" name="default_mutability" value="" checked> Mutable by default</label>
+                <label><input type="radio" name="default_mutability" value="immutable"> Immutable by default (<code>let mut</code> for mutables)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Error handling</legend>
+                <label><input type="radio" name="error_handling" value="" checked> Panic only (default)</label>
+                <label><input type="radio" name="error_handling" value="exceptions"> Exceptions (<code>try/catch/throw</code>)</label>
+                <label><input type="radio" name="error_handling" value="result_type"> Result type (<code>Ok</code>/<code>Err</code>)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Loop forms <small class="muted">(multi-select)</small></legend>
+                <label><input type="checkbox" name="loop_forms" value="while" checked> <code>while</code></label>
+                <label><input type="checkbox" name="loop_forms" value="c_for"> <code>c_for</code>. <code>for (init; cond; step)</code></label>
+                <label><input type="checkbox" name="loop_forms" value="foreach"> <code>foreach</code>. <code>for x in iter</code></label>
+                <label><input type="checkbox" name="loop_forms" value="repeat_until"> <code>repeat_until</code>. <code>do { } while</code></label>
+                <label><input type="checkbox" name="loop_forms" value="loop_break"> <code>loop_break</code>. <code>loop { break v; }</code></label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Multiple returns</legend>
+                <label><input type="radio" name="multiple_returns" value="" checked> None</label>
+                <label><input type="radio" name="multiple_returns" value="tuple"> Tuple (<code>return a, b</code>)</label>
+                <label><input type="radio" name="multiple_returns" value="named"> Named (<code>(value, ok)</code>)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Boolean evaluation</legend>
+                <label><input type="radio" name="boolean_evaluation" value="" checked> Short-circuit (default)</label>
+                <label><input type="radio" name="boolean_evaluation" value="eager"> Eager (always evaluate both sides)</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Naming convention</legend>
+                <label><input type="radio" name="naming_convention" value="" checked> snake_case (default)</label>
+                <label><input type="radio" name="naming_convention" value="camelCase"> camelCase</label>
+                <label><input type="radio" name="naming_convention" value="PascalCase"> PascalCase</label>
+              </fieldset>
+
+              <fieldset class="ext-axis">
+                <legend>Null model</legend>
+                <label><input type="radio" name="null_model" value="" checked> Nullable (default)</label>
+                <label><input type="radio" name="null_model" value="option"> Option type (<code>Some</code>/empty)</label>
+                <label><input type="radio" name="null_model" value="none"> No null at all</label>
+              </fieldset>
+
+            </div>
+          </div>
+        </details>
+
+        <details class="advanced">
+          <summary>
+            <span>Advanced, customize keywords, operators, prompts, and tests</span>
+            <span class="advanced-hint">Optional. Leave alone for sensible defaults.</span>
+          </summary>
+          <div class="adv-body">
+
+            <!-- File extension -->
+            <div class="adv-row">
+              <label class="field">
+                <span>File extension</span>
+                <input type="text" id="cust-ext" placeholder=".my" maxlength="8" pattern="\.?[a-zA-Z0-9]{1,7}">
+                <small>Override the default. Leading dot is added automatically.</small>
+              </label>
+            </div>
+
+            <!-- Keyword overrides -->
+            <h4 class="adv-section-title">Keyword overrides</h4>
+            <p class="adv-section-desc">Replace any built-in keyword with your own spelling. Leave blank to keep the default.</p>
+            <div class="adv-grid kw-grid" id="cust-keywords">
+              <!-- populated by JS based on syntax choice -->
+            </div>
+
+            <!-- Operator overrides -->
+            <h4 class="adv-section-title">Operator overrides</h4>
+            <p class="adv-section-desc">Comma-separate the operators you want for each category. Leave blank to keep the defaults.</p>
+            <div class="adv-grid op-grid">
+              <label class="field"><span>Arithmetic</span>
+                <input type="text" data-op="arithmetic" placeholder="+, -, *, /, %"></label>
+              <label class="field"><span>Comparison</span>
+                <input type="text" data-op="comparison" placeholder="==, !=, &lt;, &gt;, &lt;=, &gt;="></label>
+              <label class="field"><span>Logical</span>
+                <input type="text" data-op="logical" placeholder="&amp;&amp;, ||, !"></label>
+              <label class="field"><span>Assignment</span>
+                <input type="text" data-op="assignment" placeholder="="></label>
+            </div>
+
+            <!-- Extra design notes -->
+            <h4 class="adv-section-title">Design notes</h4>
+            <p class="adv-section-desc">Free-form descriptions of what makes your language unique. The resolver will incorporate these into design decisions.</p>
+            <textarea id="cust-design-notes" rows="3" placeholder="e.g. I want pattern matching with `match`. Strings should be UTF-8 by default. Add a built-in `range(n)` function."></textarea>
+
+            <!-- Per-component prompt notes -->
+            <h4 class="adv-section-title">Per-component instructions</h4>
+            <p class="adv-section-desc">High-priority notes injected into the LLM prompt for a specific component. Use for behavior the design notes can't capture.</p>
+            <div class="adv-grid component-grid">
+              <label class="field"><span>codegen</span>
+                <textarea data-comp="codegen" rows="2" placeholder="e.g. Always emit two-space indents. Use repr() for printed strings."></textarea></label>
+              <label class="field"><span>runtime</span>
+                <textarea data-comp="runtime" rows="2" placeholder="e.g. Empty strings should be falsy. Print booleans as 'YES'/'NO'."></textarea></label>
+              <label class="field"><span>tests</span>
+                <textarea data-comp="tests" rows="2" placeholder="e.g. Use 'Greetings, World!' for hello_world. Variables in conditionals must be 'a' and 'b'."></textarea></label>
+              <label class="field"><span>parser</span>
+                <textarea data-comp="parser" rows="2" placeholder="e.g. Allow optional trailing commas in argument lists."></textarea></label>
+            </div>
+
+            <!-- Custom tests -->
+            <h4 class="adv-section-title">Additional tests <button type="button" class="ghost mini" id="add-test-btn">+ Add test</button></h4>
+            <p class="adv-section-desc">User-supplied test pairs that the verifier must also pass. Use these to validate your custom features.</p>
+            <div id="cust-tests" class="cust-tests"></div>
+
+          </div>
+        </details>
+
+        <div class="provider-group">
+          <div class="provider-label">
+            <span>Connection</span>
+            <small id="provider-hint">Detecting…</small>
+          </div>
+          <div class="provider-cards" role="radiogroup" aria-label="LLM provider">
+            <label class="provider-card" data-provider="api">
+              <input type="radio" name="provider" value="api">
+              <div class="pc-body">
+                <div class="pc-title">
+                  <strong>API key</strong>
+                  <span class="status-pill" data-pill="api">Checking…</span>
+                </div>
+                <p>Pay-per-use Anthropic API. Fastest. Best JSON reliability.</p>
+                <small>Set <code>ANTHROPIC_API_KEY</code> in your environment.</small>
+              </div>
+            </label>
+            <label class="provider-card" data-provider="claude_cli">
+              <input type="radio" name="provider" value="claude_cli">
+              <div class="pc-body">
+                <div class="pc-title">
+                  <strong>Subscription</strong>
+                  <span class="status-pill" data-pill="claude_cli">Checking…</span>
+                </div>
+                <p>Use the <code>claude</code> CLI from your Claude.ai plan. No per-token billing.</p>
+                <small>Requires the <code>claude</code> CLI on your PATH.</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="primary big" id="forge-btn">
+          <span class="bolt">⚡</span>
+          <span>Forge it</span>
+        </button>
+      </form>
+    </section>
+
+    <!-- ============================== SURPRISE ============================== -->
+    <section id="view-surprise" class="view">
+      <div class="hero">
+        <h1>Surprise mode</h1>
+        <p class="lede">Type a vibe word and a name. The model picks every option, persona, era, and theme, then forges the result.</p>
+      </div>
+      <form id="surprise-form" class="card creator">
+        <div class="row" style="grid-template-columns: 1fr 2fr">
+          <label class="field">
+            <span>Language name</span>
+            <input type="text" id="surprise-name" placeholder="cozytalk" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required autocomplete="off">
+            <small>Lowercase identifier. Becomes the Python package name.</small>
+          </label>
+          <label class="field">
+            <span>Vibe</span>
+            <input type="text" id="surprise-vibe" placeholder="cozy, industrial, ancient, feverish, marshmallow" required autocomplete="off">
+            <small>One or two words. Everything else is picked for you.</small>
+          </label>
+        </div>
+        <button type="submit" class="primary big">
+          <span class="bolt">✨</span> Generate
+        </button>
+        <p class="muted" style="margin-top:14px">"industrial" produces strict, terse, exception-throwing. "marshmallow" produces forgiving, dynamic, gently themed.</p>
+      </form>
+      <div id="surprise-picks" class="card" hidden>
+        <h3>Picks</h3>
+        <pre id="surprise-picks-pre" class="code"></pre>
+      </div>
+    </section>
+
+    <!-- ============================== PROGRESS ============================== -->
+    <section id="view-progress" class="view">
+      <div class="card progress">
+        <div class="progress-head">
+          <div>
+            <h2 id="progress-title">Forging your language…</h2>
+            <span id="progress-sub" class="muted"></span>
+          </div>
+          <div class="timer">
+            <span id="progress-timer">0:00</span>
+          </div>
+        </div>
+        <ul id="steps" class="steps"></ul>
+        <details id="spec-details" hidden>
+          <summary>Resolved spec</summary>
+          <pre id="spec-json" class="code"></pre>
+        </details>
+        <details id="report-details" hidden>
+          <summary>Verification report</summary>
+          <div id="report-cards" class="result-grid"></div>
+          <pre id="report-text" class="code" hidden></pre>
+        </details>
+        <div id="progress-actions" class="actions" hidden>
+          <button class="primary" id="go-playground">
+            <span>Open in playground</span>
+            <span aria-hidden="true">→</span>
+          </button>
+          <button class="secondary" id="go-create">Forge another</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== LIBRARY ============================== -->
+    <section id="view-library" class="view">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Your languages</h2>
+            <p class="muted">Each language lives under <code>generated/&lt;name&gt;/</code>.</p>
+          </div>
+          <button class="secondary" id="lib-new-btn">+ New language</button>
+        </div>
+        <div id="library-list" class="lang-list"></div>
+        <div id="library-empty" class="empty-state" hidden>
+          <div class="empty-icon">⚒</div>
+          <h3>No languages yet</h3>
+          <p>Forge your first language to see it here.</p>
+          <button class="primary" id="empty-new-btn">Get started</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================== PLAYGROUND ============================== -->
+    <section id="view-playground" class="view">
+      <div class="play-head card">
+        <label class="field inline">
+          <span>Language</span>
+          <select id="play-lang"></select>
+        </label>
+        <label class="field inline">
+          <span>Example</span>
+          <select id="play-example">
+            <option value="">Load an example…</option>
+            <optgroup label="Canonical tests">
+              <option value="hello_world">hello_world</option>
+              <option value="arithmetic">arithmetic</option>
+              <option value="variables">variables</option>
+              <option value="conditionals">conditionals</option>
+              <option value="loops">loops</option>
+              <option value="functions">functions</option>
+              <option value="closures">closures</option>
+              <option value="strings">strings</option>
+            </optgroup>
+            <optgroup label="Demos" id="play-demos-group"></optgroup>
+          </select>
+        </label>
+        <div class="play-head-actions">
+          <span class="kbd-hint">⌘/Ctrl + Enter to run</span>
+          <button id="play-run-all" class="ghost" title="Run on every healthy language at once. Side-by-side output.">⚡ Run on all</button>
+          <button id="play-run" class="primary">
+            <span class="play-icon">▶</span>
+            <span>Run</span>
+          </button>
+        </div>
+      </div>
+      <div class="play-grid">
+        <div class="card pane">
+          <div class="pane-head">
+            <h3>Source</h3>
+            <span id="play-ext" class="ext-badge"></span>
+          </div>
+          <textarea id="play-source" spellcheck="false" placeholder="Pick a language and start writing…"></textarea>
+        </div>
+        <div class="card pane">
+          <div class="pane-head">
+            <h3>Output</h3>
+            <span id="play-status" class="status-pill"></span>
+          </div>
+          <pre id="play-output" class="code output-pane"></pre>
+          <details id="play-transpiled-details" hidden>
+            <summary>View transpiled Python</summary>
+            <pre id="play-transpiled" class="code"></pre>
+          </details>
+        </div>
+      </div>
+      <details id="play-chat" class="card pair-chat" hidden>
+        <summary>
+          <span>AI pair programmer</span>
+          <span class="kbd-hint" id="play-chat-mode">hint mode</span>
+        </summary>
+        <div class="pair-body">
+          <div id="pair-history" class="pair-history"></div>
+          <form id="pair-form" class="pair-form">
+            <textarea id="pair-input" rows="2" placeholder="Ask anything about this language. The model knows your stdlib + grammar."></textarea>
+            <div class="pair-row">
+              <label class="pair-mode-toggle"><input type="checkbox" id="pair-hint-mode" checked> Hint mode</label>
+              <button type="submit" class="primary mini">Send</button>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <div id="playground-empty" class="empty-state" hidden>
+        <div class="empty-icon">▶</div>
+        <h3>No language selected</h3>
+        <p>Forge a language first, then come back here to write programs in it.</p>
+        <button class="primary" id="play-empty-new">Forge a language</button>
+      </div>
+    </section>
+    <!-- ============================== KATAS ============================== -->
+    <section id="view-katas" class="view">
+      <!-- Top bar: language + pack source controls (compact, no big header) -->
+      <div class="kata-topbar">
+        <div class="kata-topbar-left">
+          <label class="field inline">
+            <span>Language</span>
+            <select id="kata-lang"></select>
+          </label>
+          <label class="field inline">
+            <span>Pack</span>
+            <select id="kata-pack-pick"><option value="">(none)</option></select>
+          </label>
+          <button class="primary" id="kata-load-pack" title="Load the selected pack against this language. Mechanical translation makes this fast (~1-4s) for most languages.">📚 Load pack</button>
+          <button class="ghost" id="kata-generate" title="LLM-generated fresh pack tailored to your language. Slow.">✨ Generate</button>
+        </div>
+        <div class="kata-topbar-right">
+          <span id="kata-pack-status" class="muted"></span>
+        </div>
+      </div>
+
+      <!-- Library + detail layout. Two columns; only the active kata is shown. -->
+      <div class="kata-layout">
+        <!-- LEFT: Problem library (list of katas with filters + search) -->
+        <aside class="kata-library">
+          <div class="kata-library-head">
+            <h3>Problems <span id="kata-count" class="muted"></span></h3>
+            <input type="search" id="kata-search" placeholder="Search problems…" />
+          </div>
+          <div class="kata-filters">
+            <select id="kata-filter-difficulty" class="filter">
+              <option value="">All difficulty</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+            <select id="kata-filter-tag" class="filter">
+              <option value="">All tags</option>
+            </select>
+            <select id="kata-filter-status" class="filter">
+              <option value="">All status</option>
+              <option value="todo">Todo</option>
+              <option value="solved">Solved ✓</option>
+            </select>
+          </div>
+          <div id="kata-list" class="kata-list"></div>
+        </aside>
+
+        <!-- RIGHT: Problem detail (LeetCode-style split: description above, editor below) -->
+        <main class="kata-detail">
+          <div id="kata-detail-empty" class="empty-state" style="padding:60px 20px;">
+            <div class="empty-icon">🥋</div>
+            <p>Pick a problem from the library on the left.</p>
+          </div>
+
+          <div id="kata-detail" hidden>
+            <!-- Title bar with tabs -->
+            <div class="kata-tabbar">
+              <div class="kata-tabs">
+                <button class="kata-tab active" data-tab="description">Description</button>
+                <button class="kata-tab" data-tab="submissions">Submissions</button>
+                <button class="kata-tab" data-tab="solution">Solution</button>
+              </div>
+            </div>
+
+            <!-- TAB: Description -->
+            <div class="kata-pane" data-tab-pane="description">
+              <div class="kata-title-row">
+                <h2 id="kata-title"></h2>
+                <span id="kata-difficulty" class="status-pill"></span>
+                <span id="kata-acceptance" class="muted small"></span>
+              </div>
+              <div id="kata-tags" class="kata-tags"></div>
+              <p id="kata-problem" class="kata-statement"></p>
+              <div id="kata-examples" class="kata-examples"></div>
+              <div id="kata-constraints" class="kata-constraints"></div>
+              <div id="kata-helpers-info" class="kata-helpers-info" hidden></div>
+            </div>
+
+            <!-- TAB: Submissions (history of attempts in localStorage) -->
+            <div class="kata-pane" data-tab-pane="submissions" hidden>
+              <p class="muted small">Recent attempts on this problem (saved in your browser).</p>
+              <div id="kata-submissions" class="kata-submissions"></div>
+            </div>
+
+            <!-- TAB: Solution (locked until pass; Show Solution button reveals it) -->
+            <div class="kata-pane" data-tab-pane="solution" hidden>
+              <div id="kata-solution-locked">
+                <div class="empty-state" style="padding:30px 16px;">
+                  <p class="muted">Solve the problem to unlock the reference solution, or click below to reveal it now.</p>
+                  <button id="kata-show-solution" class="ghost">👀 Show solution anyway</button>
+                </div>
+              </div>
+              <div id="kata-solution-revealed" hidden>
+                <h4>Reference solution</h4>
+                <pre id="kata-reference-pre" class="code"></pre>
+                <p class="muted small">This is one valid solution. Yours may differ.</p>
+              </div>
+            </div>
+
+            <!-- Editor + console (always visible across tabs) -->
+            <div class="kata-workspace">
+              <div class="kata-editor-head">
+                <h4>Code editor</h4>
+                <span class="muted small" id="kata-editor-lang"></span>
+              </div>
+              <textarea id="kata-editor" spellcheck="false" rows="14"></textarea>
+              <div class="kata-actions">
+                <button id="kata-run" class="ghost" title="Run your code against the visible sample tests only.">▶ Run</button>
+                <button id="kata-submit" class="primary" title="Submit against the full hidden test suite.">✓ Submit</button>
+                <button id="kata-reset" class="ghost">↺ Reset</button>
+                <button id="kata-ask" class="ghost">💬 Ask AI</button>
+              </div>
+              <div id="kata-result" class="kata-result"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bottombar">
+    <span class="muted" id="footer-stats">Loading…</span>
+    <span class="muted">v0.1.0</span>
+  </footer>
+
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-python.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

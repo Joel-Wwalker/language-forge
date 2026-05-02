@@ -1,0 +1,16 @@
+var nums = list(3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5);
+print("count:", len(nums));
+
+// Sum and max with explicit indexing (no foreach syntax in this lang).
+var i = 0;
+var total = 0;
+var biggest = get(nums, 0);
+while (i < len(nums)) {
+    var x = get(nums, i);
+    total = total + x;
+    if (x > biggest) { biggest = x; }
+    i = i + 1;
+}
+print("sum:", total);
+print("max:", biggest);
+print("avg:", total / len(nums));

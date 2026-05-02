@@ -1,0 +1,104 @@
+# Installing {{ lang_name }}
+
+`{{ lang_name }}` is a {{ syntax }} language with {{ typing }} typing and
+{{ memory }} memory. Source files use the `{{ file_extension }}` extension.
+The compiler transpiles to Python.
+
+## Requirements
+
+- Python 3.11 or newer
+- A terminal that can run `python` and `pip`
+
+The runtime is plain Python. No external compiler.
+
+## Install
+
+From this directory:
+
+```bash
+pip install -e .
+```
+
+This installs `{{ lang_name }}` as a Python package and registers a
+`{{ lang_name }}` command on your PATH.
+
+For an isolated environment:
+
+```bash
+python -m venv .venv
+. .venv/Scripts/activate          # Windows
+. .venv/bin/activate              # macOS / Linux
+pip install -e .
+```
+
+## Verify
+
+```bash
+{{ lang_name }} --help
+```
+
+If "command not found", make sure the venv is activated. Or fall back to:
+
+```bash
+python -m {{ lang_name }}.compile --help
+```
+
+## Run a program
+
+Write `hello{{ file_extension }}`:
+
+```
+{% if syntax == 'python_like' -%}
+print("Hello, {{ lang_name }}!")
+{%- else -%}
+print("Hello, {{ lang_name }}!");
+{%- endif %}
+```
+
+Compile and run:
+
+```bash
+{{ lang_name }} hello{{ file_extension }}
+python hello{{ file_extension }}.out.py
+```
+
+Or in one command:
+
+```bash
+{{ lang_name }} hello{{ file_extension }} && python hello{{ file_extension }}.out.py
+```
+
+## Try in a browser
+
+Open `repl.html` in any browser. The full compiler runs locally via
+Pyodide. No install required.
+
+## Layout
+
+```
+{{ lang_name }}/
+├── README.md           friendly intro and syntax tour
+├── LANGUAGE.md         full reference
+├── INSTALL.md          this file
+├── LICENSE             MIT
+├── pyproject.toml      pip-installable package
+├── repl.html           in-browser REPL
+├── examples/           sample programs
+├── tests/              canonical tests (must all pass)
+└── (compiler source)   lexer.py, parser.py, codegen.py, runtime.py
+```
+
+## Run the canonical tests
+
+```bash
+cd tests
+{{ lang_name }} hello_world{{ file_extension }} && python hello_world{{ file_extension }}.out.py
+```
+
+Each test has a sibling `<name>.expected_output.txt` to diff against.
+
+## Uninstall
+
+```bash
+pip uninstall {{ lang_name }}
+```
