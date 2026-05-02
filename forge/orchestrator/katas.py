@@ -72,15 +72,25 @@ KATA_PACK_SCHEMA = {
 
 
 def generate_katas(spec: dict, lang_dir: Path, client: LLMClient,
-                   on_progress=None, *, fix_attempts: int = 2) -> dict:
+                   on_progress=None, *, fix_attempts: int = 2,
+                   time_budget_s: float = 120.0) -> dict:
     """Generate, validate, and persist a kata pack for the language.
 
     For any kata whose reference fails self-validation, we re-ask the
     model with the actual parser/runtime error as feedback. Up to
     `fix_attempts` retries per kata. Surviving katas get persisted;
     drops are recorded with their final error.
+
+    A wall-clock budget caps total time spent on fix-up loops so the GUI
+    sees results in a predictable window (was reported taking 5+ minutes
+    on freshly-created languages with broken codegen). Any kata still
+    failing past the budget is recorded as dropped instead of grinding
+    through more LLM calls.
     """
     from .generator import _load_prompt, _interp
+    import time as _time
+
+    deadline = _time.monotonic() + time_budget_s
 
     def _emit(msg: str):
         if on_progress:
@@ -114,6 +124,9 @@ def generate_katas(spec: dict, lang_dir: Path, client: LLMClient,
         # passes or attempts run out.
         attempts_used = 0
         while not ok and attempts_used < fix_attempts:
+            if _time.monotonic() >= deadline:
+                _emit(f"  skip  {kata.get('id', '?')}: time budget exhausted")
+                break
             attempts_used += 1
             _emit(f"  fix   {kata.get('id', '?')} (attempt {attempts_used}): {reason[:80]}")
             new_ref = _try_fix_reference(kata, reason, spec, sample, client)

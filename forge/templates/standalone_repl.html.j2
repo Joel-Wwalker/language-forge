@@ -18,64 +18,72 @@
 
   <style>
     :root {
-      --bg: #0b0d12; --bg-2: #11141b; --card: #161a23;
-      --line: #242a38; --line-2: #2d3447;
-      --text: #ecf0f6; --text-2: #aab2c0; --muted: #6f7a8e;
-      --accent: #ff7a45; --good: #5dd99a; --bad: #ff6679;
+      /* shadcn dark, same palette as the main GUI */
+      --bg: #0a0e16; --bg-2: #0d1220; --card: #0a0e16;
+      --card-2: #131a2a;
+      --line: #1e293b; --line-2: #2a3a55;
+      --text: #f8fafc; --text-2: #cbd5e1; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-2: #60a5fa;
+      --good: #22c55e; --bad: #ef4444; --warn: #f59e0b;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; padding: 24px;
       background:
-        radial-gradient(1100px 700px at 18% -10%, rgba(255,122,69,.08), transparent 60%),
+        radial-gradient(900px 600px at 50% -200px, rgba(59,130,246,.06), transparent 60%),
         var(--bg);
       color: var(--text);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
     }
+    ::selection { background: var(--accent); color: #fff; }
     .wrap { max-width: 1200px; margin: 0 auto; }
     header {
       display: flex; align-items: center; justify-content: space-between;
       gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
     }
     h1 {
-      font-size: 28px; margin: 0; letter-spacing: -0.02em;
+      font-size: 26px; margin: 0; letter-spacing: -0.02em; font-weight: 700;
       display: flex; align-items: center; gap: 12px;
     }
     h1 .badge {
       font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
-      background: rgba(255,122,69,.15); color: var(--accent);
-      border: 1px solid rgba(255,122,69,.3);
+      background: rgba(59,130,246,.12); color: var(--accent);
+      border: 1px solid rgba(59,130,246,.25);
       font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
-    .lede { color: var(--text-2); font-size: 15px; margin: 6px 0 0; }
+    .lede { color: var(--text-2); font-size: 14px; margin: 6px 0 0; }
     .toolbar {
       display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
     }
     select, button {
-      background: var(--card); color: var(--text);
-      border: 1px solid var(--line-2); border-radius: 8px;
-      padding: 9px 14px; font: 500 14px/1 'Inter', sans-serif;
-      cursor: pointer;
+      background: var(--bg-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 14px; font: 500 13px/1 'Inter', sans-serif;
+      cursor: pointer; height: 34px;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
+    select:hover, button:hover { background: var(--card-2); border-color: var(--line-2); }
+    select:focus, button:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
     button.primary {
-      background: linear-gradient(135deg, var(--accent), #ff5c1f);
-      color: #14080a; border: none; font-weight: 700;
-      box-shadow: 0 4px 16px rgba(255,122,69,.3);
+      background: var(--accent);
+      color: #fff; border-color: var(--accent); font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3);
     }
-    button.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
-    button:disabled { opacity: .55; cursor: not-allowed; }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary:active { background: #1d4ed8; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
     .grid {
-      display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px;
       height: calc(100vh - 200px); min-height: 480px;
     }
     .pane {
       background: var(--card); border: 1px solid var(--line);
-      border-radius: 12px; padding: 16px; display: flex; flex-direction: column;
+      border-radius: 8px; padding: 14px; display: flex; flex-direction: column;
       overflow: hidden;
     }
-    .pane h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-2); font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+    .pane h3 { margin: 0 0 10px; font-size: 11px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
     .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
     .output {
       flex: 1; margin: 0; padding: 12px; overflow: auto;
@@ -87,12 +95,12 @@
     .output.success { color: var(--text); }
     .status {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 11px; padding: 3px 9px; border-radius: 999px;
-      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+      font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
     }
-    .status.loading { background: rgba(124,182,255,.15); color: #7cb6ff; }
-    .status.ready { background: rgba(93,217,154,.15); color: var(--good); }
-    .status.running { background: rgba(255,209,102,.15); color: #ffd166; }
+    .status.loading { background: rgba(59,130,246,.12); color: var(--accent); }
+    .status.ready { background: rgba(34,197,94,.12); color: var(--good); }
+    .status.running { background: rgba(245,158,11,.12); color: var(--warn); }
     .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .footer {
       margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
@@ -101,7 +109,7 @@
     .keyword-hint {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
       font-size: 11px; color: var(--muted);
-      background: var(--bg-2); padding: 3px 7px; border-radius: 4px;
+      background: var(--bg-2); padding: 4px 8px; border-radius: 6px;
       border: 1px solid var(--line);
     }
     @media (max-width: 800px) {
@@ -250,7 +258,7 @@ except Exception:
         const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
         if (transpileResult.destroy) transpileResult.destroy();
         if (!transpileOk) {
-          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
           status.innerHTML = '<span class="dot"></span> Transpile failed';
           output.className = 'output error';
           output.textContent = transpileErr;
@@ -288,13 +296,13 @@ except Exception:
           output.textContent = stdout || '(no output)';
           if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
         } else {
-          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
           status.innerHTML = '<span class="dot"></span> Runtime error';
           output.className = 'output error';
           output.textContent = stdout + '\n' + stderr;
         }
       } catch (e) {
-        status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+        status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
         status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
         output.className = 'output error';
         // Surface as much as Pyodide gives us. e.message is usually the Python
@@ -310,7 +318,7 @@ except Exception:
     document.getElementById('run-btn').onclick = run;
     boot().catch(err => {
       const status = document.getElementById('boot-status');
-      status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+      status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
       status.innerHTML = '<span class="dot"></span> Boot failed';
       document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
     });
