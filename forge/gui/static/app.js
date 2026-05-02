@@ -1377,6 +1377,38 @@ function selectKata(lang, pack, kata, rowEl) {
     constraintsBox.innerHTML = '';
   }
 
+  // Sample tests: visible to the user. Submit additionally runs the hidden
+  // tests (those at indices NOT in sample_test_indices). Mirroring how
+  // LeetCode shows "Test Case 1, Test Case 2, ..." plus "+ N additional
+  // test cases" beneath them.
+  const sampleBox = $('#kata-sample-tests');
+  const allTests = Array.isArray(kata.tests) ? kata.tests : [];
+  const sampleIdxs = (kata.sample_test_indices && kata.sample_test_indices.length)
+    ? kata.sample_test_indices
+    : (allTests.length ? [0] : []);
+  if (allTests.length) {
+    const sampleTests = sampleIdxs
+      .map(i => allTests[i])
+      .filter(Boolean);
+    const hiddenCount = allTests.length - sampleTests.length;
+    sampleBox.hidden = false;
+    sampleBox.innerHTML =
+      `<h5>Sample tests</h5>` +
+      sampleTests.map((t, i) => `
+        <div class="kata-sample-row">
+          <span class="kata-sample-num">#${i + 1}</span>
+          <div class="kata-sample-body">
+            <div><span class="kata-sample-label">Input</span> <code>${escapeHtml(t.call)}</code></div>
+            <div><span class="kata-sample-label">Output</span> <code>${escapeHtml(t.expected)}</code></div>
+          </div>
+        </div>`).join('') +
+      (hiddenCount > 0
+        ? `<p class="muted small kata-hidden-note">+ ${hiddenCount} hidden test${hiddenCount === 1 ? '' : 's'}, run via <strong>Submit</strong>.</p>`
+        : '');
+  } else {
+    sampleBox.hidden = true;
+  }
+
   // Helpers info (when the kata provides node/leaf/to_ll/etc.)
   const helpersBox = $('#kata-helpers-info');
   if (kata.helpers && kata.helpers.trim()) {

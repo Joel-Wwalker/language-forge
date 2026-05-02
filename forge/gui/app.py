@@ -546,13 +546,24 @@ def create_app() -> Flask:
 
         valid = []
         dropped = []
-        # Final stub-rescue pass: anything still failing gets saved with
-        # stub_rescued=True + empty tests, so the user always sees the
-        # problem. Better than dropping entirely.
+        # Final fallback ladder for anything still failing:
+        #   1. mechanical case-analysis (cascade of if-args-match returns,
+        #      always works on Turing-complete targets); auto-check works
+        #   2. stub-rescue (empty tests + stub reference; no auto-check)
+        # We try (1) first so the user gets a gradeable kata when possible.
         from forge.orchestrator.kata_translator import _stub_rescue
+        from forge.orchestrator.case_analysis import build_case_analysis_kata
+        toylang_dir = WORKSPACE / "generated" / "toylang"
         for kata, ok, reason in results:
             if ok:
                 valid.append(kata)
+                continue
+            try:
+                ca = build_case_analysis_kata(kata, spec, lang_dir, toylang_dir)
+            except Exception:
+                ca = None
+            if ca is not None:
+                valid.append(ca)
                 continue
             rescued = _stub_rescue(kata, spec)
             if rescued is not None:
