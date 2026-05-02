@@ -1,0 +1,5 @@
+var first = "Language";
+var second = "Forge";
+var combined = first + " " + second;
+print(combined);
+print(len(combined));

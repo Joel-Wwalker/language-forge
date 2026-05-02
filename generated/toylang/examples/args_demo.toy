@@ -1,0 +1,9 @@
+// Run the compiled .out.py with extra args to see them here.
+//   <lang> args_demo.<ext> && python args_demo.<ext>.out.py hello world 42
+var args = argv();
+print("got", len(args), "argument(s):");
+var i = 0;
+while (i < len(args)) {
+    print("  [" + str(i) + "]", get(args, i));
+    i = i + 1;
+}

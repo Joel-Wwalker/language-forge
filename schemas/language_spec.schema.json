@@ -1,0 +1,253 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LanguageSpec",
+  "description": "Spec for a generated programming language. Stage 1 produces a base spec with some auto/null fields; the resolver fills them in.",
+  "type": "object",
+  "required": [
+    "lang_name",
+    "options",
+    "file_extension",
+    "comment_syntax",
+    "keywords",
+    "operators",
+    "literals",
+    "statement_terminator",
+    "block_style",
+    "function_definition",
+    "variable_declaration",
+    "print_form",
+    "boolean_keywords",
+    "null_keyword"
+  ],
+  "properties": {
+    "lang_name": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+    },
+    "options": {
+      "type": "object",
+      "required": ["syntax", "typing", "memory"],
+      "properties": {
+        "syntax": {"enum": ["c_like", "python_like"]},
+        "typing": {"enum": ["static", "dynamic"]},
+        "memory": {"enum": ["host_gc", "refcount"]},
+        "comment_style": {"enum": ["line", "block", "both", "nestable_block"]},
+        "string_literals": {"enum": ["single", "double", "both", "triple_quoted", "raw_and_normal"]},
+        "numeric_literals": {"enum": ["decimal_only", "c_style", "extended"]},
+        "default_mutability": {"enum": ["mutable", "immutable"]},
+        "error_handling": {"enum": ["panic_only", "exceptions", "result_type"]},
+        "loop_forms": {
+          "type": "array",
+          "items": {"enum": ["while", "c_for", "foreach", "repeat_until", "loop_break"]},
+          "uniqueItems": true
+        },
+        "multiple_returns": {"enum": ["none", "tuple", "named"]},
+        "boolean_evaluation": {"enum": ["short_circuit", "eager"]},
+        "naming_convention": {"enum": ["snake_case", "camelCase", "PascalCase"]},
+        "null_model": {"enum": ["nullable", "option", "none"]}
+      },
+      "additionalProperties": false
+    },
+    "file_extension": {"type": "string", "pattern": "^\\.[a-zA-Z0-9]+$"},
+    "comment_syntax": {
+      "type": "object",
+      "properties": {
+        "line": {"type": ["string", "null"]},
+        "block_open": {"type": ["string", "null"]},
+        "block_close": {"type": ["string", "null"]},
+        "nestable": {"type": "boolean"}
+      }
+    },
+    "keywords": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true,
+      "minItems": 5
+    },
+    "operators": {
+      "type": "object",
+      "required": ["arithmetic", "comparison", "logical", "assignment"],
+      "properties": {
+        "arithmetic": {"type": "array", "items": {"type": "string"}},
+        "comparison": {"type": "array", "items": {"type": "string"}},
+        "logical": {"type": "array", "items": {"type": "string"}},
+        "assignment": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "literals": {
+      "type": "object",
+      "required": ["integer", "float", "string", "boolean"],
+      "properties": {
+        "integer": {"type": "string"},
+        "integer_form": {"type": "string"},
+        "float": {"type": "string"},
+        "string": {"type": "string"},
+        "string_form": {"type": "string"},
+        "boolean": {"type": "string"}
+      }
+    },
+    "statement_terminator": {
+      "description": "';' for c_like, 'newline' for python_like",
+      "type": "string"
+    },
+    "block_style": {
+      "description": "'braces' for c_like, 'indent' for python_like",
+      "enum": ["braces", "indent"]
+    },
+    "function_definition": {
+      "type": "object",
+      "required": ["keyword", "syntax_example"],
+      "properties": {
+        "keyword": {"type": "string"},
+        "syntax_example": {"type": "string"},
+        "type_annotations": {
+          "description": "Required when typing=static, ignored when dynamic.",
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "variable_declaration": {
+      "type": "object",
+      "required": ["keyword", "syntax_example"],
+      "properties": {
+        "keyword": {"type": "string"},
+        "syntax_example": {"type": "string"},
+        "type_annotations": {"type": ["string", "null"]},
+        "mutability": {"enum": ["mutable_by_default", "immutable_by_default"]}
+      }
+    },
+    "print_form": {
+      "description": "How to print to stdout, e.g. 'print(x);' or 'print(x)'.",
+      "type": "string"
+    },
+    "boolean_keywords": {
+      "type": "object",
+      "required": ["true", "false"],
+      "properties": {
+        "true": {"type": "string"},
+        "false": {"type": "string"}
+      }
+    },
+    "null_keyword": {"type": "string"},
+    "type_system": {
+      "type": "object",
+      "description": "Filled in by resolver when typing=static.",
+      "properties": {
+        "primitive_types": {"type": "array", "items": {"type": "string"}},
+        "annotation_form": {"type": "string"},
+        "inference": {"type": "boolean"}
+      }
+    },
+    "memory_model": {
+      "type": "object",
+      "description": "Filled in by resolver. Documents the chosen semantics honestly.",
+      "properties": {
+        "kind": {"enum": ["host_gc", "refcount"]},
+        "notes": {"type": "string"}
+      }
+    },
+    "stdlib": {
+      "type": "object",
+      "description": "Stdlib functions exposed to user programs.",
+      "properties": {
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": {"type": "string"},
+              "description": {"type": "string"},
+              "signature": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "design_notes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Resolver-authored explanations for non-trivial design choices."
+    },
+    "error_handling": {
+      "type": "object",
+      "properties": {
+        "kind": {"enum": ["panic_only", "exceptions", "result_type"]},
+        "syntax": {"type": "string"}
+      }
+    },
+    "loop_forms": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "multiple_returns": {"enum": ["none", "tuple", "named"]},
+    "boolean_evaluation": {"enum": ["short_circuit", "eager"]},
+    "naming_convention": {"enum": ["snake_case", "camelCase", "PascalCase"]},
+    "null_model": {"enum": ["nullable", "option", "none"]},
+    "null_keyword_status": {"enum": ["reserved_but_unused", "active"]},
+    "customization": {
+      "type": "object",
+      "description": "User-supplied overrides and additions. Survives the resolver round-trip.",
+      "properties": {
+        "extra_prompt_notes": {
+          "type": "object",
+          "description": "Per-component free-form instructions appended to that component's prompt. Keys are component names.",
+          "additionalProperties": {"type": "string"}
+        },
+        "additional_tests": {
+          "type": "array",
+          "description": "User-supplied test pairs the verifier will require alongside the canonical 8.",
+          "items": {
+            "type": "object",
+            "required": ["name", "source", "expected"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+              "source": {"type": "string"},
+              "expected": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "extra_design_notes": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "keyword_overrides": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "operator_overrides": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "string"}}
+        },
+        "persona": {"type": "string"},
+        "era": {"type": "string"},
+        "keyword_theme": {"type": "string"},
+        "feature_bans": {"type": "array", "items": {"type": "string"}},
+        "hostile_constraints": {"type": "string"},
+        "docs_persona": {"enum": ["technical", "academic_paper", "tutorial_with_exercises", "historical_fiction", "pirate"]},
+        "natural_language": {
+          "type": "object",
+          "description": "User-defined phrasebook. Each entry is a sentence template with <placeholder> slots; the parser uses these literal strings instead of the default keywords. Unspecified entries fall back to the language's default syntax.",
+          "properties": {
+            "var_decl":    {"type": "string"},
+            "func_def":    {"type": "string"},
+            "if_stmt":     {"type": "string"},
+            "while_stmt":  {"type": "string"},
+            "return_stmt": {"type": "string"},
+            "print_form":  {"type": "string"},
+            "true_word":   {"type": "string"},
+            "false_word":  {"type": "string"},
+            "null_word":   {"type": "string"},
+            "and_word":    {"type": "string"},
+            "or_word":     {"type": "string"},
+            "not_word":    {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

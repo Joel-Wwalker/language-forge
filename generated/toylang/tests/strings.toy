@@ -1,0 +1,11 @@
+// Canonical: strings — concatenation and printing.
+var greeting = "Hello";
+var name = "Forge";
+print(greeting + ", " + name + "!");    // Hello, Forge!
+
+var part = "abc" + "def";
+print(part);                              // abcdef
+print(len(part));                         // 6
+
+// Mixing print arguments
+print("answer", "is", 42);                // answer is 42

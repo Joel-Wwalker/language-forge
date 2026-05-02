@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Compile + run a {{ lang_name }} program in one shot.
+# Usage: ./run.sh main{{ file_extension }} [extra args ...]
+set -euo pipefail
+src="${1:-main{{ file_extension }}}"
+shift || true
+{{ lang_name }} "$src"
+python "${src}.out.py" "$@"

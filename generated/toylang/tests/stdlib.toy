@@ -1,0 +1,36 @@
+// Exercises the applied stdlib: lists, dicts, strings, range.
+var nums = list(3, 1, 4, 1, 5, 9, 2, 6);
+print(len(nums));         // 8
+print(get(nums, 0));      // 3
+push(nums, 99);
+print(len(nums));         // 9
+
+// Sum via range/index
+var i = 0;
+var total = 0;
+while (i < len(nums)) {
+    total = total + get(nums, i);
+    i = i + 1;
+}
+print(total);             // 130
+
+// String ops
+var name = "Language Forge";
+print(upper(name));       // LANGUAGE FORGE
+print(replace(name, "Forge", "Lab"));   // Language Lab
+var words = split(name, " ");
+print(len(words));        // 2
+print(get(words, 1));     // Forge
+
+// Dict
+var d = dict("one", 1, "two", 2, "three", 3);
+print(get(d, "two"));     // 2
+print(has(d, "four"));    // false
+set(d, "four", 4);
+print(get(d, "four"));    // 4
+print(len(keys(d)));      // 4
+
+// Range builds a list
+var r = range(5);
+print(len(r));            // 5
+print(get(r, 4));         // 4

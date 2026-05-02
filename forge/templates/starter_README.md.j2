@@ -1,0 +1,56 @@
+# {{ project_name }}
+
+A {{ lang_name }} project. The compiler is included as a dependency.
+
+## Setup
+
+```bash
+pip install -e .
+```
+
+That installs `{{ lang_name }}` and registers the `{{ lang_name }}` console
+command. Or use `python -m {{ lang_name }}.compile` if you skip the install.
+
+## Run
+
+```bash
+{{ lang_name }} main{{ file_extension }} && python main{{ file_extension }}.out.py
+```
+
+The first command transpiles `main{{ file_extension }}` to
+`main{{ file_extension }}.out.py`. The second runs the result.
+
+For a quicker dev loop, the included `run.sh` does both:
+
+```bash
+./run.sh main{{ file_extension }}
+```
+
+## Files
+
+```
+{{ project_name }}/
+├── README.md           you are here
+├── pyproject.toml      pulls in {{ lang_name }} as a dependency
+├── run.sh              transpile + execute in one shot
+├── main{{ file_extension }}{{ ' ' * (16 - file_extension|length) }}your program (edit me)
+└── examples/           extra programs to learn from
+```
+
+## Stdlib at a glance
+
+User programs can call any of these without an import:
+
+```
+print, input
+list, len, get, set, push, pop, dict, has, keys, range
+str, split, join, upper, lower, replace
+int, float
+read_file, write_file, argv, exit
+```
+
+See the full reference in the `{{ lang_name }}` package's `LANGUAGE.md`.
+
+## License
+
+MIT.

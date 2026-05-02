@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ lang_name }}. In-browser REPL</title>
+
+  <!-- Pyodide: runs Python (and our generated compiler) in the browser via WASM -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <!-- CodeMirror 5 (CDN-friendly; the basic c-like and python modes work for both syntax styles) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b0d12; --bg-2: #11141b; --card: #161a23;
+      --line: #242a38; --line-2: #2d3447;
+      --text: #ecf0f6; --text-2: #aab2c0; --muted: #6f7a8e;
+      --accent: #ff7a45; --good: #5dd99a; --bad: #ff6679;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      background:
+        radial-gradient(1100px 700px at 18% -10%, rgba(255,122,69,.08), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 28px; margin: 0; letter-spacing: -0.02em;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h1 .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: rgba(255,122,69,.15); color: var(--accent);
+      border: 1px solid rgba(255,122,69,.3);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .lede { color: var(--text-2); font-size: 15px; margin: 6px 0 0; }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    select, button {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--line-2); border-radius: 8px;
+      padding: 9px 14px; font: 500 14px/1 'Inter', sans-serif;
+      cursor: pointer;
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), #ff5c1f);
+      color: #14080a; border: none; font-weight: 700;
+      box-shadow: 0 4px 16px rgba(255,122,69,.3);
+    }
+    button.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .grid {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px;
+      height: calc(100vh - 200px); min-height: 480px;
+    }
+    .pane {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 16px; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .pane h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-2); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 8px; }
+    .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+    .output {
+      flex: 1; margin: 0; padding: 12px; overflow: auto;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+      white-space: pre-wrap; color: var(--text-2); line-height: 1.5;
+    }
+    .output.error { color: var(--bad); }
+    .output.success { color: var(--text); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .status.loading { background: rgba(124,182,255,.15); color: #7cb6ff; }
+    .status.ready { background: rgba(93,217,154,.15); color: var(--good); }
+    .status.running { background: rgba(255,209,102,.15); color: #ffd166; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .footer {
+      margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-2); }
+    .keyword-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--muted);
+      background: var(--bg-2); padding: 3px 7px; border-radius: 4px;
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      .pane { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>{{ lang_name }} <span class="badge">{{ file_extension }}</span></h1>
+        <p class="lede">In-browser REPL: runs without installing anything. Powered by Pyodide + CodeMirror.</p>
+      </div>
+      <div class="toolbar">
+        <select id="example-picker"><option value="">Load example…</option></select>
+        <span class="keyword-hint">⌘/Ctrl + Enter to run</span>
+        <button class="primary" id="run-btn">▶ Run</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="pane">
+        <h3>Source <span class="status loading" id="boot-status"><span class="dot"></span> Booting Pyodide…</span></h3>
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="pane">
+        <h3>Output <span class="status" id="run-status" style="display:none;"></span></h3>
+        <pre class="output" id="output">Click <strong>Run</strong> to compile + execute your program. The first run downloads the Lark parser (≈ 2 MB), then everything is local.</pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated with <a href="https://example.com/forge" style="color: var(--accent); text-decoration: none;">Language Forge</a>.
+      Read the <code>LANGUAGE.md</code> in the project for the full reference.
+      Source goes through your real <code>{{ lang_name }}</code> compiler, no fakes, no mocks.
+    </div>
+  </div>
+
+  <!-- Embedded compiler files. Each entry maps a relative path to its content. -->
+  <script id="compiler-files" type="application/json">{{ compiler_files_json | safe }}</script>
+  <script id="examples-data" type="application/json">{{ examples_json | safe }}</script>
+
+  <script>
+    const LANG_NAME = {{ lang_name | tojson }};
+    const FILE_EXT = {{ file_extension | tojson }};
+    const SYNTAX = {{ syntax | tojson }};
+    const COMPILER_FILES = JSON.parse(document.getElementById('compiler-files').textContent);
+    const EXAMPLES = JSON.parse(document.getElementById('examples-data').textContent);
+
+    // Populate examples dropdown
+    const picker = document.getElementById('example-picker');
+    for (const [name, _] of Object.entries(EXAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      picker.append(opt);
+    }
+    picker.addEventListener('change', () => {
+      if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
+    });
+
+    // CodeMirror editor, pick a sensible mode based on syntax style
+    const initial = EXAMPLES["hello_world"] || `print("Hello from {{ lang_name }}!")${SYNTAX === 'c_like' ? ';' : ''}\n`;
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      mode: SYNTAX === 'python_like' ? 'python' : { name: 'clike', keywords: {} },
+      theme: 'material-darker',
+      lineNumbers: true,
+      matchBrackets: true,
+      indentUnit: SYNTAX === 'python_like' ? 4 : 4,
+      extraKeys: {
+        'Cmd-Enter': run,
+        'Ctrl-Enter': run,
+      },
+    });
+    editor.setValue(initial);
+
+    // Boot Pyodide and seed it with the embedded compiler files.
+    let pyodide = null;
+    async function boot() {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+      await pyodide.loadPackage(['micropip']);
+      // lark may not be in the official pyodide package list; fall back to micropip
+      try {
+        await pyodide.loadPackage(['lark']);
+      } catch (e) {
+        await pyodide.runPythonAsync(`
+          import micropip
+          await micropip.install('lark')
+        `);
+      }
+      // Write the compiler files into Pyodide's virtual filesystem under /<lang>/
+      pyodide.FS.mkdir('/' + LANG_NAME);
+      for (const [path, content] of Object.entries(COMPILER_FILES)) {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const sub = '/' + LANG_NAME + '/' + parts.slice(0, i).join('/');
+          try { pyodide.FS.mkdir(sub); } catch (_) { /* exists */ }
+        }
+        pyodide.FS.writeFile('/' + LANG_NAME + '/' + path, content);
+      }
+      await pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+      const status = document.getElementById('boot-status');
+      status.className = 'status ready';
+      status.innerHTML = '<span class="dot"></span> Ready';
+    }
+
+    async function run() {
+      if (!pyodide) {
+        toast('Still booting Pyodide… try again in a few seconds.', true);
+        return;
+      }
+      const status = document.getElementById('run-status');
+      const output = document.getElementById('output');
+      status.style.display = 'inline-flex';
+      status.className = 'status running';
+      status.innerHTML = '<span class="dot"></span> Running';
+      output.className = 'output';
+      output.textContent = 'Compiling…';
+      const userSrc = editor.getValue();
+      pyodide.FS.writeFile('/program' + FILE_EXT, userSrc);
+      let stage = 'transpile';
+      try {
+        // Transpile. Wrap in try/except so we can return a STRUCTURED
+        // result (stage + error message) rather than a raw JS exception.
+        const transpileResult = await pyodide.runPythonAsync(`
+import sys, importlib, traceback
+for _mod_name in list(sys.modules):
+    if _mod_name.startswith('${LANG_NAME}.') or _mod_name == '${LANG_NAME}':
+        del sys.modules[_mod_name]
+_ok = True
+_err = ''
+try:
+    from ${LANG_NAME}.parser import parse
+    from ${LANG_NAME}.codegen import generate
+    _src = open('/program${FILE_EXT}').read()
+    _tree = parse(_src)
+    _py = generate(_tree)
+    open('/program.out.py', 'w').write(_py)
+except Exception:
+    _ok = False
+    _err = traceback.format_exc()
+(_ok, _err)
+        `);
+        const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
+        if (transpileResult.destroy) transpileResult.destroy();
+        if (!transpileOk) {
+          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Transpile failed';
+          output.className = 'output error';
+          output.textContent = transpileErr;
+          return;
+        }
+        stage = 'execute';
+        // Execute and capture stdout. Pyodide's runPythonAsync returns the
+        // value of the last TOP-LEVEL expression. A try/except block is a
+        // statement, so we must hoist the result tuple to the final line.
+        const result = await pyodide.runPythonAsync(`
+import io, contextlib, traceback
+_buf_out = io.StringIO()
+_buf_err = io.StringIO()
+_ok = True
+_tb = ''
+try:
+    with contextlib.redirect_stdout(_buf_out), contextlib.redirect_stderr(_buf_err):
+        _code = compile(open('/program.out.py').read(), '<program>', 'exec')
+        exec(_code, {'__name__': '__main__'})
+except Exception:
+    _ok = False
+    _tb = traceback.format_exc()
+(_buf_out.getvalue(), (_buf_err.getvalue() + ('\\n' + _tb if _tb else '')), _ok)
+        `);
+        if (result === undefined || result === null) {
+          throw new Error("Pyodide returned no result, the embedded script may be malformed.");
+        }
+        const arr = result.toJs ? result.toJs() : result;
+        const [stdout, stderr, ok] = arr;
+        if (result.destroy) result.destroy();      // free the PyProxy
+        if (ok) {
+          status.className = 'status ready';
+          status.innerHTML = '<span class="dot"></span> Done';
+          output.className = 'output success';
+          output.textContent = stdout || '(no output)';
+          if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
+        } else {
+          status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Runtime error';
+          output.className = 'output error';
+          output.textContent = stdout + '\n' + stderr;
+        }
+      } catch (e) {
+        status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+        status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
+        output.className = 'output error';
+        // Surface as much as Pyodide gives us. e.message is usually the Python
+        // traceback when runPythonAsync raises; e.toString as fallback.
+        let msg = '';
+        if (e && e.message) msg = String(e.message);
+        else if (e && e.toString) msg = e.toString();
+        else msg = String(e);
+        output.textContent = `(stage: ${stage})\n${msg}`;
+      }
+    }
+
+    document.getElementById('run-btn').onclick = run;
+    boot().catch(err => {
+      const status = document.getElementById('boot-status');
+      status.className = 'status'; status.style.background = 'rgba(255,102,121,.15)'; status.style.color = 'var(--bad)';
+      status.innerHTML = '<span class="dot"></span> Boot failed';
+      document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
+    });
+  </script>
+</body>
+</html>

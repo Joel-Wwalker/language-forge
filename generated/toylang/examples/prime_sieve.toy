@@ -1,0 +1,38 @@
+// Sieve of Eratosthenes. Print every prime from 2 up to N.
+var N = 100;
+
+// Build a list of N+1 booleans, all initially true.
+var is_prime = list();
+var i = 0;
+while (i <= N) {
+    push(is_prime, true);
+    i = i + 1;
+}
+
+set(is_prime, 0, false);
+set(is_prime, 1, false);
+
+i = 2;
+while (i * i <= N) {
+    if (get(is_prime, i)) {
+        var j = i * i;
+        while (j <= N) {
+            set(is_prime, j, false);
+            j = j + i;
+        }
+    }
+    i = i + 1;
+}
+
+var found = list();
+i = 2;
+while (i <= N) {
+    if (get(is_prime, i)) {
+        push(found, i);
+    }
+    i = i + 1;
+}
+
+print("primes up to", N);
+print(join(", ", found));
+print("count:", len(found));

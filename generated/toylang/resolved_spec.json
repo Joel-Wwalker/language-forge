@@ -1,0 +1,59 @@
+{
+  "lang_name": "toylang",
+  "options": {
+    "syntax": "c_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "file_extension": ".toy",
+  "comment_syntax": {
+    "line": "//",
+    "block_open": "/*",
+    "block_close": "*/"
+  },
+  "keywords": [
+    "var", "func", "return", "if", "else", "while", "for",
+    "true", "false", "null", "print", "and", "or", "not"
+  ],
+  "operators": {
+    "arithmetic": ["+", "-", "*", "/", "%"],
+    "comparison": ["==", "!=", "<", ">", "<=", ">="],
+    "logical": ["&&", "||", "!"],
+    "assignment": ["="]
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "float": "decimal digits with '.'",
+    "string": "double-quoted with backslash escapes",
+    "boolean": "true / false"
+  },
+  "statement_terminator": ";",
+  "block_style": "braces",
+  "function_definition": {
+    "keyword": "func",
+    "syntax_example": "func name(a, b) { return a + b; }",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "var",
+    "syntax_example": "var x = 10;",
+    "type_annotations": null
+  },
+  "print_form": "print(x);",
+  "boolean_keywords": {"true": "true", "false": "false"},
+  "null_keyword": "null",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior."
+  },
+  "stdlib": {
+    "functions": [
+      {"name": "print", "description": "Prints to stdout with newline", "signature": "print(value)"},
+      {"name": "len", "description": "Length of a string", "signature": "len(s) -> int"},
+      {"name": "str", "description": "Convert any value to its string form", "signature": "str(v) -> string"}
+    ]
+  },
+  "design_notes": [
+    "Hand-written reference spec for c_like + dynamic + host_gc — used to bootstrap the verifier."
+  ]
+}
