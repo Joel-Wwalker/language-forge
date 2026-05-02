@@ -1,0 +1,225 @@
+==============================================================================
+LANGUAGE GENERATION PIPELINE AUDIT
+Generated: 2026-05-02 17:32:01
+==============================================================================
+
+Summary: 43 PASS, 0 BUG, 0 FIXED, 0 SKIP, 43 total
+
+==============================================================================
+
+[PASS] A1: cartesian (syntax × typing × memory) builds + validates
+------------------------------------------------------------------------------
+Intent: All 8 combos must produce valid base specs.
+Result: all 8 pass
+
+[PASS] A2: every extended option value builds a valid spec
+------------------------------------------------------------------------------
+Intent: comment_style/string_literals/numeric_literals/default_mutability/error_handling/multiple_returns/boolean_evaluation must each be settable.
+Result: all 22 option values work
+
+[PASS] A3: each loop_form subset builds successfully
+------------------------------------------------------------------------------
+Intent: while/c_for/foreach/repeat_until/loop_break must each be settable, alone or in combination.
+Result: all loop subsets work
+
+[PASS] A4: validate_spec rejects malformed specs
+------------------------------------------------------------------------------
+Intent: Don't let invalid specs reach the LLM — fail early.
+Result: rejects bad input
+
+[PASS] A5: file_extension produces valid short extensions
+------------------------------------------------------------------------------
+Intent: Always starts with `.`, ≤8 chars.
+Result: extensions are valid
+
+[PASS] B1: coherence rejects hard-contradictory combos
+------------------------------------------------------------------------------
+Intent: Self-contradicting option combinations (no_exceptions + exceptions, no_mutation + mutable default) must error before LLM generation.
+Result: all 2 contradictions rejected
+
+[PASS] B2: coherence accepts plain happy-path combos
+------------------------------------------------------------------------------
+Intent: Don't false-positive on standard combinations.
+Result: all 3 good combos passed
+
+[PASS] B3: coherence Issue.level uses defined values
+------------------------------------------------------------------------------
+Intent: Issues should be 'error' (block) or 'warning' (annotate).
+Result: checked 0 issues
+
+[PASS] C1: every persona produces a substantial prompt block
+------------------------------------------------------------------------------
+Intent: Each persona key (dijkstra/mccarthy/etc.) must yield a non-empty block to inject into the resolver/generator prompt.
+Result: all 8 personas yield content
+
+[PASS] C2: persona_block('unknown') returns '' (graceful)
+------------------------------------------------------------------------------
+Intent: Unknown persona keys must not crash; return empty block.
+Result: graceful empty-string return
+
+[PASS] C3: every era applies cleanly to a base options dict
+------------------------------------------------------------------------------
+Intent: 1960s/1970s/1980s/2000s/2020s presets must each be applicable.
+Result: all 5 eras work
+
+[PASS] C4: every theme produces a non-empty keyword-override dict
+------------------------------------------------------------------------------
+Intent: pirate/shakespearean/etc. should swap keywords like func→capt.
+Result: all 5 themes yield overrides
+
+[PASS] C5: every phrasebook has complete templates (var/func/if/while/return)
+------------------------------------------------------------------------------
+Intent: Required for the kata mechanical translator's PhrasebookBackend.
+Result: all 4 phrasebooks complete
+
+[PASS] C6: every ban applies cleanly
+------------------------------------------------------------------------------
+Intent: no_null/no_exceptions/no_mutation/etc. must be applyable to options.
+Result: all 6 bans work
+
+[PASS] C7: bans_prompt_block yields prompt text per ban
+------------------------------------------------------------------------------
+Intent: Each ban must contribute reasoning to the LLM prompt.
+Result: all 6 bans produce prompt blocks
+
+[PASS] D1: keyword_overrides swap function_definition + variable_declaration keywords
+------------------------------------------------------------------------------
+Intent: User-supplied keyword swaps must propagate to the role-specific spec fields and into spec.keywords for the grammar builder.
+Result: func_def.keyword=fn, var_decl.keyword=let, in keywords list: True
+
+[PASS] D2: operator_overrides land in spec.operators
+------------------------------------------------------------------------------
+Intent: User-supplied operator swaps must propagate.
+Result: logical=['and', 'or', 'not']
+
+[PASS] D3: file_extension customization overrides default
+------------------------------------------------------------------------------
+Intent: User can pick a custom file extension.
+Result: ext=.cool
+
+[PASS] D4: naming_convention propagates
+------------------------------------------------------------------------------
+Intent: snake_case/camelCase/PascalCase must propagate to spec.naming_convention.
+Result: all 3 conventions propagate
+
+[PASS] D4b: invalid naming_convention is rejected by schema
+------------------------------------------------------------------------------
+Intent: Schema enum should reject 'kebab-case' which isn't supported.
+Result: kebab-case correctly rejected
+
+[PASS] D5: null_model propagates
+------------------------------------------------------------------------------
+Intent: nullable/option/none must propagate to spec.null_model.
+Result: all 3 propagate
+
+[PASS] D6: extra_design_notes append to spec.design_notes
+------------------------------------------------------------------------------
+Intent: User-supplied notes must reach the LLM prompt.
+Result: design_notes count=2
+
+[PASS] D7: natural_language phrasebook reaches spec.customization
+------------------------------------------------------------------------------
+Intent: Phrasebook templates must be in spec for the kata translator.
+Result: templates count=12
+
+[PASS] D8: feature_bans propagate to spec
+------------------------------------------------------------------------------
+Intent: Bans need to reach mechanical_translator.can_handle().
+Result: bans=['no_mutation', 'no_exceptions']
+
+[PASS] E1: components_for(dynamic) excludes typechecker
+------------------------------------------------------------------------------
+Intent: Dynamic langs don't need a typechecker.
+Result: got: ['lexer', 'parser', 'codegen', 'runtime', 'stdlib', 'tests', 'readme', 'language_reference']
+
+[PASS] E2: components_for(static) includes typechecker
+------------------------------------------------------------------------------
+Intent: Static-typed langs need a separate type-check phase.
+Result: got: ['lexer', 'parser', 'typechecker', 'codegen', 'runtime', 'stdlib', 'tests', 'readme', 'language_reference']
+
+[PASS] E3: every component prompt file is loadable + non-trivial
+------------------------------------------------------------------------------
+Intent: Missing or empty prompt files break generation.
+Result: all 13 prompts load
+
+[PASS] E4: _interp substitutes spec placeholders in prompts
+------------------------------------------------------------------------------
+Intent: Otherwise the LLM gets `{{SPEC}}` literally instead of the actual spec.
+Result: all 6 component prompts render
+
+[PASS] F1: verifier passes all toylang canonical tests
+------------------------------------------------------------------------------
+Intent: Toylang is hand-written + golden; if this fails, the kata system and many tests would also break.
+Result: 8 tests pass
+
+[PASS] F2: _attribute_failure returns a string for common error shapes
+------------------------------------------------------------------------------
+Intent: Failure attribution drives the repair-component picker.
+Result: attribution returns strings
+
+[PASS] F3: every generated language passes its canonical tests
+------------------------------------------------------------------------------
+Intent: If any language fails, the user can run Repair on it.
+Result: all 7 pass: ['democ', 'god', 'hardcombo', 'kidX', 'love', 'smoke', 'toylang']
+
+[PASS] G1: _pick_component returns a valid component name on failure
+------------------------------------------------------------------------------
+Intent: The repair loop needs to know which file to ask the LLM to fix.
+Result: picked: parser
+
+[PASS] G2: _filename_for maps components to on-disk filenames
+------------------------------------------------------------------------------
+Intent: Repair needs to know which file to overwrite.
+Result: all mappings correct
+
+[PASS] H1: maximally-customized spec builds + validates
+------------------------------------------------------------------------------
+Intent: All customization layers can compose without conflict.
+Result: options: {'syntax': 'c_like', 'typing': 'dynamic', 'memory': 'host_gc', 'comment_style': 'block', 'string_literals': 'double', 'numeric_literals': 'c_style', 'default_mutability': 'mutable', 'error_handling': 'panic_only', 'loop_forms': ['while', 'c_for'], 'multiple_returns': 'none', 'boolean_evaluation': 'short_circuit', 'naming_convention': 'camelCase', 'null_model': 'nullable'}
+
+[PASS] I1: /api/languages returns the right shape
+------------------------------------------------------------------------------
+Intent: GUI relies on each entry having name/ext/options/shipped.
+Result: 7 languages listed
+
+[PASS] I2: /api/personas returns the persona list
+------------------------------------------------------------------------------
+Intent: GUI uses this for the persona picker.
+Result: 8 personas
+
+[PASS] I3: /api/themes returns the theme list
+------------------------------------------------------------------------------
+Intent: GUI uses this for the keyword-theme picker.
+Result: 5 themes
+
+[PASS] I4: /api/phrasebooks returns phrasebook list + templates
+------------------------------------------------------------------------------
+Intent: GUI uses this for the phrasebook picker + preview.
+Result: 4 phrasebooks
+
+[PASS] J1: build_spec accepts valid Python identifiers as lang_name
+------------------------------------------------------------------------------
+Intent: Don't reject reasonable language names.
+Result: all valid identifiers accepted
+
+[PASS] J2: load_schema returns a JSON-Schema document
+------------------------------------------------------------------------------
+Intent: Schema is used to validate LLM-resolved specs.
+Result: schema has 14 required fields
+
+[PASS] J3: _typing_overlay differentiates static vs dynamic
+------------------------------------------------------------------------------
+Intent: Static-typed langs need different defaults than dynamic.
+Result: static keys=['function_definition', 'variable_declaration', 'type_system'], dynamic keys=[]
+
+[PASS] J4: _memory_overlay returns dicts for both memory models
+------------------------------------------------------------------------------
+Intent: host_gc and refcount produce different design hints for the LLM.
+Result: host_gc keys=['memory_model']
+
+[PASS] K1: no em/en-dashes in any prompt file
+------------------------------------------------------------------------------
+Intent: Prompts shape LLM output; dashes leak character.
+Result: all prompts clean
+
+==============================================================================
