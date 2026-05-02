@@ -1,0 +1,259 @@
+==============================================================================
+KATA SYSTEM AUDIT REPORT
+Generated: 2026-05-02 17:31:51
+==============================================================================
+
+Summary: 46 PASS, 0 BUG, 3 FIXED, 0 SKIP, 49 total
+
+==============================================================================
+
+[PASS] A1: _wrap_with_test_prints prepends helpers
+------------------------------------------------------------------------------
+Intent: Helpers must come BEFORE user code so they're in scope.
+Result: helper() appears at byte 0, main() at 30
+
+[PASS] A2: _self_validate uses kata helpers
+------------------------------------------------------------------------------
+Intent: When validating the reference, helpers must be prepended.
+Result: self-validate succeeded with helper-dependent reference
+
+[PASS] A3: check_solution prepends helpers for user code
+------------------------------------------------------------------------------
+Intent: User submissions must also have helpers in scope.
+Result: passed all 1 tests
+
+[PASS] A4: empty reverse_ll no longer crashes with NameError
+------------------------------------------------------------------------------
+Intent: The user's submitted leetcode.txt bug — `ll_to_list not defined`.
+Result: stage=compare (clean wrong-answer), test_index=0
+
+[PASS] A5/linked_list_reverse: helpers separated from reference
+------------------------------------------------------------------------------
+Intent: linked_list_reverse's helpers must live in `helpers` field, not embedded in reference.
+Result: helpers length=461, reference length=229
+
+[PASS] A5/tree_max_depth: helpers separated from reference
+------------------------------------------------------------------------------
+Intent: tree_max_depth's helpers must live in `helpers` field, not embedded in reference.
+Result: helpers length=119, reference length=197
+
+[PASS] B1: mode=run executes only sample_test_indices
+------------------------------------------------------------------------------
+Intent: Run = quick iteration on visible tests; should not run hidden tests.
+Result: ran 1 tests (matches sample_test_indices length 1)
+
+[PASS] B2: mode=run returns per-test results
+------------------------------------------------------------------------------
+Intent: Each sample test should report call/expected/actual/passed.
+Result: results len=1, all keys present=True
+
+[PASS] B3: mode=submit runs the full test suite
+------------------------------------------------------------------------------
+Intent: Submit = full hidden suite; passing means all tests passed.
+Result: all 4 tests passed
+
+[PASS] B4: mode default is 'submit' (backward compat)
+------------------------------------------------------------------------------
+Intent: Old callers without `mode` should still get full-suite check.
+Result: mode=submit, passed=True
+
+[PASS] B5: mode=submit reveals only first failing test (no spoilers)
+------------------------------------------------------------------------------
+Intent: Submit failure should hide subsequent tests until the user fixes the first.
+Result: first failing test_index=1, no full results array
+
+[PASS] C1: every classic kata has metadata fields
+------------------------------------------------------------------------------
+Intent: tags/examples/constraints/acceptance_rate/sample_test_indices must be present on each classic for the LeetCode-style UI.
+Result: all 12 classics have all metadata fields
+
+[PASS] C2: each kata has at least one tag
+------------------------------------------------------------------------------
+Intent: Empty tag arrays make the tag filter useless.
+Result: all katas have non-empty tags
+
+[PASS] C3: sample_test_indices are within bounds
+------------------------------------------------------------------------------
+Intent: Out-of-range indices would crash mode=run.
+Result: all sample_test_indices in bounds
+
+[PASS] C4: iterative + recursive variants have the same kata IDs
+------------------------------------------------------------------------------
+Intent: Both variants must cover every problem so the user gets all 12 regardless of language constraints.
+Result: both have 12 matching ids
+
+[PASS] C5: recursive variant inherits tags
+------------------------------------------------------------------------------
+Intent: no_mutation languages (love) use the recursive variant; the library UI needs the same tags + examples on those katas too.
+Result: all recursive katas have tags
+
+[PASS] D1: first load is not cached
+------------------------------------------------------------------------------
+Intent: Cold load should NOT be marked cached.
+Result: cached=None
+
+[PASS] D2: second load is served from cache
+------------------------------------------------------------------------------
+Intent: Same pack/lang combo should not re-validate.
+Result: cached=true on second call
+
+[PASS] D3: ?force=true bypasses cache
+------------------------------------------------------------------------------
+Intent: Forced reload should re-run validation.
+Result: cached=None
+
+[PASS] E1: no_mutation lang routes to recursive variant
+------------------------------------------------------------------------------
+Intent: love-style languages must get recursion-only references.
+Result: all 12 references match the recursive variant
+
+[PASS] E2: recursive variant has no variable reassignment
+------------------------------------------------------------------------------
+Intent: no_mutation languages forbid `x = expr` for previously-declared x. All updates must flow through recursive parameter passing.
+Result: checked 12 katas, no reassignments found
+
+[PASS] F1: can_handle picks CLikeBackend for vanilla c_like
+------------------------------------------------------------------------------
+Intent: Lazy backend selection by language family.
+Result: got CLikeBackend
+
+[PASS] F2: can_handle picks PhrasebookBackend for natural_language spec
+------------------------------------------------------------------------------
+Intent: kidX-style phrasebook languages need template substitution.
+Result: got PhrasebookBackend
+
+[PASS] F3: can_handle picks PythonLikeBackend for python_like dynamic
+------------------------------------------------------------------------------
+Intent: def + indent + colons style emit.
+Result: got PythonLikeBackend
+
+[PASS] F4: can_handle bails for static-typed (LLM territory)
+------------------------------------------------------------------------------
+Intent: Type inference is beyond mechanical transpile.
+Result: got None
+
+[PASS] F5: phrasebook transpile produces natural-language form
+------------------------------------------------------------------------------
+Intent: Substitute into spec.customization.natural_language templates.
+Result: output: the way to double with x is {
+    the answer is x * 2.
+}.
+
+[PASS] F6: python_like transpile produces def + indent + no-semicolon
+------------------------------------------------------------------------------
+Intent: PythonLikeBackend converts braces+; to indent+colons.
+Result: output: def add(a, b):
+    let c = a + b
+    return c
+
+[PASS] G1: runtime patcher adds string handling
+------------------------------------------------------------------------------
+Intent: Some generated runtimes don't accept get(string, int); patch them.
+Result: patch applied + marker added
+
+[PASS] G2: runtime patcher is idempotent
+------------------------------------------------------------------------------
+Intent: Re-running on a patched runtime should be a no-op.
+Result: file size unchanged (300 bytes)
+
+[PASS] H1: stub_rescue produces savable kata with empty tests
+------------------------------------------------------------------------------
+Intent: Last resort: keep the problem visible even when reference can't translate.
+Result: stub_rescued=True, tests=[]
+
+[PASS] H2: check_solution returns 'no_tests' for stub_rescued katas
+------------------------------------------------------------------------------
+Intent: GUI uses this to show the warning panel instead of pass/fail.
+Result: stage=no_tests
+
+[PASS] H3: stub_rescued katas still report compile errors
+------------------------------------------------------------------------------
+Intent: Even when auto-grading is unavailable, syntax help should still work.
+Result: compile stage detected
+
+[PASS] I1: all 12 iterative classics self-validate on toylang
+------------------------------------------------------------------------------
+Intent: If this breaks, the user can't load classics on the canonical lang.
+Result: all 12 pass
+
+[PASS] I2: all 12 recursive classics self-validate on toylang
+------------------------------------------------------------------------------
+Intent: Recursive variant must also work on toylang (which supports both styles).
+Result: all 12 pass
+
+[PASS] J1: empty submission returns 'empty' stage (not a 500)
+------------------------------------------------------------------------------
+Intent: Submitting nothing should yield a clear 'your code is empty' message.
+Result: stage=empty, stderr=your code is empty
+
+[PASS] J2: unknown kata id returns 404
+------------------------------------------------------------------------------
+Intent: Path-traversal-style kata IDs must not 500.
+Result: status=404
+
+[PASS] J3: unknown language returns 404
+------------------------------------------------------------------------------
+Intent: Don't 500 on bad language names.
+Result: status=404
+
+[PASS] J4: GET kata pack for unknown language is 404
+------------------------------------------------------------------------------
+Intent: Don't blow up if the language doesn't exist.
+Result: status=404
+
+[PASS] J5: sample_test_indices filtered to valid range
+------------------------------------------------------------------------------
+Intent: Endpoint should ignore indices >= len(tests).
+Result: verified by inspection: `if 0 <= i < len(kata['tests'])` in the route
+
+[PASS] K1: CLASSICS_META has an entry for every classic kata
+------------------------------------------------------------------------------
+Intent: Otherwise the LeetCode UI shows missing tags/examples.
+Result: matched ids count: 12
+
+[PASS] K2: every classic has at least one example
+------------------------------------------------------------------------------
+Intent: Description tab needs examples to be useful.
+Result: all katas have examples
+
+[PASS] L1: 5 escalation strategies for fix-up retries
+------------------------------------------------------------------------------
+Intent: Each attempt must use a different angle (LLM keeps getting stuck otherwise).
+Result: headers present for attempts 1-5
+
+[PASS] L2: attempt 5 is the case-analysis safety net
+------------------------------------------------------------------------------
+Intent: Last resort: tell LLM to just hardcode the test answers.
+Result: 5th header mentions case analysis / hardcoded
+
+[PASS] L3: stub_rescue works with no comment_syntax in spec
+------------------------------------------------------------------------------
+Intent: Defaults to // when neither line nor block comments are defined.
+Result: rescued kata produced
+
+[FIXED] M1: tag filter rebuilds when pack changes
+------------------------------------------------------------------------------
+Intent: After switching languages, the tag dropdown should reflect the new pack's tags (not the previous language's).
+Result: renderKataLibrary uses a tagSig hash to detect pack changes and rebuilds the dropdown when it changes.
+
+[PASS] M2: result panel resets on kata switch
+------------------------------------------------------------------------------
+Intent: Old failure messages should clear when picking a new problem.
+Result: selectKata sets className back to plain 'kata-result'
+
+[PASS] M3: Reset button clears the draft key
+------------------------------------------------------------------------------
+Intent: Reset to starter shouldn't keep a stale draft around.
+Result: removeItem(k) call present
+
+[FIXED] M4: cache invalidates when pack content changes
+------------------------------------------------------------------------------
+Intent: katas.json should not be served when CLASSICS_C_LIKE has changed in source — otherwise users see stale data after upgrades.
+Result: load-pack endpoint now stores pack_hash in katas.json and compares it on cache hit.
+
+[FIXED] M5: open kata refreshed after force-reload
+------------------------------------------------------------------------------
+Intent: If user clicks force-reload while a kata is open, the JS should re-select with the freshly-validated kata data.
+Result: loadKataPack remembers the previously-open kata id and re-selects it after reload, so currentKata reflects the new pack.
+
+==============================================================================
