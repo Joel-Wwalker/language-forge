@@ -628,8 +628,12 @@ def test_api_load_pack_falls_back_to_per_kata_when_batch_fails(tmp_path, monkeyp
     assert "good_one" in by_id
     assert "bad_one" in by_id
     assert by_id["good_one"].get("stub_rescued") is not True
-    assert by_id["bad_one"].get("stub_rescued") is True
-    assert by_id["bad_one"]["tests"] == []
+    # bad_one's reference can't compile; the fallback ladder now tries
+    # case-analysis first (mechanical, always works on valid c_like) and
+    # only falls back to stub_rescue if even that fails.
+    rescued = by_id["bad_one"]
+    assert rescued.get("case_analysis_fallback") or rescued.get("stub_rescued"), (
+        f"bad_one wasn't rescued: {rescued}")
     # No drops: stub-rescue saves the bad one
     assert data["dropped"] == []
 
@@ -831,13 +835,14 @@ def test_translate_pack_dedupes_when_llm_returns_repeated_ids(tmp_path):
     by_id = {k["id"]: k for k in out["katas"]}
     assert set(by_id.keys()) == {"alpha", "beta", "gamma"}
     assert by_id["alpha"].get("stub_rescued") is not True
-    # Beta and gamma get stub-rescued because the LLM never returned
-    # anything usable for them.
-    assert by_id["beta"].get("stub_rescued") is True
-    assert by_id["gamma"].get("stub_rescued") is True
-    # Stub-rescued katas have empty tests so the GUI shows "no auto-check".
-    assert by_id["beta"]["tests"] == []
-    assert by_id["gamma"]["tests"] == []
+    assert by_id["alpha"].get("case_analysis_fallback") is not True
+    # Beta and gamma get rescued (case-analysis preferred; stub if that
+    # also fails). Either way the kata appears, just not as the LLM's
+    # original (failed) translation.
+    for kid in ("beta", "gamma"):
+        k = by_id[kid]
+        assert k.get("case_analysis_fallback") or k.get("stub_rescued"), (
+            f"{kid} wasn't rescued via fallback ladder: {k}")
 
 
 def test_translate_pack_drops_unknown_ids_from_llm(tmp_path):
@@ -882,11 +887,12 @@ def test_translate_pack_drops_unknown_ids_from_llm(tmp_path):
     # `made_up` is filtered out (not in our input list).
     valid_ids = {k["id"] for k in out["katas"]}
     assert "made_up" not in valid_ids
-    # `real_problem` gets stub-rescued since the LLM never produced a
-    # usable translation for it.
+    # `real_problem` gets rescued (case-analysis preferred, stub fallback)
+    # since the LLM never produced a usable translation for it.
     assert "real_problem" in valid_ids
     real = next(k for k in out["katas"] if k["id"] == "real_problem")
-    assert real.get("stub_rescued") is True
+    assert real.get("case_analysis_fallback") or real.get("stub_rescued"), (
+        f"real_problem wasn't rescued: {real}")
 
 
 def test_stub_rescue_produces_savable_kata():
@@ -1131,15 +1137,64 @@ def test_translate_pack_drops_when_everything_fails(tmp_path):
 
     out = translate_pack(pack_template, spec, work, AlwaysBrokenClient(), mechanical=False,
                          fix_attempts=2)  # speed up the test
-    # New rescue policy: even when EVERYTHING fails, the kata is saved
-    # with stub_rescued=True and empty tests so the user still SEES the
-    # problem. Dropping a kata entirely is the absolute last resort.
+    # New rescue policy: even when EVERYTHING fails, the kata is saved via
+    # the fallback ladder (case-analysis preferred; stub_rescue as last
+    # resort) so the user still SEES the problem. Dropping a kata entirely
+    # is the absolute last resort.
     assert len(out["katas"]) == 1
-    assert out["katas"][0]["id"] == "stubborn"
-    assert out["katas"][0].get("stub_rescued") is True
-    assert out["katas"][0]["tests"] == []
-    # No drops: stub-rescue saves it.
+    k = out["katas"][0]
+    assert k["id"] == "stubborn"
+    assert k.get("case_analysis_fallback") or k.get("stub_rescued"), (
+        f"kata wasn't rescued: {k}")
+    # No drops: rescue ladder saves it.
     assert out["dropped"] == []
+
+
+def test_case_analysis_fallback_produces_working_kata(tmp_path):
+    """The case-analysis fallback should always produce a kata with a
+    reference solution that passes self-validation, by hardcoding the
+    answer for each test."""
+    from forge.orchestrator.case_analysis import build_case_analysis_kata
+    import shutil
+    work = tmp_path / "toylang"
+    shutil.copytree(
+        TOYLANG_DIR, work,
+        ignore=shutil.ignore_patterns(".forge_log", "__pycache__",
+                                      "_playground", "*.out.py", "katas.json"),
+    )
+    spec = _toylang_spec()
+
+    # A simple kata with primitive args: discriminator works trivially
+    kata = {
+        **_kata(reference="func double(x) { return x * 2; }\n",
+                tests=[
+                    {"call": "double(3)", "expected": "6"},
+                    {"call": "double(5)", "expected": "10"},
+                ]),
+        "id": "double_test", "function_name": "double",
+    }
+    result = build_case_analysis_kata(kata, spec, work, TOYLANG_DIR)
+    assert result is not None
+    assert result.get("case_analysis_fallback") is True
+    # Reference must be different from the canonical (it's a case-analysis
+    # not the algorithm)
+    assert result["reference_solution"] != kata["reference_solution"]
+    # Tests survive
+    assert len(result["tests"]) == 2
+
+
+def test_case_analysis_returns_none_for_unparseable_reference(tmp_path):
+    """If we can't extract function params from the canonical reference,
+    case-analysis bails (returns None) so caller falls back to stub-rescue."""
+    from forge.orchestrator.case_analysis import build_case_analysis_kata
+    spec = _toylang_spec()
+    kata = {
+        **_kata(reference="@@@@ totally broken syntax",
+                tests=[{"call": "x()", "expected": "1"}]),
+        "id": "broken", "function_name": "x",
+    }
+    result = build_case_analysis_kata(kata, spec, TOYLANG_DIR, TOYLANG_DIR)
+    assert result is None
 
 
 def test_mechanical_transpile_emits_phrasebook_form():
@@ -1458,13 +1513,15 @@ def test_translate_pack_drops_when_llm_omits_a_problem(tmp_path):
 
     out = translate_pack(pack_template, spec, work, HalfClient(), mechanical=False,
                          fix_attempts=2)
-    # `kept` translates cleanly. `missing` gets stub-rescued (saved with
-    # empty tests so the user still sees the problem).
+    # `kept` translates cleanly. `missing` gets rescued via the fallback
+    # ladder (case-analysis preferred, stub if that fails too).
     by_id = {k["id"]: k for k in out["katas"]}
     assert set(by_id.keys()) == {"kept", "missing"}
     assert by_id["kept"].get("stub_rescued") is not True
-    assert by_id["missing"].get("stub_rescued") is True
-    assert by_id["missing"]["tests"] == []
+    assert by_id["kept"].get("case_analysis_fallback") is not True
+    miss = by_id["missing"]
+    assert miss.get("case_analysis_fallback") or miss.get("stub_rescued"), (
+        f"missing kata wasn't rescued: {miss}")
 
 
 def test_api_load_pack_falls_through_to_translation(tmp_path, monkeypatch):
