@@ -639,6 +639,9 @@ details summary::-webkit-details-marker { display: none; }
   gap: 14px;
   margin-top: 4px;
 }
+/* Roadmap §5.1: Library as museum, not list. Each card now leads with
+   the language's lore (origin_story), shows a small live preview swatch
+   in the language's actual palette, then spec-axis tags + actions. */
 .lang-card {
   background: var(--bg-2);
   border: 1px solid var(--line);
@@ -648,8 +651,36 @@ details summary::-webkit-details-marker { display: none; }
   flex-direction: column;
   gap: 12px;
   transition: all 0.12s var(--easing);
+  position: relative;
+  overflow: hidden;
 }
 .lang-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+.lc-accent {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--accent);
+  opacity: 0.7;
+}
+.lc-lore {
+  font-size: 13px; line-height: 1.55;
+  color: var(--text-2); margin: 0;
+  font-style: italic;
+}
+.lc-lore.muted { font-style: normal; }
+.lc-swatch {
+  /* Mini "screenshot" of what code in this language looks like, drawn
+     in the language's actual palette. Uses inline style so we don't
+     need to load the whole per-lang CSS to render the card. */
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+  display: flex; gap: 8px; align-items: center;
+  opacity: 0.92;
+  background: var(--bg-2);  /* fallback when no theme tokens */
+}
+.lc-swatch-prompt { opacity: 0.5; }
+.lc-swatch-code { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .lc-name {
   font-weight: 700;

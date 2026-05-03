@@ -19,6 +19,17 @@ You are designing a small programming language. The user has chosen three high-l
    - `boolean_evaluation = eager` → flag that side-effects in `&&`/`||` always execute; warn against use in production-like code.
 2. Fill in any null/missing fields with sensible defaults (`type_system`, `memory_model`, `stdlib`).
 3. Add a `design_notes` array with one short sentence per non-trivial decision. Keep this terse: 1 to 8 entries.
+
+3a. Add a top-level `origin_story` field: a 2-3 sentence in-world description of where this language came from, written as if it were a real language someone DISCOVERED rather than configured. Examples that hit the right tone:
+
+   * "Found in a 1973 timeline where Lisp won the AI Winter. Used for symbolic computation at a research lab that no longer exists."
+   * "Recovered from the bilge of the Black Pearl. Apparently the crew used it to calculate share allocations after raids."
+   * "Excavated from a 2030 startup that pivoted three times before shipping. The third pivot is what you're looking at."
+   * "Survived a Pascal-leaning math department's curriculum experiment, 1986-1989."
+   * "Compiled exclusively in convents during the 9th century. Believed to be a spiritual exercise."
+
+   Match the era / persona / theme / phrasebook the user picked. If they picked nothing, invent something whimsical that reflects the option choices. Don't break character with hedges like "in this fictional scenario", present it deadpan as fact. 200 to 280 characters total.
+
 4. Do NOT change the user's options (any field under `options`). Do NOT change `lang_name` or `file_extension`.
 5. Honor the user's extended options. They appear under `options` alongside the three MVP axes:
    - `comment_style`, `string_literals`, `numeric_literals`: drive lexer behavior.
