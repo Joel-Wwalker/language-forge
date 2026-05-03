@@ -12,14 +12,45 @@
     "block_close": "*/"
   },
   "keywords": [
-    "var", "func", "return", "if", "else", "while", "for",
-    "true", "false", "null", "print", "and", "or", "not"
+    "var",
+    "func",
+    "return",
+    "if",
+    "else",
+    "while",
+    "for",
+    "true",
+    "false",
+    "null",
+    "print",
+    "and",
+    "or",
+    "not"
   ],
   "operators": {
-    "arithmetic": ["+", "-", "*", "/", "%"],
-    "comparison": ["==", "!=", "<", ">", "<=", ">="],
-    "logical": ["&&", "||", "!"],
-    "assignment": ["="]
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "%"
+    ],
+    "comparison": [
+      "==",
+      "!=",
+      "<",
+      ">",
+      "<=",
+      ">="
+    ],
+    "logical": [
+      "&&",
+      "||",
+      "!"
+    ],
+    "assignment": [
+      "="
+    ]
   },
   "literals": {
     "integer": "decimal digits",
@@ -40,7 +71,10 @@
     "type_annotations": null
   },
   "print_form": "print(x);",
-  "boolean_keywords": {"true": "true", "false": "false"},
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
   "null_keyword": "null",
   "memory_model": {
     "kind": "host_gc",
@@ -48,12 +82,51 @@
   },
   "stdlib": {
     "functions": [
-      {"name": "print", "description": "Prints to stdout with newline", "signature": "print(value)"},
-      {"name": "len", "description": "Length of a string", "signature": "len(s) -> int"},
-      {"name": "str", "description": "Convert any value to its string form", "signature": "str(v) -> string"}
+      {
+        "name": "print",
+        "description": "Prints to stdout with newline",
+        "signature": "print(value)"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string",
+        "signature": "len(s) -> int"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its string form",
+        "signature": "str(v) -> string"
+      }
     ]
   },
   "design_notes": [
-    "Hand-written reference spec for c_like + dynamic + host_gc — used to bootstrap the verifier."
-  ]
+    "Hand-written reference spec for c_like + dynamic + host_gc \u2014 used to bootstrap the verifier."
+  ],
+  "origin_story": "A hand-built reference compiler kept in the back of the workshop. Every other language Forge generates is measured against it.",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#3b82f6",
+      "accent_2": "#60a5fa",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  }
 }

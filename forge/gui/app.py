@@ -185,11 +185,24 @@ def create_app() -> Flask:
             spec = d / "resolved_spec.json"
             ext = ".toy"
             opts = {}
+            origin_story = ""
+            theme_sources = {}
+            theme_tokens = {}
             if spec.exists():
                 try:
                     data = json.loads(spec.read_text(encoding="utf-8"))
                     ext = data.get("file_extension", ext)
                     opts = data.get("options", {})
+                    origin_story = data.get("origin_story", "") or ""
+                    theme_sources = (data.get("theme") or {}).get("sources") or {}
+                    # Send a tiny token subset for Library card swatches —
+                    # bg/text/accent are enough to render a 1-line preview.
+                    full_tokens = (data.get("theme") or {}).get("tokens") or {}
+                    theme_tokens = {
+                        k: full_tokens[k] for k in ("bg", "text", "accent",
+                                                     "font_family", "mono_font")
+                        if k in full_tokens
+                    }
                 except Exception:
                     pass
             # Truth-source: canonical tests + curated examples actually on disk.
@@ -204,6 +217,9 @@ def create_app() -> Flask:
                 "ext": ext,
                 "options": opts,
                 "shipped": sorted(set(shipped)),
+                "origin_story": origin_story,
+                "theme_sources": theme_sources,
+                "theme_tokens": theme_tokens,
             })
         return jsonify({"languages": out})
 
@@ -1073,6 +1089,49 @@ def create_app() -> Flask:
         if not path.exists():
             return jsonify({"error": "no spec"}), 404
         return jsonify(json.loads(path.read_text(encoding="utf-8")))
+
+    @app.route("/api/theme/<lang>.css")
+    def theme_for(lang):
+        """Per-language CSS theme (roadmap §3.1).
+
+        Backfills `<lang>/theme.css` on demand from the spec if it's missing
+        or stale, then serves it as text/css. The GUI <link>'s this when a
+        language is selected so the surface picks up the language's identity.
+        """
+        from flask import Response
+        if not lang.isidentifier():
+            return Response("/* invalid lang */", mimetype="text/css", status=400)
+        lang_dir = (WORKSPACE / "generated" / lang).resolve()
+        gen_root = (WORKSPACE / "generated").resolve()
+        if not lang_dir.exists() or not lang_dir.is_relative_to(gen_root):
+            return Response("/* no such language */", mimetype="text/css", status=404)
+        theme_path = lang_dir / "theme.css"
+        spec_path = lang_dir / "resolved_spec.json"
+        if spec_path.exists():
+            try:
+                spec = json.loads(spec_path.read_text(encoding="utf-8"))
+                from forge.orchestrator.style_tokens import (
+                    style_tokens_for, render_theme_css,
+                )
+                tokens = (spec.get("theme") or {}).get("tokens")
+                if not tokens:
+                    # Backfill from sources (or fall through to default tokens)
+                    sources = (spec.get("theme") or {}).get("sources") or {}
+                    tokens = style_tokens_for(
+                        persona=sources.get("persona"),
+                        era=sources.get("era"),
+                        theme=sources.get("keyword_theme"),
+                        phrasebook=sources.get("phrasebook"),
+                    )
+                css = render_theme_css(tokens)
+                theme_path.write_text(css, encoding="utf-8")
+            except Exception:
+                pass
+        if theme_path.exists():
+            return Response(theme_path.read_text(encoding="utf-8"),
+                            mimetype="text/css",
+                            headers={"Cache-Control": "no-store"})
+        return Response("/* no theme */", mimetype="text/css", status=404)
 
     @app.route("/api/log/<lang>")
     def log_listing(lang):

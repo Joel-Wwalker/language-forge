@@ -454,6 +454,26 @@ def build_spec(options: Options, lang_name: str, *,
     for w in warnings(issues):
         spec["design_notes"].append(f"[coherence] {w.message}")
 
+    # ---- Roadmap §3.1: per-language visual theme ----
+    # Merge style_tokens from chosen presets so the generator can emit
+    # `<lang>/theme.css` and the GUI knows how to dress this language.
+    # Stored on spec.theme so it ALSO reaches the resolver / readme prompts.
+    from .style_tokens import style_tokens_for
+    spec["theme"] = {
+        "tokens": style_tokens_for(
+            persona=persona,
+            era=era,
+            theme=keyword_theme,
+            phrasebook=phrasebook,
+        ),
+        "sources": {
+            "persona": persona,
+            "era": era,
+            "keyword_theme": keyword_theme,
+            "phrasebook": phrasebook,
+        },
+    }
+
     validate_spec(spec)
     return spec
 

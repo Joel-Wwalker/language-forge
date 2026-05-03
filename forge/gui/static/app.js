@@ -8,6 +8,39 @@ let currentLang = null;
 let providers = { available: { api: false, claude_cli: false }, default: 'api' };
 
 // ============================================================
+// Roadmap §3.1 — per-language theme swapper
+// ============================================================
+// Each language has its own theme.css emitted by the generator. The
+// GUI swaps the <link id="lang-theme-link"> stylesheet href + sets
+// body[data-lang-theme="<lang>"] so the per-lang `:root` overrides
+// activate. Decoration overlay (scanlines / parchment) is rendered
+// via a `.theme-deco` div the swapper toggles.
+function applyLangTheme(lang) {
+  const link = document.getElementById('lang-theme-link');
+  const body = document.body;
+  if (!link) return;
+  if (!lang) {
+    link.href = '';
+    link.disabled = true;
+    body.removeAttribute('data-lang-theme');
+    document.querySelector('.theme-deco')?.remove();
+    return;
+  }
+  // Cache-bust on language change so we always pick up the latest theme.
+  const url = `/api/theme/${encodeURIComponent(lang)}.css?t=${Date.now()}`;
+  link.href = url;
+  link.disabled = false;
+  body.setAttribute('data-lang-theme', lang);
+  // Ensure the decoration overlay div exists; the per-lang :root rule
+  // either shows it (scanlines / parchment) or leaves it transparent.
+  if (!document.querySelector('.theme-deco')) {
+    const deco = document.createElement('div');
+    deco.className = 'theme-deco';
+    body.append(deco);
+  }
+}
+
+// ============================================================
 // Toast notifications (replaces alert)
 // ============================================================
 function toast(msg, kind = 'info', duration = 3500) {
@@ -590,16 +623,34 @@ async function refreshLibrary() {
   empty.hidden = true;
   list.hidden = false;
   for (const lang of languages) {
-    const card = document.createElement('div');
+    const card = document.createElement('article');
     card.className = 'lang-card';
     const opts = lang.options || {};
     const tags = ['syntax', 'typing', 'memory']
-      .map(k => opts[k] ? `<span class="tag">${opts[k]}</span>` : '')
+      .map(k => opts[k] ? `<span class="tag">${escapeHtml(opts[k])}</span>` : '')
       .filter(Boolean).join('');
+    // Roadmap §3.1: per-card theme preview swatch using the language's
+    // own palette. Uses inline style so the surrounding GUI doesn't need
+    // the per-lang CSS pulled in.
+    const tk = lang.theme_tokens || {};
+    const swatchStyle = (tk.bg && tk.text)
+      ? `background:${tk.bg};color:${tk.text};font-family:${tk.font_family || "'JetBrains Mono', monospace"};border-color:${tk.accent || 'currentColor'}`
+      : '';
+    const accentBar = tk.accent ? `style="background:${tk.accent}"` : '';
+    // Roadmap §5.2: origin story replaces the bland tag list as the lede.
+    const lore = lang.origin_story
+      ? `<p class="lc-lore">${escapeHtml(lang.origin_story)}</p>`
+      : '<p class="lc-lore muted">Generated from your option choices.</p>';
     card.innerHTML = `
+      <div class="lc-accent" ${accentBar}></div>
       <div class="lc-head">
-        <div class="lc-name">${lang.name}<span class="lc-ext">${lang.ext}</span></div>
+        <div class="lc-name">${escapeHtml(lang.name)}<span class="lc-ext">${escapeHtml(lang.ext)}</span></div>
         <span class="lc-status status-pill checking" data-status>checking…</span>
+      </div>
+      ${lore}
+      <div class="lc-swatch" ${swatchStyle ? `style="${swatchStyle}"` : ''}>
+        <span class="lc-swatch-prompt">$</span>
+        <span class="lc-swatch-code">${escapeHtml(lang.name)} hello.${escapeHtml((lang.ext || '').replace(/^\./, ''))}</span>
       </div>
       <div class="lc-tags">${tags || '<span class="muted">no tags</span>'}</div>
       <div class="lc-actions lc-primary">
@@ -848,6 +899,7 @@ $('#play-lang').addEventListener('change', async (ev) => {
   const opt = ev.target.selectedOptions[0];
   $('#play-ext').textContent = opt ? opt.dataset.ext : '';
   currentLang = ev.target.value || null;
+  applyLangTheme(currentLang);  // roadmap §3.1: swap visual identity
 
   // Reset the example dropdown whenever the language changes. A stale
   // selection that's invalid for the new language would silently load
@@ -1170,6 +1222,7 @@ $('#kata-lang')?.addEventListener('change', (ev) => loadKataPack(ev.target.value
 async function loadKataPack(lang) {
   if (!lang) return;
   currentLang = lang;
+  applyLangTheme(lang);  // roadmap §3.1: themed kata workspace
   // Remember which kata was open so we can re-select it after a reload —
   // otherwise force=true reloads leave the GUI showing a stale `currentKata`
   // object that no longer matches the freshly-validated pack.

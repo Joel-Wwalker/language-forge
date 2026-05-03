@@ -247,6 +247,19 @@
         }
       },
       "additionalProperties": false
+    },
+    "theme": {
+      "type": "object",
+      "description": "Per-language visual identity (roadmap §3.1).",
+      "properties": {
+        "tokens": {"type": "object", "additionalProperties": {"type": "string"}},
+        "sources": {"type": "object", "additionalProperties": true}
+      },
+      "additionalProperties": true
+    },
+    "origin_story": {
+      "type": "string",
+      "description": "In-world 2-3 sentence description of where this language came from (roadmap §5.2 lore framing). Resolver fills this in."
     }
   },
   "additionalProperties": false

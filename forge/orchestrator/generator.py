@@ -422,6 +422,21 @@ def _render_templates(spec: dict, lang_dir: Path) -> None:
     for filename, content in rendered.items():
         (lang_dir / filename).write_text(content, encoding="utf-8")
 
+    # Roadmap §3.1: per-language CSS theme. Always written (the spec always
+    # has spec.theme thanks to spec_builder); the GUI fetches it when this
+    # language becomes active.
+    _render_theme_css(spec, lang_dir)
+
+
+def _render_theme_css(spec: dict, lang_dir: Path) -> None:
+    """Write `<lang>/theme.css` from the spec's theme tokens."""
+    from .style_tokens import render_theme_css
+    tokens = (spec.get("theme") or {}).get("tokens") or {}
+    if not tokens:
+        return
+    css = render_theme_css(tokens)
+    (lang_dir / "theme.css").write_text(css, encoding="utf-8")
+
 
 def render_standalone_repl(spec: dict, lang_dir: Path) -> str:
     """Render a single self-contained HTML file that runs the language in the
