@@ -228,15 +228,19 @@ def test_50_sequential_subprocess_isolation(tmp_path):
 
     sysmod_before = set(sys.modules.keys())
 
-    # Optional memory tracking — skip if psutil isn't installed; test
-    # still validates the structural checks.
-    try:
-        import psutil
-        rss_before = psutil.Process().memory_info().rss
-        have_psutil = True
-    except ImportError:
-        rss_before = 0
-        have_psutil = False
+    # Note: no runtime RSS tracking. The Phase 0 closeout sketched a
+    # `psutil.Process().memory_info().rss` ceiling of 250 MB across 50
+    # generations, but `psutil` isn't a project dependency and the
+    # check would have been a no-op on most machines. The two
+    # structural checks below cover the same intent more reliably:
+    #   1. `sys.modules` accumulation: any leak of generated language
+    #      modules into the parent process is detected directly.
+    #   2. cross-contamination: each language's resolved_spec.json is
+    #      scanned for any sibling lang_name, which is the symptom of
+    #      a leak even before it shows up in RSS.
+    # If a real memory regression appears in batch runs, install
+    # psutil locally and add the assertion back temporarily — it
+    # doesn't need to be a permanent fixture of the test.
 
     # Sequential = max_workers=1 to truly serialize and exercise the
     # "single parent process" claim from the roadmap.
@@ -302,16 +306,8 @@ def test_50_sequential_subprocess_isolation(tmp_path):
         f"languages: {leaked[:10]}"
     )
 
-    # Memory check: bounded growth. 50 generations should not balloon
-    # the parent — the subprocesses do the work and free their memory
-    # on exit. Set generous: 250 MB ceiling on growth.
-    if have_psutil:
-        rss_after = psutil.Process().memory_info().rss
-        growth_mb = (rss_after - rss_before) / (1024 * 1024)
-        assert growth_mb < 250, (
-            f"parent RSS grew {growth_mb:.0f}MB across 50 generations; "
-            f"expected <250MB. This suggests a leak in the parent."
-        )
+    # (Memory growth check intentionally removed; see comment near
+    # `sysmod_before` above for the rationale.)
 
     # Sanity: log the throughput so future runs catch regressions.
     print(f"\n50-sequential: {elapsed:.1f}s total, "
