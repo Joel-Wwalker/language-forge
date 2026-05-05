@@ -1,0 +1,3 @@
+hello, world
+forth says: stack first
+pushed string

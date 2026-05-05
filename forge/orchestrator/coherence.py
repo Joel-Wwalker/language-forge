@@ -156,6 +156,103 @@ def _check_no_mutation_immutable_consistency(opts: dict) -> Optional[Issue]:
     return None
 
 
+def _check_s_expression_static_uses_inference(opts: dict) -> Optional[Issue]:
+    """static + s_expression -> Typed Racket / Hy-style: separate `(: name type)`
+    annotations with inference (the Lisp-typed tradition).
+
+    Heads-up only; the typing_overlay handles it correctly. We surface it
+    so design_notes mentions the choice.
+    """
+    if opts.get("typing") == "static" and opts.get("syntax") == "s_expression":
+        return Issue(
+            severity="warning",
+            code="static_s_expression_typed_racket",
+            message=("typing=static with syntax=s_expression: types are declared "
+                     "via `(: name type)` forms (Typed Racket / Hy convention) "
+                     "with inference enabled."),
+        )
+    return None
+
+
+def _check_s_expression_phrasebook_conflict(opts: dict) -> Optional[Issue]:
+    """phrasebook + s_expression is a contradiction.
+
+    Phrasebooks replace keyword forms with sentence templates ("set <name>
+    to <value>."). S-expression languages have no statement-shaped forms
+    to template — every form is a parenthesized list. The two compose
+    poorly; warn loudly.
+    """
+    # We can't see the phrasebook field directly here (it lives on
+    # customization, not options), but the option dict gets a synthetic
+    # "phrasebook" key when one is set. Best-effort detection.
+    if opts.get("syntax") == "s_expression" and opts.get("phrasebook"):
+        return Issue(
+            severity="warning",
+            code="s_expression_with_phrasebook",
+            message=("syntax=s_expression with a phrasebook: phrasebooks template "
+                     "statement-shaped forms, but Lisp languages have no statements "
+                     "(every form is `(op ...)`). The phrasebook will be ignored "
+                     "in most positions."),
+            suggestion="drop the phrasebook, or pick c_like / python_like instead",
+        )
+    return None
+
+
+def _check_stack_based_phrasebook_conflict(opts: dict) -> Optional[Issue]:
+    """phrasebook + stack_based is incompatible.
+
+    Phrasebooks template statement-shaped forms ("set <name> to <value>.").
+    Stack-based languages don't have statements - they have a stream of
+    tokens that manipulate an implicit stack. The phrasebook would be
+    ignored almost everywhere. Warn loudly.
+    """
+    if opts.get("syntax") == "stack_based" and opts.get("phrasebook"):
+        return Issue(
+            severity="warning",
+            code="stack_based_with_phrasebook",
+            message=("syntax=stack_based with a phrasebook: phrasebooks template "
+                     "statement-shaped forms, but stack-based languages have no "
+                     "statements (just a stream of tokens that push/pop the "
+                     "data stack). The phrasebook will be ignored."),
+            suggestion="drop the phrasebook, or pick c_like / python_like / s_expression",
+        )
+    return None
+
+
+def _check_stack_based_no_loops_uses_recursion(opts: dict) -> Optional[Issue]:
+    """no_loops + stack_based forces all iteration through recursion.
+
+    Forth typically uses `begin ... until` for iteration. Banning loops
+    is more restrictive in Forth than in c_like because Forth has no
+    obvious functional alternatives like Lisp's recursion-into-tail-call.
+    Doable but unusual.
+    """
+    bans = set(opts.get("feature_bans") or [])
+    if opts.get("syntax") == "stack_based" and "no_loops" in bans:
+        return Issue(
+            severity="warning",
+            code="stack_based_no_loops_unusual",
+            message=("syntax=stack_based + feature_bans=no_loops: stack languages "
+                     "lean heavily on `begin/until` and `do/loop`. Banning these "
+                     "forces every algorithm into recursive colon definitions, "
+                     "which is doable but feels alien."),
+        )
+    return None
+
+
+def _check_s_expression_braces_indent_mismatch(opts: dict) -> Optional[Issue]:
+    """s_expression languages use parens, not braces or indent.
+
+    `comment_style=nestable_block` is fine (`#| ... |#` nests in Scheme).
+    But if a user picks options that explicitly imply a c_like / python_like
+    surface (via apply_era's preset overrides), we want to flag it.
+
+    For v1 this is informational; we don't refuse the combo because
+    apply_era already overlays per-syntax defaults.
+    """
+    return None  # placeholder for future tightening
+
+
 def _check_loop_forms_empty(opts: dict) -> Optional[Issue]:
     """Empty loop_forms with no `no_loops` ban is suspicious."""
     lf = opts.get("loop_forms")
@@ -179,6 +276,11 @@ _RULES = [
     _check_eager_short_circuit_op_set,
     _check_no_exceptions_must_have_failure,
     _check_no_mutation_immutable_consistency,
+    _check_s_expression_static_uses_inference,
+    _check_s_expression_phrasebook_conflict,
+    _check_s_expression_braces_indent_mismatch,
+    _check_stack_based_phrasebook_conflict,
+    _check_stack_based_no_loops_uses_recursion,
     _check_loop_forms_empty,
 ]
 

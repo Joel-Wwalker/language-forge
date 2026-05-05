@@ -28,3 +28,6 @@ exclude = ["generated*", "tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+markers = [
+    "slow: tests that take more than ~1 minute (50-sequential subprocess isolation, etc.). Run with `pytest -m slow` or skip with `pytest -m 'not slow'`.",
+]

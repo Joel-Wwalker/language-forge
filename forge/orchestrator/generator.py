@@ -27,6 +27,25 @@ from .llm_client import LLMClient
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 
+# Hand-written reference compilers shipped with Forge. When the user picks
+# one of these syntax families, the orchestrator templates from the reference
+# instead of asking the LLM to regenerate every component. That drops
+# generation time from ~15min to seconds and removes a whole class of LLM
+# bugs (e.g. closures emitting `(lambda : ()[-1])` from `...` placeholders).
+WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_COMPILERS = {
+    "s_expression": WORKSPACE_ROOT / "generated" / "lisplang",
+    "stack_based":  WORKSPACE_ROOT / "generated" / "forthlang",
+    # `c_like` doesn't go through this path because the LLM produces good
+    # c_like grammars from the parser.md examples; toylang stays as the
+    # mechanical-translator reference and curated-test source.
+}
+
+# Components a reference compiler can supply verbatim (with module-name
+# substitution). The remaining components (tests, readme, language_reference)
+# still go through the LLM so they get language-specific personality.
+TEMPLATABLE_COMPONENTS = {"parser", "lexer", "codegen", "runtime", "stdlib"}
+
 
 # Order matters: each later component may reference names defined in earlier ones.
 # `typechecker` is conditional on static typing; tests/readme don't change runtime.
@@ -56,6 +75,115 @@ def components_for(spec: dict) -> list[str]:
 
 def _load_prompt(name: str) -> str:
     return (PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8")
+
+
+def reference_compiler_for(spec: dict) -> Optional[Path]:
+    """Return the path to a hand-written reference compiler if one exists
+    for this spec's syntax family, else None.
+
+    Currently only `s_expression` languages template from a reference
+    (lisplang). The reference must have a working `parser.py`, `codegen.py`,
+    `runtime.py`, `stdlib.py`, `lexer.py`, `__init__.py`, `compile.py`, and
+    a `tests/` directory with the canonical 8 tests.
+    """
+    syntax = (spec.get("options") or {}).get("syntax")
+    ref = REFERENCE_COMPILERS.get(syntax)
+    if ref is None or not ref.exists():
+        return None
+    return ref
+
+
+def _template_from_reference(spec: dict, lang_dir: Path,
+                             ref_dir: Path) -> set[str]:
+    """Copy the reference compiler's core files into `lang_dir`, swapping
+    the package name. Returns the set of components that have been
+    fulfilled by the template (so generate_all can skip them).
+
+    Substitutions performed in each .py file:
+      - `from <ref_name>.runtime import` → `from <lang_name>.runtime import`
+      - `from <ref_name>.parser import`  → `from <lang_name>.parser import`
+      - `from <ref_name>.codegen import` → `from <lang_name>.codegen import`
+      - module-level `<ref_name>` references in `compile.py`'s argparse
+        and the prelude's import block.
+
+    File extension in tests is rewritten from the reference's extension
+    (`.lsp`) to the spec's `file_extension`.
+    """
+    ref_name = ref_dir.name           # e.g. "lisplang"
+    lang_name = spec["lang_name"]     # e.g. "mylisp"
+    target_ext = spec["file_extension"]
+    # Detect the reference's extension by inspecting one of its tests.
+    ref_ext = ".lsp"
+    ref_tests = ref_dir / "tests"
+    if ref_tests.exists():
+        for f in ref_tests.iterdir():
+            if f.suffix and f.suffix not in (".txt",):
+                ref_ext = f.suffix
+                break
+
+    fulfilled: set[str] = set()
+
+    def _rewrite(text: str) -> str:
+        # Module name swaps. Doing the import-statement form first prevents
+        # accidentally rewriting the word "lisplang" inside a docstring or
+        # comment.
+        out = text
+        out = out.replace(f"from {ref_name}.", f"from {lang_name}.")
+        out = out.replace(f"import {ref_name}.", f"import {lang_name}.")
+        # CLI prog name + the `python -m <ref_name>.compile` doc string.
+        out = out.replace(f"prog=\"{ref_name}\"", f"prog=\"{lang_name}\"")
+        out = out.replace(f"-m {ref_name}", f"-m {lang_name}")
+        return out
+
+    # 1. Code components.
+    file_to_component = {
+        "parser.py": "parser",
+        "lexer.py": "lexer",
+        "codegen.py": "codegen",
+        "runtime.py": "runtime",
+        "stdlib.py": "stdlib",
+    }
+    for fname, comp in file_to_component.items():
+        src_path = ref_dir / fname
+        if not src_path.exists():
+            continue
+        dst_path = lang_dir / fname
+        text = src_path.read_text(encoding="utf-8")
+        dst_path.write_text(_rewrite(text), encoding="utf-8")
+        fulfilled.add(comp)
+
+    # 2. __init__.py and compile.py
+    for fname in ("__init__.py", "compile.py"):
+        src_path = ref_dir / fname
+        if not src_path.exists():
+            continue
+        text = src_path.read_text(encoding="utf-8")
+        (lang_dir / fname).write_text(_rewrite(text), encoding="utf-8")
+
+    # 3. Canonical tests. We copy the reference's tests verbatim, renaming
+    # only the file extension so the verifier finds them. The reference
+    # author has hand-vetted these against the reference compiler, which
+    # the user's language now IS (modulo a name swap).
+    if ref_tests.exists():
+        dst_tests = lang_dir / "tests"
+        dst_tests.mkdir(exist_ok=True)
+        for src_file in ref_tests.iterdir():
+            if not src_file.is_file():
+                continue
+            if src_file.suffix == ".txt":
+                # `<name>.expected_output.txt` - copy verbatim
+                (dst_tests / src_file.name).write_text(
+                    src_file.read_text(encoding="utf-8"), encoding="utf-8"
+                )
+            elif src_file.suffix == ref_ext:
+                stem = src_file.stem
+                src_text = src_file.read_text(encoding="utf-8")
+                (dst_tests / f"{stem}{target_ext}").write_text(
+                    src_text, encoding="utf-8"
+                )
+        fulfilled.add("tests")
+
+    return fulfilled
 
 
 def _interp(template: str, spec: dict, **extras) -> str:
@@ -149,6 +277,16 @@ def _generate_code_component(name: str, spec: dict, lang_dir: Path, client: LLMC
 
 
 def _generate_readme(spec: dict, lang_dir: Path, client: LLMClient) -> Path:
+    # Templated languages (s_expression / stack_based) get a deterministic
+    # README rendered from the spec instead of an LLM call. Saves 10-30s
+    # of API latency and stays consistent with the hand-written reference
+    # compiler. Only the c_like / python_like / phrasebook languages, which
+    # already vary widely, still go through the LLM for a personality-
+    # driven readme.
+    if reference_compiler_for(spec) is not None:
+        target = lang_dir / "README.md"
+        _write(target, _render_templated_readme(spec))
+        return target
     prompt = (
         _interp(_load_prompt("readme"), spec)
         + _user_customization_for("readme", spec)
@@ -159,8 +297,111 @@ def _generate_readme(spec: dict, lang_dir: Path, client: LLMClient) -> Path:
     return target
 
 
+def _render_templated_readme(spec: dict) -> str:
+    """Deterministic README for templated languages. We know the surface
+    syntax + semantics exactly (they came from a hand-written reference)
+    so a parameterized template is more accurate than an LLM call."""
+    name = spec["lang_name"]
+    syntax = spec["options"]["syntax"]
+    typing = spec["options"]["typing"]
+    memory = spec["options"]["memory"]
+    ext = spec["file_extension"]
+    origin = spec.get("origin_story") or ""
+    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
+    var_ex  = (spec.get("variable_declaration") or {}).get("syntax_example", "")
+    print_ex = spec.get("print_form", "")
+    family_blurb = {
+        "s_expression": "Lisp-style: every form is `(operator operand ...)`. Code is data.",
+        "stack_based":  "Forth-style: postfix evaluation on an implicit data stack.",
+    }.get(syntax, "")
+
+    lines = [f"# {name}\n"]
+    if origin:
+        lines.append(f"_{origin.strip()}_\n")
+    lines.append(f"A {syntax} language with {typing} typing and {memory} memory.\n")
+    if family_blurb:
+        lines.append(family_blurb + "\n")
+    lines.append("## At a glance\n")
+    lines.append("```")
+    if func_ex: lines.append(func_ex)
+    if var_ex:  lines.append(var_ex)
+    if print_ex: lines.append(print_ex)
+    lines.append("```\n")
+    lines.append("## Run\n")
+    lines.append(f"```bash")
+    lines.append(f"python -m {name}.compile path/to/program{ext}")
+    lines.append(f"python path/to/program{ext}.out.py")
+    lines.append("```\n")
+    lines.append("## Examples\n")
+    lines.append(f"See `examples/` and `tests/` for working programs.")
+    lines.append(f"Each canonical test (`hello_world{ext}`, `arithmetic{ext}`, ...) is")
+    lines.append(f"verified end-to-end.")
+    return "\n".join(lines) + "\n"
+
+
+def _render_templated_language_reference(spec: dict) -> str:
+    """Deterministic LANGUAGE.md for templated languages. Spec already
+    documents every surface form; we just lay it out as Markdown."""
+    name = spec["lang_name"]
+    syntax = spec["options"]["syntax"]
+    fd = spec.get("function_definition") or {}
+    vd = spec.get("variable_declaration") or {}
+    cs = spec.get("comment_syntax") or {}
+    bk = spec.get("boolean_keywords") or {}
+    ops = spec.get("operators") or {}
+
+    lines = [f"# {name} language reference\n"]
+    lines.append(f"Family: **{syntax}**.")
+    lines.append(f"Typing: **{spec['options']['typing']}**.")
+    lines.append(f"Memory: **{spec['options']['memory']}**.\n")
+
+    lines.append("## Lexical syntax\n")
+    if cs.get("line"):
+        lines.append(f"- Line comments: `{cs['line']}`")
+    if cs.get("block_open") and cs.get("block_close"):
+        lines.append(f"- Block comments: `{cs['block_open']} ... {cs['block_close']}`")
+    lines.append(f"- Statement terminator: `{spec.get('statement_terminator')!r}`")
+    lines.append(f"- Block style: {spec.get('block_style')}")
+    lines.append("")
+
+    lines.append("## Function definition\n")
+    lines.append("```")
+    lines.append(fd.get("syntax_example", ""))
+    lines.append("```\n")
+
+    lines.append("## Variable declaration\n")
+    lines.append("```")
+    lines.append(vd.get("syntax_example", ""))
+    lines.append("```\n")
+
+    lines.append("## Booleans + null\n")
+    lines.append(f"- True: `{bk.get('true', '?')}`")
+    lines.append(f"- False: `{bk.get('false', '?')}`")
+    lines.append(f"- Null: `{spec.get('null_keyword', '?')}`")
+    lines.append("")
+
+    lines.append("## Operators\n")
+    for cat in ("arithmetic", "comparison", "logical", "assignment"):
+        items = ops.get(cat) or []
+        if items:
+            lines.append(f"- **{cat}**: " + ", ".join(f"`{op}`" for op in items))
+    lines.append("")
+
+    stdlib = (spec.get("stdlib") or {}).get("functions") or []
+    if stdlib:
+        lines.append("## Stdlib\n")
+        for fn in stdlib:
+            lines.append(f"- `{fn['name']}` — {fn.get('description', '')}")
+
+    return "\n".join(lines) + "\n"
+
+
 def _generate_language_reference(spec: dict, lang_dir: Path, client: LLMClient) -> Path:
     """Emit `LANGUAGE.md`: the formal language reference."""
+    if reference_compiler_for(spec) is not None:
+        target = lang_dir / "LANGUAGE.md"
+        _write(target, _render_templated_language_reference(spec))
+        return target
     prompt = (
         _interp(_load_prompt("language_reference"), spec)
         + _sibling_context("language_reference", lang_dir)
@@ -693,7 +934,7 @@ def _translate_comments(src: str, syntax: str, comment_syntax: dict) -> str:
             if line_form == "//":
                 out.append(raw)                                  # already accepted
             elif line_form and line_form != "//":
-                out.append(f"{indent}{line_form} {body}")        # e.g. `# foo`
+                out.append(f"{indent}{line_form} {body}")        # e.g. `# foo` or `; foo`
             elif block_open and block_close:
                 out.append(f"{indent}{block_open} {body} {block_close}")
             else:
@@ -701,11 +942,32 @@ def _translate_comments(src: str, syntax: str, comment_syntax: dict) -> str:
                 out.append(indent.rstrip())
             continue
         if stripped.startswith("#") and line_form not in ("#", None):
-            # python_like sample on a c_like target. Convert to `//`.
+            # python_like sample on a c_like-or-other target. Convert.
             indent = raw[: len(raw) - len(stripped)]
             body = stripped[1:].lstrip()
             if line_form == "//":
                 out.append(f"{indent}// {body}")
+            elif line_form == ";":
+                out.append(f"{indent}; {body}")
+            elif block_open and block_close:
+                out.append(f"{indent}{block_open} {body} {block_close}")
+            else:
+                out.append(indent.rstrip())
+            continue
+        # s_expression-style `;` line comment on a non-Lisp target.
+        # `;` looks the same as a c_like statement terminator, so we only
+        # rewrite when the line starts with `;` followed by space-or-end
+        # (i.e. obviously a comment, not an empty c_like statement). And
+        # only when the target's line_form ISN'T `;` (otherwise no-op).
+        if (line_form not in (";", None) and stripped.startswith(";")
+                and (len(stripped) == 1 or stripped[1] in " \t;")):
+            indent = raw[: len(raw) - len(stripped)]
+            # Trim leading `;` runs (covers `;;` Scheme-style top-level comments)
+            body = stripped.lstrip(";").lstrip()
+            if line_form == "//":
+                out.append(f"{indent}// {body}")
+            elif line_form == "#":
+                out.append(f"{indent}# {body}")
             elif block_open and block_close:
                 out.append(f"{indent}{block_open} {body} {block_close}")
             else:
@@ -772,31 +1034,57 @@ def _emit_examples(spec: dict, lang_dir: Path) -> None:
 
     # A sample is shippable only when BOTH (a) the runtime has the helper
     # and (b) codegen's PRELUDE imports it. Either gap breaks the example.
+    # Computed ONCE before the loop (was previously read inside each
+    # iteration in older code paths).
     available = _runtime_available_helpers(lang_dir) & _codegen_imports(lang_dir)
 
-    written = []
+    # Stage 1: prepare candidates (cheap, no subprocess). Filter by
+    # available helpers and translate comments.
+    candidates: list[tuple[str, str, Path]] = []   # (key, translated_src, target_path)
     for key in SAMPLES:
         needs = _SAMPLE_REQUIREMENTS.get(key, set())
-        stale = examples_dir / f"{key}{ext}"
+        target = examples_dir / f"{key}{ext}"
         if not needs.issubset(available):
-            if stale.exists():
-                try: stale.unlink()
+            if target.exists():
+                try: target.unlink()
                 except OSError: pass
             continue
-        src = get_sample(key, syntax)
+        # Pass the full spec so s_expression mechanical transpilation has
+        # the language's keyword overrides + null/boolean keywords.
+        src = get_sample(key, syntax, spec=spec)
         if not src:
             continue
         translated = _translate_comments(src, syntax, comment_syntax)
-        # Real check: actually try to compile the sample through the
-        # language's own parser+codegen. Any failure (syntax not supported,
-        # operator missing, etc.) means we skip it cleanly.
-        if not _compile_check(lang_dir, translated):
-            if stale.exists():
-                try: stale.unlink()
-                except OSError: pass
-            continue
-        stale.write_text(translated, encoding="utf-8")
-        written.append(key)
+        candidates.append((key, translated, target))
+
+    # Stage 2: parallel compile-check. Each `_compile_check` spawns
+    # Python twice; on Windows that's ~50-200ms per spawn. Running 4
+    # in parallel turns ~1.6s sequential into ~400ms wall-clock for a
+    # typical 8-sample pack.
+    written: list[str] = []
+    if candidates:
+        import concurrent.futures as _cf
+        max_workers = min(4, len(candidates))
+        with _cf.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            futures = {
+                pool.submit(_compile_check, lang_dir, translated): (key, translated, target)
+                for key, translated, target in candidates
+            }
+            for fut in _cf.as_completed(futures):
+                key, translated, target = futures[fut]
+                try:
+                    ok = fut.result()
+                except Exception:
+                    ok = False
+                if ok:
+                    target.write_text(translated, encoding="utf-8")
+                    written.append(key)
+                else:
+                    if target.exists():
+                        try: target.unlink()
+                        except OSError: pass
+    # Stable order regardless of completion order
+    written.sort(key=lambda k: list(SAMPLES).index(k))
 
     # Drop a tiny README listing what shipped.
     listing = "\n".join(f"  - examples/{k}{ext}" for k in written) or "  (no examples)"
@@ -818,7 +1106,11 @@ def _emit_examples(spec: dict, lang_dir: Path) -> None:
 def generate_all(spec: dict, output_root: str | Path = "generated", *,
                  client: Optional[LLMClient] = None,
                  only: Optional[Iterable[str]] = None,
-                 on_progress: Optional[Callable[[str, str], None]] = None) -> Path:
+                 on_progress: Optional[Callable[[str, str], None]] = None,
+                 seed: Optional[int] = None,
+                 telemetry: Optional["TelemetryRecorder"] = None,
+                 write_summary: bool = True,
+                 verify_after_generation: bool = True) -> Path:  # type: ignore[name-defined]
     """Generate every component for `spec` into `<output_root>/<lang_name>/`.
 
     If `only` is given, only those components are (re)generated.
@@ -826,15 +1118,55 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     `on_progress(component, status)` is called as each component starts and
     finishes: used by the GUI to drive real-time progress updates. Status is
     one of: "running", "done", "fail".
+
+    Phase 0.4/0.5 additions:
+      seed: optional integer recorded in `generation_summary.json` for
+            reproducibility. Future-proofed; the resolver/repair LLM
+            calls don't currently honor a seed (Anthropic API doesn't
+            expose one) but the field is plumbed and stamped.
+      telemetry: an existing TelemetryRecorder (when called from a batch
+            runner that wants to aggregate). If None, a fresh recorder
+            is created and a `generation_summary.json` is written at the
+            end. Pass `write_summary=False` to suppress the write (e.g.
+            when the caller wants to merge several recorders before
+            writing).
     """
+    from .telemetry import TelemetryRecorder, attach as _attach_telem
     lang_dir = Path(output_root) / spec["lang_name"]
     lang_dir.mkdir(parents=True, exist_ok=True)
+
+    # Set up telemetry. The recorder is attached to the LLM client so
+    # every call_code/call_json/call_chat appends a record automatically.
+    own_recorder = telemetry is None
+    if telemetry is None:
+        telemetry = TelemetryRecorder(lang_name=spec["lang_name"], seed=seed)
+    # Attach the events file BEFORE any work happens so a crash in the
+    # very first component still leaves a survival record on disk.
+    # Phase 0 closeout #2: incremental telemetry writes.
+    try:
+        telemetry.attach_events_file(lang_dir / "generation_events.jsonl")
+    except Exception:
+        pass  # never fail generation because of telemetry setup
+
+    # Clear any stale __pycache__ from a previous generation. Without this,
+    # Python's bytecode cache can serve old parser.py / codegen.py bytecode
+    # even after we overwrite the .py source - the new code "doesn't take
+    # effect" until the user manually deletes the cache. Best-effort only;
+    # OSError on Windows file locks is not fatal.
+    pycache = lang_dir / "__pycache__"
+    if pycache.exists():
+        try:
+            shutil.rmtree(pycache)
+        except OSError:
+            pass
 
     log_dir = lang_dir / ".forge_log"
     if client is None:
         client = LLMClient(log_dir=log_dir)
     elif client.log_dir is None:
         client.log_dir = log_dir
+    # Attach telemetry; LLMClient picks it up via getattr in `_emit_telemetry`.
+    _attach_telem(client, telemetry)
 
     # Persist the spec next to the generated source for verifier discovery.
     (lang_dir / "resolved_spec.json").write_text(
@@ -844,6 +1176,33 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     components = list(components_for(spec))
     if only:
         components = [c for c in components if c in set(only)]
+
+    # Roadmap families.md: when a hand-written reference compiler exists
+    # for this syntax family (e.g. lisplang for s_expression), template
+    # from it instead of asking the LLM to generate parser/codegen/runtime
+    # /stdlib/lexer/tests from scratch. The remaining components (readme,
+    # language_reference, typechecker if static) still go through the LLM
+    # so the language gets per-spec personality and docs.
+    ref_dir = reference_compiler_for(spec)
+    if ref_dir is not None and not only:
+        import time as _t
+        _ref_t0 = _t.monotonic()
+        fulfilled = _template_from_reference(spec, lang_dir, ref_dir)
+        # All templated components share the elapsed time of the reference
+        # template stage; they didn't make any LLM calls. Record them so
+        # the components dict in the summary is complete (downstream
+        # quality filters will check "did every expected component finish").
+        ref_elapsed = _t.monotonic() - _ref_t0
+        per_comp = (ref_elapsed / max(1, len(fulfilled))) if fulfilled else 0.0
+        for comp in fulfilled:
+            telemetry.record_component(comp, per_comp, success=True, llm_calls_made=0)
+            if on_progress:
+                try:
+                    on_progress(comp, "running")
+                    on_progress(comp, "done")
+                except Exception:
+                    pass
+        components = [c for c in components if c not in fulfilled]
 
     def _emit(component, status):
         if on_progress:
@@ -868,15 +1227,61 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
         "language_reference": {"stdlib"},
     }
 
+    # Map component names to the LLM-call tag prefixes they use. Tags
+    # are component-identifying by convention (e.g. `gen-codegen`,
+    # `gen-readme`, `gen-language-ref`). Per-component attribution
+    # uses this map rather than a delta-snapshot, because parallel
+    # execution makes the delta over-count (both threads see each
+    # other's calls land between snapshots).
+    _COMP_TAG_PREFIXES = {
+        "parser":             ("gen-parser",),
+        "lexer":               ("gen-lexer",),
+        "typechecker":         ("gen-typechecker", "gen-typecheck"),
+        "codegen":             ("gen-codegen",),
+        "runtime":             ("gen-runtime",),
+        "stdlib":              ("gen-stdlib",),
+        "tests":               ("gen-tests",),
+        "readme":              ("gen-readme",),
+        "language_reference":  ("gen-language-ref", "gen-language-reference"),
+    }
+
+    def _count_calls_for(comp: str) -> int:
+        prefixes = _COMP_TAG_PREFIXES.get(comp, ())
+        if not prefixes:
+            return 0
+        # Note: telemetry.llm_calls is appended-to by other threads, but
+        # iterating over a list is thread-safe under the GIL. We snapshot
+        # via list() to absorb any concurrent appends cleanly.
+        snap = list(telemetry.llm_calls)
+        return sum(1 for c in snap if any(c.tag.startswith(p) for p in prefixes))
+
     def _run_component(comp: str) -> None:
-        if comp == "tests":
-            _generate_tests(spec, lang_dir, client)
-        elif comp == "readme":
-            _generate_readme(spec, lang_dir, client)
-        elif comp == "language_reference":
-            _generate_language_reference(spec, lang_dir, client)
-        else:
-            _generate_code_component(comp, spec, lang_dir, client)
+        # Phase 0 closeout #4: per-component telemetry. Tag-based
+        # attribution (see _COMP_TAG_PREFIXES) so parallel components
+        # don't double-count each other's LLM calls.
+        import time as _t
+        t0 = _t.monotonic()
+        success = True
+        try:
+            if comp == "tests":
+                _generate_tests(spec, lang_dir, client)
+            elif comp == "readme":
+                _generate_readme(spec, lang_dir, client)
+            elif comp == "language_reference":
+                _generate_language_reference(spec, lang_dir, client)
+            else:
+                _generate_code_component(comp, spec, lang_dir, client)
+        except Exception:
+            success = False
+            telemetry.record_component(
+                comp, _t.monotonic() - t0, success=False,
+                llm_calls_made=_count_calls_for(comp),
+            )
+            raise
+        telemetry.record_component(
+            comp, _t.monotonic() - t0, success=success,
+            llm_calls_made=_count_calls_for(comp),
+        )
 
     needed = set(components)
     deps = {c: DEPS.get(c, set()) & needed for c in needed}
@@ -888,51 +1293,92 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     # 4 workers covers the widest fan-out (lexer, typechecker, codegen, tests).
     # The Anthropic SDK is HTTP-bound; the Claude CLI shells out to subprocess.
     # Both release the GIL during the network/process wait, so threads parallelize fine.
-    with _cf.ThreadPoolExecutor(max_workers=4) as pool:
-        while pending or in_flight:
-            # Submit anything whose deps are satisfied.
-            ready = [c for c in list(pending) if deps[c].issubset(done)]
-            for c in ready:
-                pending.remove(c)
-                _emit(c, "running")
-                in_flight[pool.submit(_run_component, c)] = c
-            if not in_flight:
-                if pending:
-                    raise RuntimeError(f"dependency deadlock: pending={pending}, done={done}")
-                break
-            # Wait for any to finish, then loop to submit more if newly unblocked.
-            done_futs, _ = _cf.wait(in_flight.keys(), return_when=_cf.FIRST_COMPLETED)
-            for fut in done_futs:
-                comp = in_flight.pop(fut)
-                try:
-                    fut.result()
-                except Exception:
-                    _emit(comp, "fail")
-                    # Cancel pending submissions; let in-flight finish before re-raise.
-                    for f in in_flight:
-                        f.cancel()
-                    raise
-                _emit(comp, "done")
-                done.add(comp)
-
-    # Deterministic packaging: these are the files that make the language
-    # directory pip-installable as a standalone package.
-    _emit("packaging", "running")
-    _render_templates(spec, lang_dir)
-    # Patch the LLM-generated runtime.py with any missing stdlib helpers.
-    # Idempotent: a marker comment prevents double-application.
-    # Note: we deliberately do NOT auto-patch codegen.py's PRELUDE. LLM-
-    # generated codegens can encode the PRELUDE as concatenated string
-    # literals where regex-based injection breaks the Python parse. The
-    # example-filter handles this safely by skipping samples whose helpers
-    # the codegen doesn't import.
-    apply_runtime_shim(lang_dir)
-    _emit_examples(spec, lang_dir)
-    # Single-HTML in-browser REPL (zero-install demo / shareable artifact).
+    #
+    # Phase 0 closeout #2: any exception below this line still leaves the
+    # events file on disk as the survival record. The outer try/except
+    # near the bottom of this function flushes a partial summary before
+    # re-raising so debug tooling has both .json and .jsonl artifacts.
     try:
-        render_standalone_repl(spec, lang_dir)
-    except Exception:
-        # Don't fail the whole generation if the REPL renders poorly.
-        pass
-    _emit("packaging", "done")
+        with _cf.ThreadPoolExecutor(max_workers=4) as pool:
+            while pending or in_flight:
+                # Submit anything whose deps are satisfied.
+                ready = [c for c in list(pending) if deps[c].issubset(done)]
+                for c in ready:
+                    pending.remove(c)
+                    _emit(c, "running")
+                    in_flight[pool.submit(_run_component, c)] = c
+                if not in_flight:
+                    if pending:
+                        raise RuntimeError(f"dependency deadlock: pending={pending}, done={done}")
+                    break
+                # Wait for any to finish, then loop to submit more if newly unblocked.
+                done_futs, _ = _cf.wait(in_flight.keys(), return_when=_cf.FIRST_COMPLETED)
+                for fut in done_futs:
+                    comp = in_flight.pop(fut)
+                    try:
+                        fut.result()
+                    except Exception:
+                        _emit(comp, "fail")
+                        # Cancel pending submissions; let in-flight finish before re-raise.
+                        for f in in_flight:
+                            f.cancel()
+                        raise
+                    _emit(comp, "done")
+                    done.add(comp)
+
+        # Deterministic packaging: these are the files that make the language
+        # directory pip-installable as a standalone package.
+        _emit("packaging", "running")
+        _render_templates(spec, lang_dir)
+        # Patch the LLM-generated runtime.py with any missing stdlib helpers.
+        # Idempotent: a marker comment prevents double-application.
+        # Note: we deliberately do NOT auto-patch codegen.py's PRELUDE. LLM-
+        # generated codegens can encode the PRELUDE as concatenated string
+        # literals where regex-based injection breaks the Python parse. The
+        # example-filter handles this safely by skipping samples whose helpers
+        # the codegen doesn't import.
+        apply_runtime_shim(lang_dir)
+        _emit_examples(spec, lang_dir)
+        # Single-HTML in-browser REPL (zero-install demo / shareable artifact).
+        try:
+            render_standalone_repl(spec, lang_dir)
+        except Exception:
+            # Don't fail the whole generation if the REPL renders poorly.
+            pass
+        _emit("packaging", "done")
+    except Exception as _gen_exc:
+        # Phase 0 closeout #2: flush a partial summary so debug tooling can
+        # find {.json + .jsonl} on disk after a mid-run crash. Re-raise.
+        if write_summary and own_recorder:
+            try:
+                telemetry.record_error(
+                    "generate_all",
+                    f"crashed: {type(_gen_exc).__name__}: {_gen_exc}",
+                )
+                telemetry.write_summary(lang_dir)
+            except Exception:
+                pass
+        raise
+
+    # Phase 0.4: write the per-generation telemetry summary. This includes
+    # canonical-test pass rate via a quick verify pass; failure to verify
+    # is recorded as an error but doesn't break the generation (the user
+    # might still want the partial output).
+    #
+    # The verify call runs every canonical test as a subprocess and adds
+    # ~100ms per test. Tests that benchmark generation parallelism pass
+    # `verify_after_generation=False` to skip this post-processing cost.
+    if write_summary and own_recorder:
+        if verify_after_generation:
+            try:
+                from .verifier import verify
+                report = verify(lang_dir)
+                passed = sum(1 for t in report.tests if t.status == "pass")
+                telemetry.set_canonical_results(passed, len(report.tests))
+            except Exception as _ve:
+                telemetry.record_error("verifier", str(_ve))
+        try:
+            telemetry.write_summary(lang_dir)
+        except Exception:
+            pass  # never fail generation because of summary write
     return lang_dir

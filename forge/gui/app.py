@@ -43,7 +43,8 @@ class Job:
                  feature_bans: Optional[list[str]] = None,
                  hostile_constraints: Optional[str] = None,
                  phrasebook: Optional[str] = None,
-                 natural_language: Optional[dict] = None):
+                 natural_language: Optional[dict] = None,
+                 lineage: Optional[dict] = None):
         self.id = uuid.uuid4().hex[:8]
         self.opts = opts
         self.name = name
@@ -56,6 +57,7 @@ class Job:
         self.hostile_constraints = hostile_constraints
         self.phrasebook = phrasebook
         self.natural_language = natural_language
+        self.lineage = lineage
         self.queue: "queue.Queue[dict]" = queue.Queue()
         self.done = False
         self.success = False
@@ -66,7 +68,22 @@ class Job:
         self.queue.put({"kind": kind, **payload})
 
 
+# Module-level job registry. Multiple Flask threads call register_job /
+# get_job concurrently; the lock keeps reads + writes consistent. Without
+# it, two near-simultaneous /api/create + /api/stream/<id> calls could
+# observe a partially-initialized Job (`done`/`error`/`success` unset).
 JOBS: dict[str, Job] = {}
+_JOBS_LOCK = threading.Lock()
+
+
+def register_job(job: "Job") -> None:
+    with _JOBS_LOCK:
+        JOBS[job.id] = job
+
+
+def get_job(job_id: str) -> Optional["Job"]:
+    with _JOBS_LOCK:
+        return JOBS.get(job_id)
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +115,7 @@ def _run_job(job: Job) -> None:
             hostile_constraints=job.hostile_constraints,
             phrasebook=job.phrasebook,
             natural_language=job.natural_language,
+            lineage=job.lineage,
         )
         job.emit("step", label="Building base spec", status="done")
 
@@ -133,6 +151,27 @@ def _run_job(job: Job) -> None:
             job.emit("step", label="Running repair loop",
                      status="done" if report.all_passed else "fail")
             job.emit("report", report=report.to_dict())
+
+        # Roadmap §4.6: after the language is verified (or repair runs),
+        # have the LLM critique it as a designer would. REVIEW.md is small,
+        # one extra LLM call, and gives the language personality + an
+        # honest assessment in the Library card. Best-effort; never blocks
+        # the job.
+        #
+        # SKIP for templated languages (s_expression, stack_based) - those
+        # share the same hand-written reference compiler so the critique
+        # would be near-identical for every language in that family.
+        # User can request it on demand via POST /api/review/<lang>.
+        from forge.orchestrator.generator import reference_compiler_for
+        if reference_compiler_for(resolved) is None:
+            try:
+                from forge.orchestrator.critic import critique_language
+                job.emit("step", label="Critiquing the language", status="running")
+                review = critique_language(resolved, lang_dir, client)
+                job.emit("step", label="Critiquing the language",
+                         status="done" if review else "fail")
+            except Exception:
+                pass
 
         job.success = report.all_passed
         job.emit("done", success=job.success, lang_dir=str(lang_dir))
@@ -188,6 +227,10 @@ def create_app() -> Flask:
             origin_story = ""
             theme_sources = {}
             theme_tokens = {}
+            lineage = None
+            persona = None
+            era = None
+            keyword_theme = None
             if spec.exists():
                 try:
                     data = json.loads(spec.read_text(encoding="utf-8"))
@@ -195,6 +238,11 @@ def create_app() -> Flask:
                     opts = data.get("options", {})
                     origin_story = data.get("origin_story", "") or ""
                     theme_sources = (data.get("theme") or {}).get("sources") or {}
+                    lineage = data.get("lineage")
+                    cust = data.get("customization") or {}
+                    persona = cust.get("persona")
+                    era = cust.get("era")
+                    keyword_theme = cust.get("keyword_theme")
                     # Send a tiny token subset for Library card swatches —
                     # bg/text/accent are enough to render a 1-line preview.
                     full_tokens = (data.get("theme") or {}).get("tokens") or {}
@@ -220,6 +268,10 @@ def create_app() -> Flask:
                 "origin_story": origin_story,
                 "theme_sources": theme_sources,
                 "theme_tokens": theme_tokens,
+                "lineage": lineage,
+                "persona": persona,
+                "era": era,
+                "keyword_theme": keyword_theme,
             })
         return jsonify({"languages": out})
 
@@ -296,7 +348,7 @@ def create_app() -> Flask:
             phrasebook=phrasebook,
             natural_language=natural_language,
         )
-        JOBS[job.id] = job
+        register_job(job)
         threading.Thread(target=_run_job, args=(job,), daemon=True).start()
         return jsonify({"job_id": job.id})
 
@@ -390,6 +442,15 @@ def create_app() -> Flask:
             return jsonify({"error": "language has no resolved_spec.json"}), 400
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
 
+        # Stack-based families get a curated postfix-friendly pack instead
+        # of the c_like classics. `classics` would drop every kata on a
+        # Forth-flavored language because `var x = list()` and pointer-
+        # heavy collection problems just don't translate to stack form.
+        # Auto-redirect to `stack_classics` so the user gets a working
+        # pack with one click rather than wading through 12 drops.
+        if pack_key == "classics" and spec.get("options", {}).get("syntax") == "stack_based":
+            pack_key = "stack_classics"
+
         pack_template = get_pack(pack_key)
         if pack_template is None:
             return jsonify({"error": f"no such pack: {pack_key}"}), 404
@@ -402,17 +463,6 @@ def create_app() -> Flask:
             from forge.orchestrator.kata_packs import get_classics_for
             pack_template["katas"] = get_classics_for(spec)
 
-        # Patch the language's runtime to support string indexing if it
-        # doesn't already (some generated languages raise TypeError on
-        # `get(string, int)` while toylang's reference handles it). This is
-        # idempotent and surgical — string-iteration classics (valid_parens,
-        # anagram, longest_unique_substring) need this universally.
-        from forge.orchestrator.mechanical_translator import ensure_runtime_string_support
-        try:
-            ensure_runtime_string_support(lang_dir)
-        except Exception:
-            pass  # best-effort; falls back to LLM/stub if it didn't help
-
         # `?strict=true` disables LLM-translation fallback — useful for
         # testing the pre-flight rejection logic without firing the LLM.
         # Production callers (GUI Load button) leave it off so the endpoint
@@ -421,12 +471,11 @@ def create_app() -> Flask:
         # `?force=true` skips the cache (re-runs validation/translation).
         force = request.args.get("force", "").lower() in ("1", "true", "yes")
 
-        # Cache check: if we've already loaded this exact pack into this
-        # language, return the saved katas.json immediately. We tag the
-        # cache with a CONTENT HASH of the source pack so that when the
-        # curated classics change in code (new fields like tags/examples,
-        # bug-fixed references, etc.), the cache is automatically
-        # invalidated — without it, users see stale katas after upgrades.
+        # Cache check FIRST. Compute the content hash of the source pack
+        # and compare against the saved katas.json's stamp. On match we
+        # return the cached pack without any of the expensive downstream
+        # work (runtime patching, validation, subprocess spawns). This
+        # is what makes the cached path feel instant in the GUI.
         import hashlib
         pack_hash = hashlib.sha256(
             json.dumps(pack_template, sort_keys=True, default=str).encode("utf-8")
@@ -447,6 +496,34 @@ def create_app() -> Flask:
                 except Exception:
                     pass  # corrupt cache; fall through and regenerate
 
+        # ON CACHE MISS: patch the language's runtime to support string
+        # indexing if it doesn't already (some generated languages raise
+        # TypeError on `get(string, int)` while toylang's reference
+        # handles it). Idempotent + surgical - string-iteration classics
+        # (valid_parens, anagram, longest_unique_substring) need this.
+        # Moved here from before the cache check so cached returns
+        # don't pay the runtime-scan cost.
+        from forge.orchestrator.mechanical_translator import (
+            ensure_runtime_string_support, ensure_stack_runtime_support,
+        )
+        try:
+            ensure_runtime_string_support(lang_dir)
+        except Exception:
+            pass  # best-effort; falls back to LLM/stub if it didn't help
+        # For stack_based languages: idempotently inject the canonical
+        # forthlang vocabulary (nil/true/false/list/dict/get/dset/etc.)
+        # into the runtime + typechecker + codegen so curated
+        # stack_classics references compile against any stack_based
+        # language's pipeline. Without this patch, the linked-list /
+        # tree katas drop on languages whose phrasebook customization
+        # renamed these words (e.g. `stacky` only ships `void`/`verum`/
+        # `falsum`). The patch is marker-bracketed and idempotent.
+        if spec.get("options", {}).get("syntax") == "stack_based":
+            try:
+                ensure_stack_runtime_support(lang_dir)
+            except Exception:
+                pass  # best-effort
+
         # Decide the path: direct (instant) or LLM translation (slow but
         # works on customized languages). We prefer direct whenever the
         # language is plausibly compatible — most c_like languages are.
@@ -466,11 +543,22 @@ def create_app() -> Flask:
             ("no_mutation" in bans and not recursive_handled_bans)
             or ("no_loops" in bans and not recursive_handled_bans)
         )
+        # Templated families (stack_based, s_expression) get their syntax
+        # from a hand-written reference compiler, NOT from the spec's
+        # natural-language phrasebook. So a `customization.natural_language`
+        # on a stacky-flavored language (e.g. "let it be known that x is 0")
+        # is irrelevant to the actual Forth-like keywords (`: ;` `dup` `drop`).
+        # The bridge pipeline rescues any kata that doesn't match directly,
+        # and curated stack_classics references already speak the right
+        # dialect. Skipping LLM translation here turns a 10-minute reload
+        # (13 katas x ~45s LLM call) into a <3s direct load.
+        templated_family = lang_family in ("stack_based", "s_expression")
+        nl_forces_translation = bool(nl and isinstance(nl, dict) and nl) and not templated_family
         # Hard incompatibility signals. If any of these are true, direct
         # load is guaranteed to drop everything; skip straight to translation.
         needs_translation = bool(
             (pack_family and lang_family and pack_family != lang_family)
-            or (nl and isinstance(nl, dict) and nl)
+            or nl_forces_translation
             or bans_force_translation
         )
         # Strict mode: if hard-incompatible, refuse with 400 instead of
@@ -479,7 +567,7 @@ def create_app() -> Flask:
             if pack_family and lang_family and pack_family != lang_family:
                 msg = (f"`{lang}` is `{lang_family}`, but the pack is "
                        f"`{pack_family}`.")
-            elif nl and isinstance(nl, dict) and nl:
+            elif nl_forces_translation:
                 msg = (f"`{lang}` uses a natural-language phrasebook (e.g. "
                        f"`{(nl.get('var_decl') or 'make x equal 0.')[:50]}`).")
             elif "no_mutation" in bans:
@@ -527,7 +615,16 @@ def create_app() -> Flask:
             # translation. The remaining katas might be salvageable that way
             # AND the user wants the full pack, not a stripped one. Skip this
             # for empty packs (degenerate edge case) — translation can't help.
-            if templates:
+            #
+            # SKIP for stack_based: the bridge pipeline (cascade-of-cases
+            # + curated_match) rescues failed katas mechanically, so we
+            # never want to drop into a 13-kata x 45s LLM loop here.
+            # Without this guard, loading stack_classics on a stack_based
+            # language with <50% direct pass-rate (e.g. `stacky` whose
+            # pirate phrasebook customization changes some operator
+            # spellings) would silently kick off >10 minutes of LLM calls.
+            is_stack_based_lang = lang_family == "stack_based"
+            if templates and not is_stack_based_lang:
                 survival = sum(1 for _, ok, _ in results if ok)
                 if survival < max(1, len(templates) // 2):
                     needs_translation = True
@@ -562,31 +659,81 @@ def create_app() -> Flask:
 
         valid = []
         dropped = []
-        # Final fallback ladder for anything still failing:
+        # Rescue ladder for any kata whose reference doesn't pass its own
+        # tests:
+        #   0. (stack_based only) base-solution bridge: cascade-of-cases
+        #      OR curated substitute. Guarantees a working reference for
+        #      any kata with primitive-arg tests OR a function_name that
+        #      matches the curated stack_classics pack. ALWAYS attempted
+        #      first on stack_based so users never see "no auto-check".
         #   1. mechanical case-analysis (cascade of if-args-match returns,
-        #      always works on Turing-complete targets); auto-check works
+        #      always works on Turing-complete c_like targets); auto-check works
         #   2. stub-rescue (empty tests + stub reference; no auto-check)
-        # We try (1) first so the user gets a gradeable kata when possible.
+        # The bridge pipeline replaces #2 for stack_based: dropping over
+        # stubbing because we never want a "no auto-check" kata.
+        #
+        # Also tag validation status from existing rescue evidence to
+        # avoid a redundant subprocess pass per kata at load time.
         from forge.orchestrator.kata_translator import _stub_rescue
         from forge.orchestrator.case_analysis import build_case_analysis_kata
+        from forge.orchestrator.stack_base_solution import build_base_solution
         toylang_dir = WORKSPACE / "generated" / "toylang"
+        is_stack_based = spec.get("options", {}).get("syntax") == "stack_based"
+
         for kata, ok, reason in results:
             if ok:
+                # Already validated upstream (batched or per-kata);
+                # tests_passed == tests_run by definition of "ok".
+                kata["validation"] = {
+                    "status": "verified",
+                    "tests_run": len(kata.get("tests", [])),
+                    "tests_passed": len(kata.get("tests", [])),
+                }
                 valid.append(kata)
                 continue
+
+            # stack_based: try the bridge pipeline FIRST. Cascade or
+            # curated-substitute almost always produces a working
+            # reference. This is what eliminates "no auto-check".
+            if is_stack_based:
+                bridged = build_base_solution(kata, spec, lang_dir)
+                if bridged is not None:
+                    valid.append(bridged)
+                    continue
+
             try:
                 ca = build_case_analysis_kata(kata, spec, lang_dir, toylang_dir)
             except Exception:
                 ca = None
             if ca is not None:
+                # case_analysis re-derives expected outputs by running
+                # the cascade reference and saving its actual stdout,
+                # so by construction every test passes.
+                ca["validation"] = {
+                    "status": "verified",
+                    "tests_run": len(ca.get("tests", [])),
+                    "tests_passed": len(ca.get("tests", [])),
+                    "via": "case_analysis_fallback",
+                }
                 valid.append(ca)
                 continue
-            rescued = _stub_rescue(kata, spec)
-            if rescued is not None:
-                valid.append(rescued)
-            else:
-                dropped.append({"id": kata.get("id"), "reason": reason,
-                                "fix_attempts": 0})
+
+            # Last resort: stub-rescue. SKIPPED for stack_based - we'd
+            # rather drop than ship a "no auto-check" kata there.
+            if not is_stack_based:
+                rescued = _stub_rescue(kata, spec)
+                if rescued is not None:
+                    rescued["validation"] = {
+                        "status": "stub",
+                        "tests_run": 0,
+                        "tests_passed": 0,
+                        "reason": "stub-rescued; reference is a starter only",
+                    }
+                    valid.append(rescued)
+                    continue
+
+            dropped.append({"id": kata.get("id"), "reason": reason,
+                            "fix_attempts": 0})
 
         source_tag = f"translated:{pack_key}" if used_translation else f"curated:{pack_key}"
         out_pack = {
@@ -598,9 +745,8 @@ def create_app() -> Flask:
             "katas": valid,
             "dropped": dropped,
         }
-        (lang_dir / "katas.json").write_text(
-            json.dumps(out_pack, indent=2), encoding="utf-8",
-        )
+        from forge.orchestrator.katas import atomic_write_json
+        atomic_write_json(lang_dir / "katas.json", out_pack)
         if not valid:
             return jsonify({
                 "error": (
@@ -646,6 +792,19 @@ def create_app() -> Flask:
                            "stderr": "your code is empty"})
 
         if mode == "run":
+            # Pre-flight: catch obvious copy/paste corruption with a
+            # human-friendly message before wrapping + compiling.
+            from forge.orchestrator.katas import preflight_check
+            pre = preflight_check(user_code, spec)
+            if pre is not None:
+                return jsonify({
+                    "mode": "run",
+                    "passed": False,
+                    "stage": pre["stage"],
+                    "stderr": pre["stderr"],
+                    "results": [],
+                })
+
             # Run mode: only run the SAMPLE tests (visible to user).
             # Show full per-test results so they can iterate. Fall back to
             # the first test if `sample_test_indices` is missing.
@@ -659,12 +818,24 @@ def create_app() -> Flask:
             program = _wrap_with_test_prints(user_code, sample_tests, spec, helpers=helpers)
             res = _compile_and_run(lang_dir, program, spec["file_extension"])
             if not res["ok"]:
+                # Include the wrapped program so users can see what was
+                # actually compiled (helpers + their code + test prints).
+                # This is the single most useful debugging signal: many
+                # "compile error" complaints turn out to be the helpers
+                # introducing a name conflict or the wrap inserting an
+                # unexpected newline. Cap at ~80 lines so the response stays
+                # small.
+                program_lines = program.splitlines()
+                excerpt = "\n".join(program_lines[:80])
+                if len(program_lines) > 80:
+                    excerpt += f"\n... ({len(program_lines) - 80} more lines)"
                 return jsonify({
                     "mode": "run",
                     "passed": False,
                     "stage": res["stage"],
                     "stderr": res.get("stderr", ""),
                     "results": [],
+                    "program_excerpt": excerpt,
                 })
             actual_lines = res["stdout"].splitlines()
             results = []
@@ -766,7 +937,7 @@ def create_app() -> Flask:
                 "options": {
                     "type": "object",
                     "properties": {
-                        "syntax": {"enum": ["c_like", "python_like"]},
+                        "syntax": {"enum": ["c_like", "python_like", "s_expression", "stack_based"]},
                         "typing": {"enum": ["static", "dynamic"]},
                         "memory": {"enum": ["host_gc", "refcount"]},
                         "comment_style": {"enum": ["line", "block", "both", "nestable_block"]},
@@ -794,17 +965,51 @@ def create_app() -> Flask:
         prompt = (
             f"The user wants a programming language with the vibe: \"{vibe}\".\n"
             f"They suggested the name `{name}` (use it as-is).\n\n"
-            "Choose every option from the schema below. Be opinionated. The "
+            "Choose every option from the schema. Be opinionated. The "
             "language must be coherent: every choice should reinforce the "
             "vibe. Pick a designer persona whose values match. Optionally "
             "pick an era preset, a keyword theme, and one or two feature "
             "bans that sharpen the language's character.\n\n"
-            "Write a 1-3 sentence fictional origin story (origin_story). "
+            "Write a 1-3 sentence fictional origin story (origin_story) "
             "as if the language were a real obscure project from the 1990s "
             "or 2000s. Add 3-6 design_notes explaining the vibe-driven "
             "choices.\n\n"
-            "Honesty rule: every option must be one our generator actually "
-            "supports. Do not invent new option values."
+            "## Hard rules (read carefully)\n"
+            "- Use ONLY the property names listed in the schema.\n"
+            "- For Lisp-style vibes, the syntax value is `s_expression` "
+            "  (with an underscore). NOT `s-expression`, `lisp`, or `sexp`.\n"
+            "- For garbage-collected memory, the value is `host_gc` (NOT "
+            "  `gc`, `garbage_collected`, or `tracing`).\n"
+            "- Property names: `syntax`, `typing`, `memory`, `persona`, "
+            "  `era`, `keyword_theme`, `feature_bans`. Do NOT use "
+            "  `era_preset`, `designer_persona`, `paradigm`, `type_system`, "
+            "  `syntax_style`, `evaluation`, `mutability`, or any other "
+            "  invented field names.\n"
+            "- `feature_bans` values are: `no_loops`, `no_mutation`, "
+            "  `no_classes`, `no_exceptions`, `no_global_state`, `no_null`. "
+            "  NOT bare `loops` / `mutation` / `null` / `goto`.\n\n"
+            "## Example response shape\n"
+            "```json\n"
+            "{\n"
+            '  "name": "myling",\n'
+            '  "options": {\n'
+            '    "syntax": "s_expression",\n'
+            '    "typing": "dynamic",\n'
+            '    "memory": "host_gc",\n'
+            '    "default_mutability": "immutable",\n'
+            '    "boolean_evaluation": "short_circuit"\n'
+            "  },\n"
+            '  "persona": "mccarthy",\n'
+            '  "era": "1960s",\n'
+            '  "keyword_theme": "latin",\n'
+            '  "feature_bans": ["no_mutation"],\n'
+            '  "origin_story": "A 1968 academic dialect from MIT...",\n'
+            '  "design_notes": ["Homoiconic.", "Immutable bindings."]\n'
+            "}\n"
+            "```\n\n"
+            "Honesty rule: every value must appear in the schema's enum "
+            "lists verbatim. If you can't find a perfect match, pick the "
+            "closest legal value rather than inventing one."
         )
 
         try:
@@ -813,7 +1018,20 @@ def create_app() -> Flask:
             client = make_client(provider, log_dir=log_dir)
             picked = client.call_json(prompt, picker_schema, tag="surprise")
         except Exception as e:
-            return jsonify({"error": f"surprise picker failed: {e}"}), 500
+            return jsonify({
+                "error": (
+                    "Surprise picker couldn't produce a valid spec. The model "
+                    "kept returning fields that don't exist in our schema. "
+                    f"Internal: {e}. Try again, simplify the vibe word, or "
+                    "use the regular Create form."
+                ),
+            }), 500
+
+        # Post-validation normalization. Even with the tightened prompt, the
+        # LLM occasionally writes `s-expression` (hyphenated) or `gc` instead
+        # of the schema's exact enum spelling. Map the common mistakes back
+        # to canonical values before we trust the dict.
+        picked = _normalize_surprise_picks(picked)
 
         opts = picked["options"]
         # Stash the LLM's origin story + design notes into customization
@@ -835,7 +1053,7 @@ def create_app() -> Flask:
             keyword_theme=kt,
             feature_bans=picked.get("feature_bans") or [],
         )
-        JOBS[job.id] = job
+        register_job(job)
         threading.Thread(target=_run_job, args=(job,), daemon=True).start()
         return jsonify({
             "job_id": job.id,
@@ -843,23 +1061,202 @@ def create_app() -> Flask:
             "picks": picked,
         })
 
+    @app.route("/api/crossbreed", methods=["POST"])
+    def crossbreed_endpoint():
+        """Roadmap §3.3: cross two existing languages into a child.
+
+        Request JSON:
+          parent_a:    name of an existing language in `generated/`
+          parent_b:    name of an existing language in `generated/`
+          child_name:  identifier for the new language
+          strategy:    'random' | 'dominant' | 'union' (default 'random')
+          seed:        optional int, makes the random merge reproducible
+          provider:    optional LLM provider override
+
+        Returns: {job_id, name, lineage} once the spawn-and-go thread is
+        running, just like /api/create. The streaming endpoint is the same
+        (/api/stream/<job_id>).
+        """
+        from forge.orchestrator.crossbreeding import crossbreed
+        data = request.get_json(force=True) or {}
+        parent_a = (data.get("parent_a") or "").strip()
+        parent_b = (data.get("parent_b") or "").strip()
+        child_name = (data.get("child_name") or "").strip()
+        strategy = (data.get("strategy") or "random").strip()
+        seed = data.get("seed")
+        provider = data.get("provider") or None
+
+        if not (parent_a and parent_b and child_name):
+            return jsonify({"error": "parent_a, parent_b, child_name required"}), 400
+        if not child_name.isidentifier():
+            return jsonify({"error": "child_name must be a valid Python identifier"}), 400
+        if parent_a == parent_b:
+            return jsonify({"error": "parents must be different"}), 400
+        if strategy not in {"random", "dominant", "union"}:
+            return jsonify({"error": "strategy must be random|dominant|union"}), 400
+
+        existing = WORKSPACE / "generated" / child_name
+        if existing.exists():
+            return jsonify({"error": f"`{child_name}` already exists. Pick a new name."}), 400
+
+        def _load_parent_meta(name: str) -> Optional[dict]:
+            spec_path = WORKSPACE / "generated" / name / "resolved_spec.json"
+            if not spec_path.exists():
+                return None
+            try:
+                spec = json.loads(spec_path.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+            cust = spec.get("customization") or {}
+            return {
+                "name": spec.get("lang_name") or name,
+                "options": spec.get("options") or {},
+                "persona": cust.get("persona"),
+                "era": cust.get("era"),
+                "keyword_theme": cust.get("keyword_theme"),
+                "phrasebook": (cust.get("natural_language") and "custom") or None,
+                "feature_bans": cust.get("feature_bans") or [],
+                "customization": cust,
+                "lineage": spec.get("lineage"),
+            }
+
+        meta_a = _load_parent_meta(parent_a)
+        meta_b = _load_parent_meta(parent_b)
+        if meta_a is None:
+            return jsonify({"error": f"no spec for parent_a `{parent_a}`"}), 404
+        if meta_b is None:
+            return jsonify({"error": f"no spec for parent_b `{parent_b}`"}), 404
+
+        try:
+            child = crossbreed(meta_a, meta_b, child_name=child_name,
+                               strategy=strategy,
+                               seed=int(seed) if seed is not None else None)
+        except Exception as e:
+            return jsonify({"error": f"crossbreed failed: {e}"}), 500
+
+        # Coherence pre-check on the merged options. If the merge produced
+        # a contradictory combo, fall back to dominant (parent_a wins).
+        from forge.orchestrator.coherence import check, errors as _coh_errors
+        opts_for_check = dict(child["options"])
+        opts_for_check["feature_bans"] = child.get("feature_bans") or []
+        if _coh_errors(check(opts_for_check)):
+            child = crossbreed(meta_a, meta_b, child_name=child_name,
+                               strategy="dominant",
+                               seed=int(seed) if seed is not None else None)
+            if _coh_errors(check({**child["options"],
+                                  "feature_bans": child.get("feature_bans") or []})):
+                return jsonify({
+                    "error": "These two languages can't be coherently crossed. "
+                             "Try a different parent pair.",
+                }), 422
+
+        # Required MVP fields might still be missing if neither parent had
+        # them set; backfill with the defaults the create flow would have used.
+        opts = dict(child["options"])
+        opts.setdefault("syntax", meta_a["options"].get("syntax") or "c_like")
+        opts.setdefault("typing", meta_a["options"].get("typing") or "dynamic")
+        opts.setdefault("memory", meta_a["options"].get("memory") or "host_gc")
+
+        # Stash the seed onto the lineage block so the merge is reproducible
+        if seed is not None:
+            child["lineage"]["seed"] = int(seed)
+
+        job = Job(
+            opts=opts, name=child_name, provider=provider,
+            customization=child.get("customization") or {},
+            persona=child.get("persona"),
+            era=child.get("era"),
+            keyword_theme=child.get("keyword_theme"),
+            feature_bans=child.get("feature_bans") or [],
+            phrasebook=child.get("phrasebook"),
+            lineage=child["lineage"],
+        )
+        register_job(job)
+        threading.Thread(target=_run_job, args=(job,), daemon=True).start()
+        return jsonify({
+            "job_id": job.id,
+            "name": child_name,
+            "lineage": child["lineage"],
+        })
+
+    @app.route("/api/family-tree")
+    def family_tree():
+        """Return the lineage graph across every language in `generated/`.
+
+        Output shape:
+          {
+            "nodes": [{name, persona, era, keyword_theme, generation,
+                       theme_tokens: {bg, text, accent}}, ...],
+            "edges": [{parent, child, strategy}, ...],
+          }
+        Roots (generation 0, no parents) and leaves both included so the
+        renderer can lay out a forest. Used by the Library family-tree view.
+        """
+        gen = WORKSPACE / "generated"
+        nodes = []
+        edges = []
+        if not gen.exists():
+            return jsonify({"nodes": nodes, "edges": edges})
+        for d in sorted(gen.iterdir()):
+            if not d.is_dir():
+                continue
+            spec_path = d / "resolved_spec.json"
+            if not spec_path.exists():
+                continue
+            try:
+                spec = json.loads(spec_path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            cust = spec.get("customization") or {}
+            lineage = spec.get("lineage") or {}
+            tokens = (spec.get("theme") or {}).get("tokens") or {}
+            nodes.append({
+                "name": d.name,
+                "persona": cust.get("persona"),
+                "era": cust.get("era"),
+                "keyword_theme": cust.get("keyword_theme"),
+                "generation": int(lineage.get("generation") or 0),
+                "theme_tokens": {
+                    k: tokens[k] for k in ("bg", "text", "accent")
+                    if k in tokens
+                },
+            })
+            for parent in (lineage.get("parents") or []):
+                edges.append({
+                    "parent": parent,
+                    "child": d.name,
+                    "strategy": lineage.get("strategy") or "random",
+                })
+        return jsonify({"nodes": nodes, "edges": edges})
+
     @app.route("/api/stream/<job_id>")
     def stream(job_id):
-        job = JOBS.get(job_id)
+        job = get_job(job_id)
         if job is None:
             return jsonify({"error": "no such job"}), 404
 
         def gen():
             yield "retry: 1000\n\n"
+            saw_done = False
             while True:
                 try:
                     msg = job.queue.get(timeout=15)
                     yield f"data: {json.dumps(msg)}\n\n"
-                    if msg["kind"] == "done":
+                    if msg.get("kind") == "done":
+                        saw_done = True
                         return
                 except queue.Empty:
                     yield ": keep-alive\n\n"
                     if job.done and job.queue.empty():
+                        # Defensive: if the worker thread crashed without
+                        # emitting `done` (e.g. exception in the `finally`
+                        # block, or a memory error during emit), surface
+                        # a synthetic done so the frontend stops spinning.
+                        # Without this, the GUI would show "running..."
+                        # forever after a backend crash.
+                        if not saw_done:
+                            err = job.error or "worker exited without emitting done"
+                            yield f"data: {json.dumps({'kind':'done','success':False,'error':err})}\n\n"
                         return
 
         resp = Response(gen(), mimetype="text/event-stream")
@@ -1090,6 +1487,40 @@ def create_app() -> Flask:
             return jsonify({"error": "no spec"}), 404
         return jsonify(json.loads(path.read_text(encoding="utf-8")))
 
+    @app.route("/api/review/<lang>")
+    def review_for(lang):
+        """Return the language's REVIEW.md (roadmap §4.6) if present.
+        Library cards expose this behind a 'Review' link."""
+        if not lang.isidentifier():
+            return jsonify({"error": "invalid lang"}), 400
+        path = WORKSPACE / "generated" / lang / "REVIEW.md"
+        if not path.exists():
+            return jsonify({"error": "no review yet — re-run create or "
+                                     "POST /api/review/<lang> to generate"}), 404
+        return jsonify({"review": path.read_text(encoding="utf-8")})
+
+    @app.route("/api/review/<lang>", methods=["POST"])
+    def review_run(lang):
+        """Trigger a fresh critique on demand (for languages generated
+        before the critic existed, or to refresh after a repair)."""
+        from forge.orchestrator.critic import critique_language
+        from forge.orchestrator.providers import make_client
+        if not lang.isidentifier():
+            return jsonify({"error": "invalid lang"}), 400
+        lang_dir = WORKSPACE / "generated" / lang
+        spec_path = lang_dir / "resolved_spec.json"
+        if not spec_path.exists():
+            return jsonify({"error": "no spec for this language"}), 404
+        try:
+            spec = json.loads(spec_path.read_text(encoding="utf-8"))
+            client = make_client(log_dir=lang_dir / ".forge_log")
+            review = critique_language(spec, lang_dir, client)
+            if not review:
+                return jsonify({"error": "critic produced no usable output"}), 500
+            return jsonify({"review": review})
+        except Exception as e:
+            return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+
     @app.route("/api/theme/<lang>.css")
     def theme_for(lang):
         """Per-language CSS theme (roadmap §3.1).
@@ -1163,23 +1594,44 @@ def create_app() -> Flask:
             return jsonify({"error": "no such language"}), 404
 
         repl_path = lang_dir / "repl.html"
-        # If the file's missing or stale, re-render on the fly.
-        try:
-            spec_path = lang_dir / "resolved_spec.json"
-            if spec_path.exists():
+        spec_path = lang_dir / "resolved_spec.json"
+        # Re-render only when (a) repl.html doesn't exist or (b) any of
+        # the source files (spec, parser, codegen, runtime, stdlib) has
+        # changed since repl.html was written. Eliminates the 1-3s
+        # render cost on every "Try in browser" click - the typical case
+        # is "render is up to date, just stream the file".
+        needs_render = not repl_path.exists()
+        if not needs_render and spec_path.exists():
+            try:
+                repl_mtime = repl_path.stat().st_mtime
+                for src_name in ("resolved_spec.json", "parser.py", "codegen.py",
+                                 "runtime.py", "stdlib.py", "lexer.py"):
+                    src_p = lang_dir / src_name
+                    if src_p.exists() and src_p.stat().st_mtime > repl_mtime:
+                        needs_render = True
+                        break
+            except OSError:
+                needs_render = True
+        if needs_render and spec_path.exists():
+            try:
                 from forge.orchestrator.generator import render_standalone_repl
                 spec = json.loads(spec_path.read_text(encoding="utf-8"))
                 render_standalone_repl(spec, lang_dir)
-        except Exception:
-            pass
+            except Exception:
+                pass
         if not repl_path.exists():
             return jsonify({"error": "REPL not available for this language yet"}), 500
 
         from flask import Response
         html = repl_path.read_text(encoding="utf-8")
-        headers = {"Cache-Control": "no-store"}
+        # Browser caching: the on-disk file is the source of truth and we
+        # invalidate by mtime above. Tell the browser it can cache for a
+        # minute (long enough that rapid reloads hit the cache; short
+        # enough that re-generation propagates within 60s).
+        headers = {"Cache-Control": "max-age=60"}
         if request.args.get("download"):
             headers["Content-Disposition"] = f"attachment; filename={lang}.repl.html"
+            headers["Cache-Control"] = "no-store"   # downloads shouldn't be cached
         return Response(html, mimetype="text/html", headers=headers)
 
     @app.route("/api/download/<lang>")
@@ -1265,9 +1717,9 @@ def create_app() -> Flask:
 
     @app.route("/api/language/<lang>", methods=["DELETE"])
     def delete_lang(lang):
-        # Refuse to delete protected names (the hand-written reference compiler).
-        if lang in {"toylang"}:
-            return jsonify({"error": "toylang is protected (hand-written reference)"}), 400
+        # Refuse to delete protected names (the hand-written reference compilers).
+        if lang in {"toylang", "lisplang"}:
+            return jsonify({"error": f"{lang} is protected (hand-written reference)"}), 400
         # Sanity check: must be a simple identifier (no path traversal).
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
@@ -1276,7 +1728,16 @@ def create_app() -> Flask:
         generated_root = (WORKSPACE / "generated").resolve()
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
-        # Use is_relative_to (Py 3.9+) for unambiguous containment check.
+        # Containment check. is_relative_to() resolves symlinks already
+        # (since lang_dir was .resolve()'d), but we ALSO refuse to delete
+        # the path if the original (non-resolved) path was a symlink.
+        # Otherwise an attacker could pre-place a symlink in generated/
+        # whose target lives outside the project, and DELETE the link
+        # would `rmtree` the target. We want to delete only real
+        # directories that live under generated/.
+        original = WORKSPACE / "generated" / lang
+        if original.is_symlink():
+            return jsonify({"error": "refusing to delete a symlink"}), 400
         if not lang_dir.is_relative_to(generated_root):
             return jsonify({"error": "refusing to delete outside generated/"}), 400
         if lang_dir == generated_root:
@@ -1301,6 +1762,190 @@ def create_app() -> Flask:
         }), 500
 
     return app
+
+
+def _auto_validate_one_kata(kata: dict, spec: dict, lang_dir: "Path") -> dict:
+    """Run a kata's reference solution against every test. Returns a
+    validation block describing the outcome:
+
+      {"status": "verified", "tests_run": N, "tests_passed": N}
+      {"status": "stub", "reason": "stub-rescued; no tests"}
+      {"status": "failed", "reason": "<short error>"}
+
+    The result is attached to each kata as `kata.validation` so the
+    GUI can show a status badge ("verified" / "no auto-check" / etc.)
+    and users know up front whether their submissions will get graded.
+
+    The contract: every kata must have an example solution and an
+    automated check. This function is the gate that proves it.
+    """
+    if kata.get("stub_rescued") or not kata.get("tests"):
+        return {
+            "status": "stub",
+            "tests_run": 0,
+            "tests_passed": 0,
+            "reason": "stub-rescued; reference is a starter only",
+        }
+
+    from forge.orchestrator.katas import _wrap_with_test_prints, _compile_and_run
+
+    ref = kata.get("reference_solution", "")
+    helpers = kata.get("helpers", "")
+    tests = kata.get("tests", [])
+
+    program = _wrap_with_test_prints(ref, tests, spec, helpers=helpers)
+    res = _compile_and_run(lang_dir, program, spec.get("file_extension", ""))
+    if not res["ok"]:
+        return {
+            "status": "failed",
+            "tests_run": 0,
+            "tests_passed": 0,
+            "reason": f"{res['stage']}: {(res.get('stderr') or '').strip()[:200]}",
+        }
+
+    actual_lines = res["stdout"].splitlines()
+    passed = 0
+    for i, t in enumerate(tests):
+        actual = actual_lines[i].rstrip() if i < len(actual_lines) else ""
+        if actual == t["expected"].rstrip():
+            passed += 1
+
+    if passed == len(tests):
+        return {
+            "status": "verified",
+            "tests_run": len(tests),
+            "tests_passed": passed,
+        }
+    return {
+        "status": "failed",
+        "tests_run": len(tests),
+        "tests_passed": passed,
+        "reason": f"{passed}/{len(tests)} tests pass with the shipped reference",
+    }
+
+
+def _normalize_surprise_picks(picked: dict) -> dict:
+    """Map common LLM mistakes back to canonical schema values.
+
+    The Claude CLI path doesn't enforce JSON Schema strictly, so the model
+    sometimes emits creative variants like `s-expression` or `gc` that fail
+    coherence checks downstream. Lean post-processing fixes the obvious
+    ones; harder mistakes still surface as errors so the user sees what
+    happened.
+    """
+    if not isinstance(picked, dict):
+        return picked
+    opts = picked.get("options")
+    if isinstance(opts, dict):
+        # Syntax synonyms.
+        syntax_map = {
+            "s-expression": "s_expression",
+            "sexp": "s_expression",
+            "lisp": "s_expression",
+            "scheme": "s_expression",
+            "clojure": "s_expression",
+            "python": "python_like",
+            "c": "c_like",
+            "c-like": "c_like",
+            "python-like": "python_like",
+            # Stack-based synonyms (the LLM loves saying these).
+            "stack-based": "stack_based",
+            "stack": "stack_based",
+            "concatenative": "stack_based",
+            "forth": "stack_based",
+            "factor": "stack_based",
+            "postscript": "stack_based",
+        }
+        if opts.get("syntax") in syntax_map:
+            opts["syntax"] = syntax_map[opts["syntax"]]
+        # Memory synonyms.
+        mem_map = {
+            "gc": "host_gc",
+            "garbage_collected": "host_gc",
+            "tracing": "host_gc",
+            "manual": "refcount",
+            "rc": "refcount",
+        }
+        if opts.get("memory") in mem_map:
+            opts["memory"] = mem_map[opts["memory"]]
+        # Drop any unknown keys the LLM made up — schema would have been
+        # `additionalProperties: false` if jsonschema enforced it on the
+        # CLI path. We keep only schema-recognized keys.
+        valid_opt_keys = {
+            "syntax", "typing", "memory", "comment_style", "string_literals",
+            "numeric_literals", "default_mutability", "error_handling",
+            "loop_forms", "multiple_returns", "boolean_evaluation",
+            "naming_convention", "null_model",
+        }
+        for k in list(opts.keys()):
+            if k not in valid_opt_keys:
+                opts.pop(k, None)
+
+    # Top-level field aliases.
+    aliases = {
+        "designer_persona": "persona",
+        "era_preset": "era",
+        "syntax_style": None,    # belongs in options.syntax
+        "type_system": None,     # belongs in options.typing
+        "paradigm": None,        # no schema slot; drop
+        "evaluation": None,      # no schema slot; drop
+        "mutability": None,      # belongs in options.default_mutability
+    }
+    for src_key, dst_key in aliases.items():
+        if src_key in picked:
+            val = picked.pop(src_key)
+            if dst_key:
+                picked.setdefault(dst_key, val)
+
+    # feature_bans: prepend `no_` when the model writes the bare feature.
+    bans = picked.get("feature_bans")
+    if isinstance(bans, list):
+        ban_synonyms = {
+            "loops": "no_loops",
+            "mutation": "no_mutation",
+            "classes": "no_classes",
+            "exceptions": "no_exceptions",
+            "global_state": "no_global_state",
+            "null": "no_null",
+            "goto": "no_classes",   # no goto ban; drop into closest
+        }
+        valid_bans = {"no_loops", "no_mutation", "no_classes",
+                      "no_exceptions", "no_global_state", "no_null"}
+        normalized: list[str] = []
+        for b in bans:
+            if not isinstance(b, str):
+                continue
+            if b in valid_bans:
+                normalized.append(b)
+            elif b in ban_synonyms:
+                normalized.append(ban_synonyms[b])
+        # Dedupe preserving order
+        seen = set()
+        picked["feature_bans"] = [b for b in normalized
+                                  if not (b in seen or seen.add(b))]
+
+    # Persona: drop unknowns (the schema enum is the truth)
+    valid_personas = {"dijkstra", "mccarthy", "hickey", "stroustrup",
+                      "wirth", "wadler", "matz", "ousterhout"}
+    if picked.get("persona") and picked["persona"] not in valid_personas:
+        picked.pop("persona", None)
+
+    valid_eras = {"1960s", "1970s", "1980s", "2000s", "2020s"}
+    if picked.get("era") and picked["era"] not in valid_eras:
+        # Map common nearby decades to existing presets so the user gets
+        # SOMETHING era-flavored rather than no era at all.
+        era_alias = {"1990s": "1980s", "2010s": "2000s",
+                     "1950s": "1960s", "retro": "1980s"}
+        picked["era"] = era_alias.get(picked["era"])
+        if not picked["era"]:
+            picked.pop("era", None)
+
+    valid_themes = {"pirate", "shakespearean", "corporate", "latin",
+                    "cozy", "none"}
+    if picked.get("keyword_theme") and picked["keyword_theme"] not in valid_themes:
+        picked.pop("keyword_theme", None)
+
+    return picked
 
 
 def _force_writable(func, path, _exc_info):
@@ -1330,6 +1975,7 @@ def _explain_compile_error(stderr: str, lang_dir: Path) -> Optional[str]:
     except Exception:
         return None
     cs = spec.get("comment_syntax") or {}
+    syntax = (spec.get("options") or {}).get("syntax")
 
     m = _re.search(
         r"UnexpectedCharacters: No terminal matches '(.+?)'.*?at line (\d+) col (\d+)",
@@ -1338,6 +1984,17 @@ def _explain_compile_error(stderr: str, lang_dir: Path) -> Optional[str]:
     )
     if m:
         ch, line, col = m.group(1), m.group(2), m.group(3)
+        # s_expression-specific hints first (Lisp errors look different).
+        if syntax == "s_expression":
+            if ch == ")":
+                return (f"Line {line}: extra `)` with no matching `(`. Count "
+                        f"your parens — every `)` needs a matching `(`. The "
+                        f"**↓ Load reference** button on the Solution tab "
+                        f"loads byte-for-byte to avoid copy/paste mangling.")
+            if ch in (";", "/", "{", "}"):
+                return (f"Line {line}: `{ch}` isn't valid in s_expression "
+                        f"syntax. Did you paste c_like or python_like code? "
+                        f"Lisp uses `(...)` for everything; comments are `;`.")
         # Comment-style mismatch is by far the most common cause.
         if ch == "/" and cs.get("line") != "//":
             line_form = cs.get("line")

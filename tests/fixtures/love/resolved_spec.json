@@ -1,0 +1,14 @@
+{
+  "lang_name": "love",
+  "options": {
+    "syntax": "c_like"
+  },
+  "comment_syntax": {
+    "line": null,
+    "block_open": "/*",
+    "block_close": "*/"
+  },
+  "literals": {
+    "string": "\"hello\""
+  }
+}

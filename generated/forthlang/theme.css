@@ -1,0 +1,23 @@
+body[data-lang-theme] {
+  --bg: #0c0a06;
+  --bg-2: #15110a;
+  --card: #0c0a06;
+  --card-2: #1a1610;
+  --line: #3a2a14;
+  --line-2: #4a3520;
+  --text: #ffb000;
+  --text-2: #cc8800;
+  --muted: #886000;
+  --accent: #ffaa00;
+  --accent-2: #ffd060;
+  --font-body: 'Courier New', monospace;
+  --font-mono: 'Courier New', monospace;
+  --radius-sm: 0px;
+  --accent-soft: rgba(255, 170, 0, 0.12);
+  --accent-glow: rgba(255, 170, 0, 0.35);
+}
+body[data-lang-theme] .theme-deco {
+  position: fixed; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px);
+  z-index: 9999;
+}

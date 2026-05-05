@@ -1,22 +1,77 @@
-.agent-state/
-uploads/
-upload/
+# Python build / bytecode artifacts
 __pycache__/
 *.pyc
-node_modules/
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Local virtualenvs
 .venv/
 venv/
 env/
-.env
-.DS_Store
-*.log
 
-# Forge output — keep the hand-written toylang reference, ignore everything else
+# Environment files
+.env
+.env.*
+*.env
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Node (REPL embedding tooling occasionally pulls these in)
+node_modules/
+
+# Agent / harness local state (not part of the project)
+.agent-state/
+upload/
+uploads/
+
+# Forge generated languages. The hand-written reference compilers
+# (toylang, lisplang, forthlang) and the stacky test fixture are
+# tracked because they're templated from by the generator and the test
+# suite depends on them. Everything else under generated/ is throwaway
+# LLM output.
 generated/*
 !generated/toylang/
-generated/toylang/.forge_log/
-generated/toylang/tests/*.out.py
-*.egg-info/
-.pytest_cache/
-build/
-dist/
+!generated/lisplang/
+!generated/forthlang/
+!generated/stacky/
+
+# Per-language artifacts that ARE generated (logs, compiled outputs,
+# bytecode caches, kata caches) shouldn't be tracked even for the
+# reference compilers.
+generated/*/.forge_log/
+generated/*/__pycache__/
+generated/*/tests/*.out.py
+generated/*/_playground/*.out.py
+generated/*/examples/*.out.py
+# Kata pack caches (regenerated from curated source on demand).
+generated/*/katas.json
+# Per-generation telemetry (Phase 0.4); cache-like, not source.
+generated/*/generation_summary.json
+generated/*/generation_events.jsonl
+
+# Forge resolver cache (Phase 0.3). Auto-invalidates on
+# RESOLVER_PROMPT_VERSION / RESOLVER_SCHEMA_VERSION bumps. Kilobytes
+# per entry — easy to balloon in batch runs.
+.forge_cache/
+
+# Phase 1 batch output staging. The catalog directory is the eventual
+# committed artifact; staging is throwaway.
+catalog_staging/
+batch_output/

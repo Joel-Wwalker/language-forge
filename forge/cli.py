@@ -29,7 +29,7 @@ except Exception:    # pragma: no cover: only triggers when rich is uninstalled
 
 def _interactive_options() -> dict:
     print("Language Forge: interactive mode")
-    syntax = _choose("Syntax family", ["c_like", "python_like"], default="c_like")
+    syntax = _choose("Syntax family", ["c_like", "python_like", "s_expression", "stack_based"], default="c_like")
     typing = _choose("Typing", ["static", "dynamic"], default="dynamic")
     memory = _choose("Memory model", ["host_gc", "refcount"], default="host_gc")
     return {"syntax": syntax, "typing": typing, "memory": memory}

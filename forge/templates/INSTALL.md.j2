@@ -50,6 +50,8 @@ Write `hello{{ file_extension }}`:
 ```
 {% if syntax == 'python_like' -%}
 print("Hello, {{ lang_name }}!")
+{%- elif syntax == 's_expression' -%}
+(print "Hello, {{ lang_name }}!")
 {%- else -%}
 print("Hello, {{ lang_name }}!");
 {%- endif %}

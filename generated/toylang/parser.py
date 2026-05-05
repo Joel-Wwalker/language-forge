@@ -81,7 +81,11 @@ BLOCK_COMMENT: "/*" /(.|\n)*?/ "*/"
 """
 
 
-_PARSER = Lark(GRAMMAR, parser="lalr", start="start", propagate_positions=True)
+# cache=True pickles the compiled grammar to ~/.lark_cache. Saves
+# 50-200ms on every subprocess spawn after the first one (massive win
+# for kata validation which spawns the parser dozens of times).
+_PARSER = Lark(GRAMMAR, parser="lalr", start="start",
+               propagate_positions=True, cache=True)
 
 
 def parse(src: str) -> Tree:

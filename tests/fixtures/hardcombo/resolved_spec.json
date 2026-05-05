@@ -1,0 +1,14 @@
+{
+  "lang_name": "hardcombo",
+  "options": {
+    "syntax": "python_like"
+  },
+  "comment_syntax": {
+    "line": "#",
+    "block_open": null,
+    "block_close": null
+  },
+  "literals": {
+    "string": "\"double-quoted with backslash escapes\""
+  }
+}

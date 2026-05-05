@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>stacky. In-browser REPL</title>
+
+  <!-- Pyodide: runs Python (and our generated compiler) in the browser via WASM -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <!-- CodeMirror 5 (CDN-friendly; the basic c-like and python modes work for both syntax styles) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/commonlisp/commonlisp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/forth/forth.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    :root {
+      /* shadcn dark, same palette as the main GUI */
+      --bg: #0a0e16; --bg-2: #0d1220; --card: #0a0e16;
+      --card-2: #131a2a;
+      --line: #1e293b; --line-2: #2a3a55;
+      --text: #f8fafc; --text-2: #cbd5e1; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-2: #60a5fa;
+      --good: #22c55e; --bad: #ef4444; --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      background:
+        radial-gradient(900px 600px at 50% -200px, rgba(59,130,246,.06), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    ::selection { background: var(--accent); color: #fff; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 26px; margin: 0; letter-spacing: -0.02em; font-weight: 700;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h1 .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: rgba(59,130,246,.12); color: var(--accent);
+      border: 1px solid rgba(59,130,246,.25);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .lede { color: var(--text-2); font-size: 14px; margin: 6px 0 0; }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    select, button {
+      background: var(--bg-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 14px; font: 500 13px/1 'Inter', sans-serif;
+      cursor: pointer; height: 34px;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    select:hover, button:hover { background: var(--card-2); border-color: var(--line-2); }
+    select:focus, button:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary {
+      background: var(--accent);
+      color: #fff; border-color: var(--accent); font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary:active { background: #1d4ed8; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .grid {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px;
+      height: calc(100vh - 200px); min-height: 480px;
+    }
+    .pane {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 8px; padding: 14px; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .pane h3 { margin: 0 0 10px; font-size: 11px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+    .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+    .output {
+      flex: 1; margin: 0; padding: 12px; overflow: auto;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+      white-space: pre-wrap; color: var(--text-2); line-height: 1.5;
+    }
+    .output.error { color: var(--bad); }
+    .output.success { color: var(--text); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .status.loading { background: rgba(59,130,246,.12); color: var(--accent); }
+    .status.ready { background: rgba(34,197,94,.12); color: var(--good); }
+    .status.running { background: rgba(245,158,11,.12); color: var(--warn); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .footer {
+      margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-2); }
+    .keyword-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--muted);
+      background: var(--bg-2); padding: 4px 8px; border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      .pane { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>stacky <span class="badge">.sta</span></h1>
+        <p class="lede">In-browser REPL: runs without installing anything. Powered by Pyodide + CodeMirror.</p>
+      </div>
+      <div class="toolbar">
+        <select id="example-picker"><option value="">Load example…</option></select>
+        <span class="keyword-hint">⌘/Ctrl + Enter to run</span>
+        <button class="primary" id="run-btn">▶ Run</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="pane">
+        <h3>Source <span class="status loading" id="boot-status"><span class="dot"></span> Booting Pyodide…</span></h3>
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="pane">
+        <h3>Output <span class="status" id="run-status" style="display:none;"></span></h3>
+        <pre class="output" id="output">Click <strong>Run</strong> to compile + execute your program. The first run downloads the Lark parser (≈ 2 MB), then everything is local.</pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated with <a href="https://example.com/forge" style="color: var(--accent); text-decoration: none;">Language Forge</a>.
+      Read the <code>LANGUAGE.md</code> in the project for the full reference.
+      Source goes through your real <code>stacky</code> compiler, no fakes, no mocks.
+    </div>
+  </div>
+
+  <!-- Embedded compiler files. Each entry maps a relative path to its content. -->
+  <script id="compiler-files" type="application/json">{"__init__.py": "\"\"\"stacky, generated by Language Forge.\n\nOptions: syntax=stack_based, typing=static, memory=host_gc.\nFile extension: .sta\n\nThis package is self-contained: install with `pip install -e .` from this\ndirectory and the `stacky` console command becomes available.\n\"\"\"\n__version__ = \"0.1.0\"\n", "lexer.py": "\"\"\"forthlang lexer view. Forth tokenization is context-sensitive\n(see parser._tokenize). This module exposes a thin `tokenize` API\nfor tooling + debugging.\"\"\"\nfrom __future__ import annotations\n\nfrom .parser import _tokenize\n\n\ndef tokenize(src: str) -> list:\n    \"\"\"Yield (kind, value, line) tokens. Kinds: NUM, FLOAT, STRPUSH,\n    STRPRINT, NAME, COLON, SEMI, IF, ELSE, THEN, BEGIN, UNTIL, AGAIN,\n    WHILE, REPEAT, DO, LOOP, VARIABLE, CONSTANT.\"\"\"\n    return _tokenize(src)\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    for tok in tokenize(text):\n        print(f\"{tok[0]:<10} {tok[1]!r}  (line {tok[2]})\")\n", "parser.py": "\"\"\"forthlang parser.\n\nForth tokenization is context-sensitive in three places:\n  - `.\" text\"` is print-this-string. The `.\"` is a single token; the\n    text runs until the next `\"`.\n  - `s\" text\"` pushes a string literal onto the stack. Same shape.\n  - `( ... )` is a paren comment. Spans tokens until the closing `)`.\n\nLark's lexer doesn't handle these naturally, so we tokenize by hand.\nThe parser then builds a small structural AST: a flat list of items\nwhere colon-definitions, if/else/then, begin/until, and do/loop are\nrepresented as nested dicts. Codegen walks the AST top-down.\n\nWe intentionally use plain dicts (not Lark Tree) because:\n  1. Forth's \"AST\" is mostly linear; nesting only happens at colon\n     definitions and control structures.\n  2. Plain dicts are easy to inspect in tests + tooling.\n  3. The verifier/mechanical_translator don't introspect parser output.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom typing import Any\n\n\nclass ParseError(Exception):\n    pass\n\n\ndef _tokenize(src: str) -> list[tuple[str, Any, int]]:\n    \"\"\"Yield (kind, value, line) tokens.\n\n    Kinds: NUM, FLOAT, STRPUSH, STRPRINT, NAME, COLON, SEMI, IF, ELSE,\n           THEN, BEGIN, UNTIL, AGAIN, WHILE, REPEAT, DO, LOOP,\n           VARIABLE, CONSTANT.\n    \"\"\"\n    tokens = []\n    i = 0\n    line = 1\n    n = len(src)\n    while i < n:\n        ch = src[i]\n        if ch == \"\\n\":\n            line += 1\n            i += 1\n            continue\n        if ch.isspace():\n            i += 1\n            continue\n        # Line comment: \\ <text> until newline. Forth requires whitespace\n        # AFTER the backslash; lone `\\` at EOL is also valid.\n        if ch == \"\\\\\" and (i + 1 >= n or src[i + 1].isspace()):\n            j = src.find(\"\\n\", i)\n            if j == -1:\n                break\n            i = j\n            continue\n        # Paren comment: `( ... )` (must be a separate token, i.e. surrounded\n        # by whitespace on both sides). Inside the parens we span any chars\n        # until the matching `)`. This doubles as Forth stack-effect notation.\n        if ch == \"(\" and (i + 1 < n and src[i + 1].isspace()):\n            j = src.find(\")\", i)\n            if j == -1:\n                raise ParseError(f\"line {line}: unterminated `(` comment\")\n            line += src[i:j].count(\"\\n\")\n            i = j + 1\n            continue\n        # `.\" string\"` print-string. Keyword is `.\"` followed by ONE space\n        # delimiter then text until matching `\"`. The delimiter space is\n        # NOT part of the string per Forth tradition.\n        if ch == \".\" and i + 1 < n and src[i + 1] == '\"':\n            # Skip the optional single space after `.\"` (Forth delimiter).\n            start = i + 2\n            if start < n and src[start] == \" \":\n                start += 1\n            j = src.find('\"', start)\n            if j == -1:\n                raise ParseError(f\"line {line}: unterminated `.\\\"` literal\")\n            text = src[start:j]\n            line += text.count(\"\\n\")\n            tokens.append((\"STRPRINT\", text, line))\n            i = j + 1\n            continue\n        # `s\" string\"` push-string. Same delimiter rule as `.\" `.\n        if ch == \"s\" and i + 1 < n and src[i + 1] == '\"':\n            start = i + 2\n            if start < n and src[start] == \" \":\n                start += 1\n            j = src.find('\"', start)\n            if j == -1:\n                raise ParseError(f\"line {line}: unterminated `s\\\"` literal\")\n            text = src[start:j]\n            line += text.count(\"\\n\")\n            tokens.append((\"STRPUSH\", text, line))\n            i = j + 1\n            continue\n        # Otherwise: read up to next whitespace as a single token.\n        j = i\n        while j < n and not src[j].isspace():\n            j += 1\n        word = src[i:j]\n        i = j\n        # Classify\n        kind = _classify(word)\n        if kind == \"NUM\":\n            tokens.append((\"NUM\", int(word), line))\n        elif kind == \"FLOAT\":\n            tokens.append((\"FLOAT\", float(word), line))\n        elif kind in {\"COLON\", \"SEMI\", \"IF\", \"ELSE\", \"THEN\",\n                      \"BEGIN\", \"UNTIL\", \"AGAIN\", \"WHILE\", \"REPEAT\",\n                      \"DO\", \"LOOP\", \"VARIABLE\", \"CONSTANT\"}:\n            tokens.append((kind, word, line))\n        else:\n            tokens.append((\"NAME\", word, line))\n    return tokens\n\n\n_NUM_RE = re.compile(r\"^-?\\d+$\")\n_FLOAT_RE = re.compile(r\"^-?\\d+\\.\\d+$\")\n\n_KEYWORDS = {\n    \":\": \"COLON\", \";\": \"SEMI\",\n    \"if\": \"IF\", \"else\": \"ELSE\", \"then\": \"THEN\",\n    \"begin\": \"BEGIN\", \"until\": \"UNTIL\", \"again\": \"AGAIN\",\n    \"while\": \"WHILE\", \"repeat\": \"REPEAT\",\n    \"do\": \"DO\", \"loop\": \"LOOP\",\n    \"variable\": \"VARIABLE\", \"constant\": \"CONSTANT\",\n}\n\n\ndef _classify(word: str) -> str:\n    if word in _KEYWORDS:\n        return _KEYWORDS[word]\n    if _NUM_RE.match(word):\n        return \"NUM\"\n    if _FLOAT_RE.match(word):\n        return \"FLOAT\"\n    return \"NAME\"\n\n\ndef parse(src: str) -> list[dict]:\n    \"\"\"Parse forthlang source into a flat list of forms.\n\n    Forms have a `kind` field plus type-specific extras. Codegen\n    dispatches by kind.\n\n    Example AST (program: `: square dup * ; 7 square .`):\n      [\n        {\"kind\": \"colon_def\", \"name\": \"square\", \"body\": [\n            {\"kind\": \"name\", \"value\": \"dup\"},\n            {\"kind\": \"name\", \"value\": \"*\"},\n        ]},\n        {\"kind\": \"num\", \"value\": 7},\n        {\"kind\": \"name\", \"value\": \"square\"},\n        {\"kind\": \"name\", \"value\": \".\"},\n      ]\n    \"\"\"\n    tokens = _tokenize(src)\n    pos = [0]   # mutable index for the recursive parser\n\n    def peek() -> tuple[str, Any, int] | None:\n        return tokens[pos[0]] if pos[0] < len(tokens) else None\n\n    def consume() -> tuple[str, Any, int]:\n        t = tokens[pos[0]]\n        pos[0] += 1\n        return t\n\n    def parse_seq(end_kinds: set[str]) -> tuple[list[dict], str]:\n        \"\"\"Parse forms until we hit one of `end_kinds`. Returns (body, terminator_kind).\"\"\"\n        body: list[dict] = []\n        while pos[0] < len(tokens):\n            t = peek()\n            if t is None:\n                break\n            if t[0] in end_kinds:\n                consume()\n                return body, t[0]\n            body.append(parse_form())\n        return body, \"\"\n\n    def parse_form() -> dict:\n        kind, value, line = consume()\n        if kind == \"COLON\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `:` must be followed by a name\")\n            consume()\n            name = t[1]\n            inner_body, term = parse_seq({\"SEMI\"})\n            if term != \"SEMI\":\n                raise ParseError(f\"line {line}: `: {name}` not terminated by `;`\")\n            return {\"kind\": \"colon_def\", \"name\": name, \"body\": inner_body, \"line\": line}\n        if kind == \"IF\":\n            then_body, term = parse_seq({\"ELSE\", \"THEN\"})\n            else_body: list[dict] = []\n            if term == \"ELSE\":\n                else_body, term = parse_seq({\"THEN\"})\n            if term != \"THEN\":\n                raise ParseError(f\"line {line}: `if` not terminated by `then`\")\n            return {\"kind\": \"if\", \"then_body\": then_body, \"else_body\": else_body, \"line\": line}\n        if kind == \"BEGIN\":\n            inner, term = parse_seq({\"UNTIL\", \"AGAIN\", \"REPEAT\"})\n            if term == \"UNTIL\":\n                return {\"kind\": \"begin_until\", \"body\": inner, \"line\": line}\n            if term == \"AGAIN\":\n                return {\"kind\": \"begin_again\", \"body\": inner, \"line\": line}\n            raise ParseError(f\"line {line}: `begin` must be closed by `until`/`again`\")\n        if kind == \"DO\":\n            inner, term = parse_seq({\"LOOP\"})\n            if term != \"LOOP\":\n                raise ParseError(f\"line {line}: `do` not terminated by `loop`\")\n            return {\"kind\": \"do_loop\", \"body\": inner, \"line\": line}\n        if kind == \"VARIABLE\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `variable` must be followed by a name\")\n            consume()\n            return {\"kind\": \"variable_decl\", \"name\": t[1], \"line\": line}\n        if kind == \"CONSTANT\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `constant` must be followed by a name\")\n            consume()\n            return {\"kind\": \"constant_decl\", \"name\": t[1], \"line\": line}\n        if kind == \"NUM\":\n            return {\"kind\": \"num\", \"value\": value, \"line\": line}\n        if kind == \"FLOAT\":\n            return {\"kind\": \"float\", \"value\": value, \"line\": line}\n        if kind == \"STRPUSH\":\n            return {\"kind\": \"strpush\", \"value\": value, \"line\": line}\n        if kind == \"STRPRINT\":\n            return {\"kind\": \"strprint\", \"value\": value, \"line\": line}\n        if kind == \"NAME\":\n            return {\"kind\": \"name\", \"value\": value, \"line\": line}\n        # Stray closer like `;`, `then`, `loop` outside a structure.\n        raise ParseError(f\"line {line}: unexpected `{value}`\")\n\n    program: list[dict] = []\n    while pos[0] < len(tokens):\n        program.append(parse_form())\n    return program\n\n\n# Lark-shaped GRAMMAR string for documentation / parser-prompt parity.\n# This is INFORMATIONAL ONLY - the actual parser is hand-rolled above\n# because Forth's `.\"`/`s\"`/`(` lexing is context-sensitive and Lark's\n# lexer would fight us on it. The string serves as a reference for\n# anyone reading or extending the dialect.\nGRAMMAR = r\"\"\"\n// forthlang grammar (informational; the actual parser is hand-rolled).\n//\n// start: form*\n// form:  colon_def | if_form | begin_form | do_form\n//      | variable_decl | constant_decl\n//      | NUM | FLOAT | STRPUSH | STRPRINT | NAME\n// colon_def:    \":\" NAME form* \";\"\n// if_form:      \"if\" form* (\"else\" form*)? \"then\"\n// begin_form:   \"begin\" form* (\"until\" | \"again\")\n// do_form:      \"do\" form* \"loop\"\n// variable_decl: \"variable\" NAME\n// constant_decl: \"constant\" NAME\n//\n// Comments: \"(\" ... \")\"  and  \"\\\\\" /[^\\n]*/\n// String literals:\n//   STRPRINT: /\\.\\\"\\s[^\"]*\\\"/    (e.g. .\" Hello, World!\")\n//   STRPUSH:  /s\\\"\\s[^\"]*\\\"/     (e.g. s\" raw\")\n\"\"\"\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    import json\n    print(json.dumps(parse(text), indent=2))\n", "codegen.py": "\"\"\"forthlang codegen. Walks the parser's AST and emits runnable Python.\n\nOutput strategy: every Forth word becomes a Python function that mutates\na global `_stack` list. Number/string literals push directly. Calls\nlook up the word in a runtime dictionary. Control structures get\ntranslated to native Python constructs (if/else, while True/break, for).\n\nWord names that aren't valid Python identifiers (e.g. `+`, `<=`, `?`)\nget mangled via `_py_name()` so they can be used as Python `def` names.\nThe runtime maps the canonical Forth names back during dispatch.\n\nThis codegen is COMPLETE - no `...` stubs.\n\"\"\"\nfrom __future__ import annotations\n\n\nPRELUDE = \"\"\"\\\nfrom stacky.runtime import (\n    _stack, _vars, _consts,\n    push, pop, top,\n    dup, drop, swap, over, rot, nip, tuck,\n    add as _op_add,\n    sub as _op_sub,\n    mul as _op_mul,\n    div as _op_div,\n    mod as _op_mod,\n    eq as _op_eq, ne as _op_ne,\n    lt as _op_lt, gt as _op_gt,\n    le as _op_le, ge as _op_ge,\n    log_and as _op_and, log_or as _op_or, log_not as _op_not,\n    print_top as _print_top,\n    print_str as _print_str,\n    cr as _cr,\n    fetch as _fetch,\n    store as _store,\n    declare_variable as _declare_variable,\n    declare_constant as _declare_constant,\n    pushv,\n    truthy as _toy_truthy,\n)\n\"\"\"\n\n\n# Word names that aren't valid Python identifiers map to mangled aliases.\n# The runtime exports each both ways: the original symbolic name (for\n# user-facing kata test calls) and the mangled form (for codegen `def`).\n_PY_NAME_MAP = {\n    \"+\": \"_op_add\", \"-\": \"_op_sub\", \"*\": \"_op_mul\", \"/\": \"_op_div\",\n    \"mod\": \"_op_mod\",\n    \"=\": \"_op_eq\", \"<>\": \"_op_ne\",\n    \"<\": \"_op_lt\", \">\": \"_op_gt\",\n    \"<=\": \"_op_le\", \">=\": \"_op_ge\",\n    \"and\": \"_op_and\", \"or\": \"_op_or\", \"not\": \"_op_not\",\n    \".\": \"_print_top\",\n    \"cr\": \"_cr\",\n    \"@\": \"_fetch\",\n    \"!\": \"_store\",\n    \"dup\": \"dup\", \"drop\": \"drop\", \"swap\": \"swap\",\n    \"over\": \"over\", \"rot\": \"rot\",\n    \"nip\": \"nip\", \"tuck\": \"tuck\",\n}\n\n\ndef _py_name(name: str) -> str:\n    \"\"\"Translate a Forth word name to a Python identifier.\n\n    Built-in operator names and stack ops have direct mappings (above).\n    User-defined words might contain `-` `?` `!` etc.; we substitute\n    them consistently both at definition and call sites.\n    \"\"\"\n    if name in _PY_NAME_MAP:\n        return _PY_NAME_MAP[name]\n    return (\n        name\n        .replace(\"-\", \"_\")\n        .replace(\"?\", \"_q\")\n        .replace(\"!\", \"_bang\")\n        .replace(\"/\", \"_div\")\n        .replace(\"=\", \"_eq\")\n        .replace(\"<\", \"_lt\")\n        .replace(\">\", \"_gt\")\n    )\n\n\n# ---------------------------------------------------------------------------\n# Code emitter\n# ---------------------------------------------------------------------------\n\nclass CodeGen:\n    \"\"\"Emits Python from a forthlang AST.\n\n    State carried: `indent_level` (Python indent depth), `defined_words`\n    (set of names defined at module scope, for global/local resolution).\n    \"\"\"\n\n    def __init__(self):\n        self.indent_level = 0\n        self.defined_words: set[str] = set()\n        self.declared_vars: set[str] = set()    # `variable` declarations\n\n    def indent(self) -> str:\n        return \"    \" * self.indent_level\n\n    def generate(self, ast: list[dict]) -> str:\n        # First pass: collect top-level word definitions + variable\n        # declarations so nested calls can resolve.\n        for form in ast:\n            k = form.get(\"kind\")\n            if k == \"colon_def\":\n                self.defined_words.add(form[\"name\"])\n            elif k == \"variable_decl\":\n                self.declared_vars.add(form[\"name\"])\n            elif k == \"constant_decl\":\n                # Constants are \"named values\"; we emit a Python helper\n                # that pushes the value when called.\n                self.defined_words.add(form[\"name\"])\n\n        out = [PRELUDE]\n        for form in ast:\n            out.extend(self.emit_form(form, top_level=True))\n        return \"\\n\".join(out) + \"\\n\"\n\n    def emit_form(self, form: dict, *, top_level: bool = False) -> list[str]:\n        \"\"\"Emit Python lines for a single form. Returns a list of lines\n        already prefixed with `self.indent()`.\"\"\"\n        k = form.get(\"kind\")\n        method = getattr(self, f\"emit_{k}\", None)\n        if method is None:\n            return [f\"{self.indent()}# unhandled form: {k}\"]\n        return method(form, top_level=top_level)\n\n    # ---- literals + simple words ----\n\n    def emit_num(self, form: dict, *, top_level: bool) -> list[str]:\n        return [f\"{self.indent()}push({form['value']})\"]\n\n    def emit_float(self, form: dict, *, top_level: bool) -> list[str]:\n        return [f\"{self.indent()}push({form['value']})\"]\n\n    def emit_strpush(self, form: dict, *, top_level: bool) -> list[str]:\n        s = form[\"value\"].replace(\"\\\\\", \"\\\\\\\\\").replace('\"', '\\\\\"')\n        return [f'{self.indent()}push(\"{s}\")']\n\n    def emit_strprint(self, form: dict, *, top_level: bool) -> list[str]:\n        s = form[\"value\"].replace(\"\\\\\", \"\\\\\\\\\").replace('\"', '\\\\\"')\n        return [f'{self.indent()}_print_str(\"{s}\")']\n\n    def emit_name(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"value\"]\n        # Variable name (declared via `variable foo`) resolves to a push\n        # of its address-equivalent (the variable name as a string key).\n        if name in self.declared_vars:\n            return [f'{self.indent()}pushv(\"{name}\")']\n        # Ordinary word call: look up the Python alias.\n        py = _py_name(name)\n        return [f\"{self.indent()}{py}()\"]\n\n    # ---- declarations ----\n\n    def emit_variable_decl(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"name\"]\n        self.declared_vars.add(name)\n        return [f'{self.indent()}_declare_variable(\"{name}\")']\n\n    def emit_constant_decl(self, form: dict, *, top_level: bool) -> list[str]:\n        # `42 constant pi` declares pi as a constant whose value is 42.\n        # The 42 is already on the stack from the preceding `num` form.\n        name = form[\"name\"]\n        self.defined_words.add(name)\n        py = _py_name(name)\n        # Pop the value and define a function that re-pushes it.\n        lines = [\n            f'{self.indent()}_declare_constant(\"{name}\", pop())',\n            f\"{self.indent()}def {py}():\",\n            f'{self.indent()}    push(_consts[\"{name}\"])',\n        ]\n        return lines\n\n    def emit_colon_def(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"name\"]\n        py = _py_name(name)\n        lines = [f\"{self.indent()}def {py}():\"]\n        # Emit body at one extra indent.\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n    # ---- control structures ----\n\n    def emit_if(self, form: dict, *, top_level: bool) -> list[str]:\n        # `if` consumes the top of stack; truthy \u2192 then-body, else else-body.\n        lines = [f\"{self.indent()}if _toy_truthy(pop()):\"]\n        self.indent_level += 1\n        if form[\"then_body\"]:\n            for child in form[\"then_body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        if form[\"else_body\"]:\n            lines.append(f\"{self.indent()}else:\")\n            self.indent_level += 1\n            for child in form[\"else_body\"]:\n                lines.extend(self.emit_form(child))\n            self.indent_level -= 1\n        return lines\n\n    def emit_begin_until(self, form: dict, *, top_level: bool) -> list[str]:\n        # `begin body until`: execute body, then check top of stack.\n        # Top is true \u2192 exit. Top is false \u2192 loop.\n        lines = [f\"{self.indent()}while True:\"]\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        lines.append(f\"{self.indent()}if _toy_truthy(pop()): break\")\n        self.indent_level -= 1\n        return lines\n\n    def emit_begin_again(self, form: dict, *, top_level: bool) -> list[str]:\n        # `begin body again` is an infinite loop. We compile it as\n        # `while True:`. Forth's `leave` would need to be implemented\n        # via raise + try/except; we don't ship `leave` so users should\n        # prefer `begin ... until` instead.\n        lines = [f\"{self.indent()}while True:\"]\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}break  # empty body would spin\")\n        self.indent_level -= 1\n        return lines\n\n    def emit_do_loop(self, form: dict, *, top_level: bool) -> list[str]:\n        # `limit start do body loop`: pop start + limit off stack,\n        # run body for each value of `i` from start to limit-1.\n        # Forth's `i` word fetches the loop counter; we expose it.\n        lines = [\n            f\"{self.indent()}_do_start = pop()\",\n            f\"{self.indent()}_do_limit = pop()\",\n            f\"{self.indent()}for _do_i in range(_do_start, _do_limit):\",\n        ]\n        self.indent_level += 1\n        # Inside the body, `i` (lowercase) pushes the counter.\n        # We handle this by overriding the dispatch: any `name` form\n        # whose value is \"i\" inside a do_loop pushes _do_i. Simplest\n        # implementation: emit a tiny shim before the body.\n        lines.append(f\"{self.indent()}def i(): push(_do_i)\")\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n\n# ---------------------------------------------------------------------------\n# Public entry point\n# ---------------------------------------------------------------------------\n\ndef generate(ast: list[dict]) -> str:\n    \"\"\"Walk the AST, return runnable Python source.\"\"\"\n    cg = CodeGen()\n    return cg.generate(ast)\n\n\nif __name__ == \"__main__\":\n    import sys\n    from .parser import parse\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    print(generate(parse(text)))\n", "runtime.py": "\"\"\"forthlang runtime. Provides the data stack + every built-in word.\n\nForth words consume / produce stack values. We model the stack as a\nplain Python list with `.append()` / `.pop()`. Every built-in word is\na top-level function; the codegen emits `def square(): dup(); mul()`\nstyle nested defs for user-defined words and they all manipulate the\nsame global `_stack`.\n\nStringification mirrors toylang's: numbers print as ints when whole,\nbooleans as `true`/`false`, lists as `[1, 2, 3]`. Forth dialects\ntraditionally print booleans as `-1`/`0` but that's user-hostile;\nwe use the same readable form as the rest of Forge.\n\"\"\"\nfrom __future__ import annotations\n\nimport builtins as _builtins\nimport sys as _sys\n\n\n# ---------------------------------------------------------------------------\n# Data stack + variable storage\n# ---------------------------------------------------------------------------\n\n_stack: list = []\n_vars: dict = {}    # `variable name` declarations: name -> cell value\n_consts: dict = {}  # `value constant name` declarations: name -> value\n\n\ndef push(value) -> None:\n    _stack.append(value)\n\n\ndef pop():\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `pop`\")\n    return _stack.pop()\n\n\ndef top():\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `top`\")\n    return _stack[-1]\n\n\nclass StackUnderflow(RuntimeError):\n    \"\"\"Raised when a word tries to pop more values than the stack holds.\n    Mirrors Forth's runtime failure mode but with a readable Python\n    traceback the user can debug.\"\"\"\n\n\n# ---------------------------------------------------------------------------\n# Stringification + truthiness\n# ---------------------------------------------------------------------------\n\ndef _toy_str(v) -> str:\n    if v is True:\n        return \"true\"\n    if v is False:\n        return \"false\"\n    if v is None:\n        return \"nil\"\n    if isinstance(v, float):\n        if v.is_integer():\n            return str(int(v))\n        return repr(v)\n    if isinstance(v, list):\n        return \"[\" + \", \".join(_toy_str(x) for x in v) + \"]\"\n    return str(v)\n\n\ndef truthy(v) -> bool:\n    \"\"\"Forge truthiness. nil/None and false/0 are falsy; everything\n    else is truthy. Forth's `0` is falsy by tradition, so we follow.\"\"\"\n    if v is None or v is False:\n        return False\n    if v == 0:\n        return False\n    return True\n\n\n# ---------------------------------------------------------------------------\n# Stack manipulation words\n# ---------------------------------------------------------------------------\n\ndef dup() -> None:\n    \"\"\"( a -- a a )\"\"\"\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `dup`\")\n    _stack.append(_stack[-1])\n\n\ndef drop() -> None:\n    \"\"\"( a -- )\"\"\"\n    pop()\n\n\ndef swap() -> None:\n    \"\"\"( a b -- b a )\"\"\"\n    b = pop(); a = pop()\n    _stack.append(b); _stack.append(a)\n\n\ndef over() -> None:\n    \"\"\"( a b -- a b a )\"\"\"\n    if len(_stack) < 2:\n        raise StackUnderflow(\"stack underflow on `over`\")\n    _stack.append(_stack[-2])\n\n\ndef rot() -> None:\n    \"\"\"( a b c -- b c a )\"\"\"\n    c = pop(); b = pop(); a = pop()\n    _stack.append(b); _stack.append(c); _stack.append(a)\n\n\ndef nip() -> None:\n    \"\"\"( a b -- b )\"\"\"\n    b = pop(); pop()\n    _stack.append(b)\n\n\ndef tuck() -> None:\n    \"\"\"( a b -- b a b )\"\"\"\n    b = pop(); a = pop()\n    _stack.append(b); _stack.append(a); _stack.append(b)\n\n\n# ---------------------------------------------------------------------------\n# Arithmetic + comparison + logical (postfix; pop two, push result)\n# ---------------------------------------------------------------------------\n\ndef add() -> None:\n    b = pop(); a = pop(); _stack.append(a + b)\n\n\ndef sub() -> None:\n    b = pop(); a = pop(); _stack.append(a - b)\n\n\ndef mul() -> None:\n    b = pop(); a = pop(); _stack.append(a * b)\n\n\ndef div() -> None:\n    b = pop(); a = pop()\n    # Integer division when both ints (Forth tradition).\n    if isinstance(a, int) and isinstance(b, int):\n        _stack.append(a // b)\n    else:\n        _stack.append(a / b)\n\n\ndef mod() -> None:\n    b = pop(); a = pop(); _stack.append(a % b)\n\n\ndef eq() -> None:\n    b = pop(); a = pop(); _stack.append(a == b)\n\n\ndef ne() -> None:\n    b = pop(); a = pop(); _stack.append(a != b)\n\n\ndef lt() -> None:\n    b = pop(); a = pop(); _stack.append(a < b)\n\n\ndef gt() -> None:\n    b = pop(); a = pop(); _stack.append(a > b)\n\n\ndef le() -> None:\n    b = pop(); a = pop(); _stack.append(a <= b)\n\n\ndef ge() -> None:\n    b = pop(); a = pop(); _stack.append(a >= b)\n\n\ndef log_and() -> None:\n    b = pop(); a = pop(); _stack.append(truthy(a) and truthy(b))\n\n\ndef log_or() -> None:\n    b = pop(); a = pop(); _stack.append(truthy(a) or truthy(b))\n\n\ndef log_not() -> None:\n    a = pop(); _stack.append(not truthy(a))\n\n\n# ---------------------------------------------------------------------------\n# Variables + constants (memory)\n# ---------------------------------------------------------------------------\n\ndef declare_variable(name: str) -> None:\n    \"\"\"`variable foo` declares `foo` with initial value 0.\"\"\"\n    _vars[name] = 0\n\n\ndef declare_constant(name: str, value) -> None:\n    _consts[name] = value\n\n\ndef pushv(name: str) -> None:\n    \"\"\"Push the variable's address (its name string) for use with @ / !.\"\"\"\n    _stack.append(name)\n\n\ndef fetch() -> None:\n    \"\"\"`@ ( name -- value )`. Pops a variable name, pushes its value.\"\"\"\n    name = pop()\n    if not isinstance(name, str) or name not in _vars:\n        raise RuntimeError(f\"`@`: not a variable: {name!r}\")\n    _stack.append(_vars[name])\n\n\ndef store() -> None:\n    \"\"\"`! ( value name -- )`. Pops a variable name + value, stores.\"\"\"\n    name = pop()\n    value = pop()\n    if not isinstance(name, str):\n        raise RuntimeError(f\"`!`: not a variable address: {name!r}\")\n    _vars[name] = value\n\n\n# ---------------------------------------------------------------------------\n# Output\n# ---------------------------------------------------------------------------\n\ndef print_top() -> None:\n    \"\"\"`. ( a -- )` Pop and print top of stack with a trailing space.\n    Forth tradition prints a trailing space; we follow but the tests\n    strip surrounding whitespace from `.expected_output.txt` lines.\"\"\"\n    v = pop()\n    _builtins.print(_toy_str(v))\n\n\ndef print_str(s: str) -> None:\n    \"\"\"`.\" text\"` prints the literal text. No trailing newline.\"\"\"\n    _builtins.print(s, end=\"\")\n\n\ndef cr() -> None:\n    \"\"\"`cr` prints a newline.\"\"\"\n    _builtins.print()\n\n\n# ---------------------------------------------------------------------------\n# Aliases the codegen prelude imports\n# ---------------------------------------------------------------------------\n\n# These are also defined above as plain functions; the codegen prelude\n# imports them by name so user `def` shadowing inside a colon-definition\n# works without breaking the runtime's own dispatch.\n\n# === FORGE_STDLIB_SHIM_BEGIN ===\n# Auto-applied by Forge: deterministic stdlib helpers the codegen\n# PRELUDE imports. Do not edit between BEGIN/END markers; rerun the\n# generator to refresh.\nimport sys as _shim_sys\nimport builtins as _shim_builtins\n\ndef toy_input(prompt=\"\"):\n    return _shim_builtins.input(prompt)\n\ndef toy_list(*items):\n    \"\"\"`list(1, 2, 3)` returns a fresh Python list.\"\"\"\n    return _shim_builtins.list(items)\n\ndef toy_get(coll, k, default=None):\n    \"\"\"Read element by index (list, string) or key (dict). Returns default if absent.\"\"\"\n    if isinstance(coll, _shim_builtins.list):\n        if isinstance(k, int) and 0 <= k < _shim_builtins.len(coll):\n            return coll[k]\n        return default\n    if isinstance(coll, dict):\n        return coll.get(k, default)\n    if isinstance(coll, str):\n        if isinstance(k, int) and 0 <= k < _shim_builtins.len(coll):\n            return coll[k]\n        return default\n    raise TypeError(\"get(): unsupported type \" + type(coll).__name__)\n\ndef toy_set(coll, k, v):\n    \"\"\"Mutate element by index or key. Returns the collection.\"\"\"\n    if isinstance(coll, _shim_builtins.list):\n        if not isinstance(k, int):\n            raise TypeError(\"set(): list keys must be integers\")\n        while _shim_builtins.len(coll) <= k:\n            coll.append(None)\n        coll[k] = v\n    elif isinstance(coll, dict):\n        coll[k] = v\n    else:\n        raise TypeError(\"set(): need list or dict\")\n    return coll\n\ndef toy_push(lst, x):\n    lst.append(x)\n    return lst\n\ndef toy_pop(lst):\n    return lst.pop()\n\ndef toy_dict(*pairs):\n    \"\"\"`dict(\"a\", 1, \"b\", 2)` returns {\"a\": 1, \"b\": 2}. dict() returns {}.\"\"\"\n    if _shim_builtins.len(pairs) % 2 != 0:\n        raise ValueError(\"dict() needs an even number of arguments\")\n    return _shim_builtins.dict(_shim_builtins.zip(pairs[0::2], pairs[1::2]))\n\ndef toy_has(coll, k):\n    if isinstance(coll, dict):\n        return k in coll\n    if isinstance(coll, _shim_builtins.list):\n        return isinstance(k, int) and 0 <= k < _shim_builtins.len(coll)\n    if isinstance(coll, str):\n        return k in coll\n    return False\n\ndef toy_keys(d):\n    return _shim_builtins.list(d.keys())\n\ndef toy_range(a, b=None):\n    if b is None:\n        return _shim_builtins.list(_shim_builtins.range(a))\n    return _shim_builtins.list(_shim_builtins.range(a, b))\n\ndef toy_split(s, sep):\n    return s.split(sep)\n\ndef toy_join(sep, lst):\n    parts = []\n    for x in lst:\n        if x is True:\n            parts.append(\"true\")\n        elif x is False:\n            parts.append(\"false\")\n        elif x is None:\n            parts.append(\"null\")\n        else:\n            parts.append(_shim_builtins.str(x))\n    return sep.join(parts)\n\ndef toy_upper(s):\n    return s.upper()\n\ndef toy_lower(s):\n    return s.lower()\n\ndef toy_replace(s, old, new):\n    return s.replace(old, new)\n\ndef toy_int(v):\n    return _shim_builtins.int(v)\n\ndef toy_float(v):\n    return _shim_builtins.float(v)\n\ndef toy_read_file(path):\n    with _shim_builtins.open(path, \"r\", encoding=\"utf-8\") as _f:\n        return _f.read()\n\ndef toy_write_file(path, content):\n    with _shim_builtins.open(path, \"w\", encoding=\"utf-8\") as _f:\n        _f.write(content)\n    return None\n\ndef toy_argv():\n    return _shim_builtins.list(_shim_sys.argv[1:])\n\ndef toy_exit(code=0):\n    _shim_sys.exit(_shim_builtins.int(code))\n\n# === FORGE_STDLIB_SHIM_END ===\n", "stdlib.py": "\"\"\"forthlang stdlib re-exports. The codegen prelude imports from\nruntime directly; this file is convenience for tests/tooling that\nwant to inspect the canonical word list.\"\"\"\nfrom .runtime import (\n    push, pop, top,\n    dup, drop, swap, over, rot, nip, tuck,\n    add, sub, mul, div, mod,\n    eq, ne, lt, gt, le, ge,\n    log_and, log_or, log_not,\n    print_top, print_str, cr,\n    declare_variable, declare_constant, pushv, fetch, store,\n    truthy,\n)\n\n# Forth-canonical word names \u2192 runtime functions. Useful for kata\n# checkers and the case-analysis fallback to discover what's available.\nSTDLIB_WORDS = {\n    \"dup\": dup, \"drop\": drop, \"swap\": swap, \"over\": over,\n    \"rot\": rot, \"nip\": nip, \"tuck\": tuck,\n    \"+\": add, \"-\": sub, \"*\": mul, \"/\": div, \"mod\": mod,\n    \"=\": eq, \"<>\": ne, \"<\": lt, \">\": gt, \"<=\": le, \">=\": ge,\n    \"and\": log_and, \"or\": log_or, \"not\": log_not,\n    \".\": print_top, \"cr\": cr,\n    \"@\": fetch, \"!\": store,\n}\n\n__all__ = [\"STDLIB_WORDS\"]\n", "typechecker.py": "\"\"\"stacky typechecker.\n\nStack-based static type checking via stack-effect comments.\nEach word has a signature (inputs -- outputs); checking simulates\nstack state and verifies type/depth constraints.\n\"\"\"\n\nimport re\nfrom typing import Any\n\n\nclass TypeCheckError(Exception):\n    pass\n\n\nclass StackState:\n    \"\"\"Represents a typed stack.\"\"\"\n    def __init__(self, types=None):\n        self.types = types or []\n\n    def push(self, t: str):\n        self.types.append(t)\n\n    def pop(self) -> str:\n        if not self.types:\n            raise TypeCheckError(\"Stack underflow\")\n        return self.types.pop()\n\n    def peek(self) -> str:\n        if not self.types:\n            raise TypeCheckError(\"Stack underflow\")\n        return self.types[-1]\n\n    def depth(self) -> int:\n        return len(self.types)\n\n    def copy(self):\n        return StackState(self.types[:])\n\n    def __eq__(self, other):\n        return self.types == other.types\n\n\ndef check(ast: list[dict], src: str = \"\") -> list[dict]:\n    \"\"\"Type-check a stacky program.\n\n    Args:\n        ast: Output from parser.parse()\n        src: Optional source text for extracting stack-effect annotations\n\n    Returns:\n        ast (unmodified)\n\n    Raises:\n        TypeCheckError on type mismatch or undefined word\n    \"\"\"\n    checker = Checker(ast, src)\n    checker.run()\n    return ast\n\n\nclass Checker:\n    def __init__(self, ast: list[dict], src: str):\n        self.ast = ast\n        self.src = src\n        self.stack = StackState()\n        self.words = {}  # name -> (in_types, out_types)\n        self.vars = {}   # name -> type\n\n        # Built-in signatures\n        self._init_builtins()\n\n        # Extract stack-effect annotations from source\n        if src:\n            self._extract_annotations()\n\n    def _init_builtins(self):\n        \"\"\"Register built-in word signatures.\"\"\"\n        self.words.update({\n            \"dup\": ([\"T\"], [\"T\", \"T\"]),\n            \"drop\": ([\"T\"], []),\n            \"swap\": ([\"A\", \"B\"], [\"B\", \"A\"]),\n            \"over\": ([\"A\", \"B\"], [\"A\", \"B\", \"A\"]),\n            \"rot\": ([\"A\", \"B\", \"C\"], [\"B\", \"C\", \"A\"]),\n            \"nip\": ([\"A\", \"B\"], [\"B\"]),\n            \"tuck\": ([\"A\", \"B\"], [\"B\", \"A\", \"B\"]),\n            \"+\": ([\"Int\", \"Int\"], [\"Int\"]),\n            \"-\": ([\"Int\", \"Int\"], [\"Int\"]),\n            \"*\": ([\"Int\", \"Int\"], [\"Int\"]),\n            \"/\": ([\"Int\", \"Int\"], [\"Int\"]),\n            \"mod\": ([\"Int\", \"Int\"], [\"Int\"]),\n            \"=\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \"<>\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \"<\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \">\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \"<=\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \">=\": ([\"Int\", \"Int\"], [\"Bool\"]),\n            \"and\": ([\"Bool\", \"Bool\"], [\"Bool\"]),\n            \"or\": ([\"Bool\", \"Bool\"], [\"Bool\"]),\n            \"not\": ([\"Bool\"], [\"Bool\"]),\n            \".\": ([\"T\"], []),\n            \"cr\": ([], []),\n            \"@\": ([\"Addr\"], [\"T\"]),\n            \"!\": ([\"T\", \"Addr\"], []),\n        })\n\n    def _extract_annotations(self):\n        \"\"\"Parse stack-effect comments `( inputs -- outputs )` from source.\"\"\"\n        effect_re = re.compile(r\"\\(\\s*([^)]*?)\\s*--\\s*([^)]*?)\\s*\\)\")\n        for match in effect_re.finditer(self.src):\n            ins_str, outs_str = match.groups()\n            # These annotations are embedded in colon definitions; we'll\n            # associate them when we encounter the colon_def node.\n\n    def run(self):\n        \"\"\"Type-check the program.\"\"\"\n        for form in self.ast:\n            self._check_form(form)\n\n    def _check_form(self, form: dict):\n        kind = form[\"kind\"]\n        line = form.get(\"line\", 0)\n\n        if kind == \"num\":\n            self.stack.push(\"Int\")\n        elif kind == \"float\":\n            self.stack.push(\"Float\")\n        elif kind == \"strpush\":\n            self.stack.push(\"String\")\n        elif kind == \"strprint\":\n            pass  # .\" string\" has no stack effect\n        elif kind == \"name\":\n            self._check_word(form[\"value\"], line)\n        elif kind == \"colon_def\":\n            self._check_colon_def(form)\n        elif kind == \"variable_decl\":\n            name = form[\"name\"]\n            self.vars[name] = \"Addr\"\n            self.words[name] = ([], [\"Addr\"])\n        elif kind == \"constant_decl\":\n            if self.stack.depth() == 0:\n                raise TypeCheckError(f\"line {line}: constant needs value on stack\")\n            t = self.stack.pop()\n            name = form[\"name\"]\n            self.vars[name] = t\n            self.words[name] = ([], [t])\n        elif kind == \"if\":\n            self._check_if(form, line)\n        elif kind == \"begin_until\":\n            self._check_begin_until(form, line)\n        elif kind == \"begin_again\":\n            self._check_begin_again(form, line)\n        elif kind == \"do_loop\":\n            self._check_do_loop(form, line)\n        else:\n            raise TypeCheckError(f\"line {line}: unknown form: {kind}\")\n\n    def _check_word(self, word: str, line: int):\n        \"\"\"Apply a word's stack effect.\"\"\"\n        # Boolean/null literals\n        if word == \"verum\":\n            self.stack.push(\"Bool\")\n            return\n        if word == \"falsum\":\n            self.stack.push(\"Bool\")\n            return\n        if word == \"void\":\n            self.stack.push(\"Null\")\n            return\n\n        # Defined words\n        if word not in self.words:\n            raise TypeCheckError(f\"line {line}: undefined word: {word}\")\n\n        ins, outs = self.words[word]\n        if self.stack.depth() < len(ins):\n            raise TypeCheckError(f\"line {line}: `{word}` stack underflow\")\n\n        # Pop inputs, check types\n        for expected in reversed(ins):\n            actual = self.stack.pop()\n            if expected not in {\"T\", \"A\", \"B\", \"C\"} and expected != actual:\n                raise TypeCheckError(\n                    f\"line {line}: `{word}` expected {expected}, got {actual}\"\n                )\n\n        # Push outputs\n        for out in outs:\n            self.stack.push(out)\n\n    def _check_colon_def(self, form: dict):\n        \"\"\"Type-check a function definition.\"\"\"\n        name = form[\"name\"]\n        body = form[\"body\"]\n        line = form.get(\"line\", 0)\n\n        # Infer signature by simulating body on empty stack\n        saved = self.stack\n        self.stack = StackState()\n\n        for item in body:\n            self._check_form(item)\n\n        # Register inferred signature (all generic types for now)\n        out_types = self.stack.types[:]\n        self.words[name] = ([], out_types)\n\n        # Restore\n        self.stack = saved\n\n    def _check_if(self, form: dict, line: int):\n        \"\"\"Type-check if/then/else.\"\"\"\n        if self.stack.depth() == 0:\n            raise TypeCheckError(f\"line {line}: `if` needs boolean\")\n        cond = self.stack.pop()\n        if cond != \"Bool\":\n            raise TypeCheckError(f\"line {line}: `if` expects Bool, got {cond}\")\n\n        saved = self.stack.copy()\n\n        # Then branch\n        for item in form[\"then_body\"]:\n            self._check_form(item)\n        then_st = self.stack.copy()\n\n        # Else branch\n        self.stack = saved.copy()\n        for item in form[\"else_body\"]:\n            self._check_form(item)\n\n        if self.stack.depth() != then_st.depth():\n            raise TypeCheckError(f\"line {line}: if branches differ in stack depth\")\n\n        # Use then result\n        self.stack = then_st\n\n    def _check_begin_until(self, form: dict, line: int):\n        \"\"\"Type-check begin/until loop.\"\"\"\n        saved = self.stack.copy()\n        for item in form[\"body\"]:\n            self._check_form(item)\n        if self.stack.depth() == 0:\n            raise TypeCheckError(f\"line {line}: `until` needs boolean\")\n        cond = self.stack.pop()\n        if cond != \"Bool\":\n            raise TypeCheckError(f\"line {line}: `until` expects Bool, got {cond}\")\n        self.stack = saved\n\n    def _check_begin_again(self, form: dict, line: int):\n        \"\"\"Type-check begin/again infinite loop.\"\"\"\n        for item in form[\"body\"]:\n            self._check_form(item)\n\n    def _check_do_loop(self, form: dict, line: int):\n        \"\"\"Type-check do/loop.\"\"\"\n        if self.stack.depth() < 2:\n            raise TypeCheckError(f\"line {line}: `do` needs two integers\")\n        self.stack.pop()\n        self.stack.pop()\n        for item in form[\"body\"]:\n            self._check_form(item)\n"}</script>
+  <script id="examples-data" type="application/json">{"hello_world": "\\ Canonical: hello_world\n.\" hello, world\" cr\n", "arithmetic": "\\ Canonical: arithmetic. Postfix evaluation.\n2 3 + .\n10 4 - .\n6 7 * .\n20 4 / .\n17 5 mod .\n1 2 3 * + .\n", "variables": "\\ Canonical: variables. `variable` declares; `name !` stores; `name @` fetches.\nvariable x\n10 x !\nx @ .\n20 x !\nx @ .\n\n\\ Constants: `value constant name` defines; `name` re-pushes the value.\n42 constant answer\nanswer .\n", "conditionals": "\\ Canonical: conditionals.\n7 0 > if .\" positive\" cr else .\" non-positive\" cr then\n\n0 0 = if .\" zero\" cr else\n    0 0 > if .\" positive\" cr else .\" negative\" cr then\nthen\n\n5 100 < if .\" small\" cr then\n", "loops": "\\ Canonical: loops. Sum 1..10 imperatively via begin/until.\nvariable i\nvariable total\n1 i !\n0 total !\n\nbegin\n    total @ i @ + total !       \\ total += i\n    i @ 1 + i !                  \\ i++\n    i @ 10 >                     \\ until i > 10\nuntil\n\ntotal @ .\n", "functions": "\\ Canonical: functions. Definition, call, recursion.\n: add ( a b -- a+b )\n    + ;\n\n: factorial ( n -- n! )\n    dup 1 <= if drop 1 else dup 1 - factorial * then ;\n\n3 4 add .\n5 factorial .\n", "closures": "\\ Canonical: closures. Forth doesn't have lexical closures (no nested\n\\ scopes); the equivalent pattern is a word that captures + mutates\n\\ a module-level variable. Same algorithm, different mechanism.\nvariable counter\n0 counter !\n\n: tick ( -- )\n    counter @ 1 + counter ! ;\n\n: show ( -- )\n    counter @ . ;\n\ntick show\ntick show\ntick show\n", "strings": "\\ Canonical: strings. Inline-print, push string literal, multi-print.\n.\" hello, world\" cr\n.\" forth says: \" .\" stack first\" cr\ns\" pushed string\" .\n"}</script>
+
+  <script>
+    const LANG_NAME = "stacky";
+    const FILE_EXT = ".sta";
+    const SYNTAX = "stack_based";
+    const COMPILER_FILES = JSON.parse(document.getElementById('compiler-files').textContent);
+    const EXAMPLES = JSON.parse(document.getElementById('examples-data').textContent);
+
+    // Populate examples dropdown
+    const picker = document.getElementById('example-picker');
+    for (const [name, _] of Object.entries(EXAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      picker.append(opt);
+    }
+    picker.addEventListener('change', () => {
+      if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
+    });
+
+    // CodeMirror editor, pick a sensible mode based on syntax style.
+    // Default hello_world for fallback differs per syntax: c_like uses
+    // `print(...);`, python_like uses `print(...)`, s_expression uses
+    // `(print ...)` - never produce something that won't parse.
+    let _fallbackHello;
+    if (SYNTAX === 'c_like') _fallbackHello = `print("Hello from stacky!");\n`;
+    else if (SYNTAX === 's_expression') _fallbackHello = `(print "Hello from stacky!")\n`;
+    else if (SYNTAX === 'stack_based') _fallbackHello = `." Hello from stacky!" cr\n`;
+    else _fallbackHello = `print("Hello from stacky!")\n`;
+    const initial = EXAMPLES["hello_world"] || _fallbackHello;
+    let _cmMode;
+    if (SYNTAX === 'python_like') _cmMode = 'python';
+    else if (SYNTAX === 's_expression') _cmMode = 'commonlisp';
+    else if (SYNTAX === 'stack_based') _cmMode = 'forth';
+    else _cmMode = { name: 'clike', keywords: {} };
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      mode: _cmMode,
+      theme: 'material-darker',
+      lineNumbers: true,
+      matchBrackets: true,
+      indentUnit: SYNTAX === 's_expression' ? 2 : 4,   // Lisp idiom is 2 spaces
+      extraKeys: {
+        'Cmd-Enter': run,
+        'Ctrl-Enter': run,
+      },
+    });
+    editor.setValue(initial);
+
+    // Boot Pyodide and seed it with the embedded compiler files.
+    let pyodide = null;
+    async function boot() {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+      await pyodide.loadPackage(['micropip']);
+      // lark may not be in the official pyodide package list; fall back to micropip
+      try {
+        await pyodide.loadPackage(['lark']);
+      } catch (e) {
+        await pyodide.runPythonAsync(`
+          import micropip
+          await micropip.install('lark')
+        `);
+      }
+      // Write the compiler files into Pyodide's virtual filesystem under /<lang>/
+      pyodide.FS.mkdir('/' + LANG_NAME);
+      for (const [path, content] of Object.entries(COMPILER_FILES)) {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const sub = '/' + LANG_NAME + '/' + parts.slice(0, i).join('/');
+          try { pyodide.FS.mkdir(sub); } catch (_) { /* exists */ }
+        }
+        pyodide.FS.writeFile('/' + LANG_NAME + '/' + path, content);
+      }
+      await pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+      const status = document.getElementById('boot-status');
+      status.className = 'status ready';
+      status.innerHTML = '<span class="dot"></span> Ready';
+    }
+
+    async function run() {
+      if (!pyodide) {
+        toast('Still booting Pyodide… try again in a few seconds.', true);
+        return;
+      }
+      const status = document.getElementById('run-status');
+      const output = document.getElementById('output');
+      status.style.display = 'inline-flex';
+      status.className = 'status running';
+      status.innerHTML = '<span class="dot"></span> Running';
+      output.className = 'output';
+      output.textContent = 'Compiling…';
+      const userSrc = editor.getValue();
+      pyodide.FS.writeFile('/program' + FILE_EXT, userSrc);
+      let stage = 'transpile';
+      try {
+        // Transpile. Wrap in try/except so we can return a STRUCTURED
+        // result (stage + error message) rather than a raw JS exception.
+        const transpileResult = await pyodide.runPythonAsync(`
+import sys, importlib, traceback
+for _mod_name in list(sys.modules):
+    if _mod_name.startswith('${LANG_NAME}.') or _mod_name == '${LANG_NAME}':
+        del sys.modules[_mod_name]
+_ok = True
+_err = ''
+try:
+    from ${LANG_NAME}.parser import parse
+    from ${LANG_NAME}.codegen import generate
+    _src = open('/program${FILE_EXT}').read()
+    _tree = parse(_src)
+    _py = generate(_tree)
+    open('/program.out.py', 'w').write(_py)
+except Exception:
+    _ok = False
+    _err = traceback.format_exc()
+(_ok, _err)
+        `);
+        const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
+        if (transpileResult.destroy) transpileResult.destroy();
+        if (!transpileOk) {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Transpile failed';
+          output.className = 'output error';
+          output.textContent = transpileErr;
+          return;
+        }
+        stage = 'execute';
+        // Execute and capture stdout. Pyodide's runPythonAsync returns the
+        // value of the last TOP-LEVEL expression. A try/except block is a
+        // statement, so we must hoist the result tuple to the final line.
+        const result = await pyodide.runPythonAsync(`
+import io, contextlib, traceback
+_buf_out = io.StringIO()
+_buf_err = io.StringIO()
+_ok = True
+_tb = ''
+try:
+    with contextlib.redirect_stdout(_buf_out), contextlib.redirect_stderr(_buf_err):
+        _code = compile(open('/program.out.py').read(), '<program>', 'exec')
+        exec(_code, {'__name__': '__main__'})
+except Exception:
+    _ok = False
+    _tb = traceback.format_exc()
+(_buf_out.getvalue(), (_buf_err.getvalue() + ('\\n' + _tb if _tb else '')), _ok)
+        `);
+        if (result === undefined || result === null) {
+          throw new Error("Pyodide returned no result, the embedded script may be malformed.");
+        }
+        const arr = result.toJs ? result.toJs() : result;
+        const [stdout, stderr, ok] = arr;
+        if (result.destroy) result.destroy();      // free the PyProxy
+        if (ok) {
+          status.className = 'status ready';
+          status.innerHTML = '<span class="dot"></span> Done';
+          output.className = 'output success';
+          output.textContent = stdout || '(no output)';
+          if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
+        } else {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Runtime error';
+          output.className = 'output error';
+          output.textContent = stdout + '\n' + stderr;
+        }
+      } catch (e) {
+        status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+        status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
+        output.className = 'output error';
+        // Surface as much as Pyodide gives us. e.message is usually the Python
+        // traceback when runPythonAsync raises; e.toString as fallback.
+        let msg = '';
+        if (e && e.message) msg = String(e.message);
+        else if (e && e.toString) msg = e.toString();
+        else msg = String(e);
+        output.textContent = `(stage: ${stage})\n${msg}`;
+      }
+    }
+
+    document.getElementById('run-btn').onclick = run;
+    boot().catch(err => {
+      const status = document.getElementById('boot-status');
+      status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+      status.innerHTML = '<span class="dot"></span> Boot failed';
+      document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
+    });
+  </script>
+</body>
+</html>

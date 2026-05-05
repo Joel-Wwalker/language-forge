@@ -113,7 +113,11 @@ def test_parallel_generator_overlaps_independent_components(tmp_path):
     latency = 0.20
     client = FakeClient(latency_s=latency)
     t0 = time.monotonic()
-    generate_all(spec, output_root=tmp_path, client=client, on_progress=None)
+    # Skip post-gen verify (Phase 0.4 added it; it spawns 8 subprocess runs
+    # for canonical tests that are stubs anyway under FakeClient — adds
+    # ~600ms that has nothing to do with parallelism).
+    generate_all(spec, output_root=tmp_path, client=client, on_progress=None,
+                 verify_after_generation=False)
     elapsed = time.monotonic() - t0
 
     # Sequential lower bound: 8 components × latency. Critical path with

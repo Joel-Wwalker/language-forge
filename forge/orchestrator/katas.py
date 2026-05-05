@@ -25,6 +25,34 @@ from typing import Optional
 from .llm_client import LLMClient
 
 
+def atomic_write_json(path: Path, data: dict, *, indent: int = 2) -> None:
+    """Write a JSON dict atomically: serialize to a temp file in the same
+    directory, then `os.replace()` it onto the target. This eliminates
+    the partial-write window where a crashed/interrupted writer leaves
+    behind half-written JSON that breaks `load_pack()` on the next read.
+
+    `allow_nan=False` rejects NaN/Infinity floats which serialize as
+    invalid JSON tokens (`NaN`, `Infinity`) - any caller passing those
+    gets a TypeError up front instead of silent corruption.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(data, indent=indent, allow_nan=False, default=str),
+            encoding="utf-8",
+        )
+        os.replace(tmp, path)
+    finally:
+        # Best-effort cleanup if replace didn't happen.
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+
+
 # JSON schema fed to the LLM via tool-use to force structured output.
 KATA_PACK_SCHEMA = {
     "type": "object",
@@ -150,7 +178,7 @@ def generate_katas(spec: dict, lang_dir: Path, client: LLMClient,
         "dropped": dropped,
     }
     out_path = lang_dir / "katas.json"
-    out_path.write_text(json.dumps(pack, indent=2), encoding="utf-8")
+    atomic_write_json(out_path, pack)
     if not valid:
         # All candidates failed; still save the pack (with empty katas + the
         # full drop list) so the GUI can render the diagnostic. The exception
@@ -308,7 +336,21 @@ def _batch_validate(katas: list[dict], lang_dir: Path, spec: dict
     """
     if not katas:
         return []
+    syntax = (spec.get("options") or {}).get("syntax")
+    is_lisp = syntax == "s_expression"
     terminator = ";" if spec.get("statement_terminator") == ";" else ""
+
+    def _emit_print(expr_str: str) -> str:
+        """Emit a single `print(expr)` line in the target's syntax. For
+        s_expression we use prefix form `(print expr)`; expr is assumed
+        already in target syntax."""
+        if is_lisp:
+            # Calls in already-target form start with `(`. Calls in c_like
+            # form (older curated packs) we wrap as best-effort prefix.
+            if expr_str.startswith("("):
+                return f"(print {expr_str})"
+            return f'(print "{expr_str}")'   # treat as a literal label
+        return f"print({expr_str}){terminator}"
 
     parts: list[str] = []
     for i, kata in enumerate(katas):
@@ -316,10 +358,11 @@ def _batch_validate(katas: list[dict], lang_dir: Path, spec: dict
         if helpers and helpers.strip():
             parts.append(helpers.rstrip())
         parts.append(kata.get("reference_solution", "").rstrip())
-        parts.append(f'print("{_BATCH_SENTINEL}{i}=="){terminator}')
+        # Sentinel print: `print("__BATCH__0==")` in c-style; `(print "__BATCH__0==")` in lisp.
+        parts.append(_emit_print(f'"{_BATCH_SENTINEL}{i}=="'))
         for t in kata.get("tests", []):
             call = t["call"].strip().rstrip(";").rstrip()
-            parts.append(f"print({call}){terminator}")
+            parts.append(_emit_print(call))
     program = "\n".join(parts) + "\n"
 
     res = _compile_and_run(lang_dir, program, spec["file_extension"])
@@ -357,9 +400,127 @@ def _batch_validate(katas: list[dict], lang_dir: Path, spec: dict
     return [(k, True, "ok") for k in katas]
 
 
+def preflight_check(user_code: str, spec: dict) -> Optional[dict]:
+    """Cheap syntax sanity check that catches the common copy/paste corruption
+    cases BEFORE we wrap with helpers and compile. When detected, returns a
+    helpful error dict the caller can surface verbatim. Returns None if the
+    code looks plausible.
+
+    Catches:
+      - Empty / whitespace-only submissions.
+      - s_expression code that doesn't start with `(` (e.g. user pasted
+        `efn max_depth ...` instead of `(defn max_depth ...`).
+      - Unbalanced parens (counted with respect to string literals + line
+        comments). Most browser copy/paste corruption shows up here.
+
+    The point: produce a HUMAN error message instead of dumping a Lark
+    UnexpectedCharacters traceback that scrolls off the screen.
+    """
+    syntax = (spec.get("options") or {}).get("syntax")
+    code = (user_code or "").strip()
+    if not code:
+        return {"passed": False, "stage": "preflight",
+                "stderr": "Your code is empty. Type a solution before submitting."}
+
+    if syntax != "s_expression":
+        return None  # only s-expression has the cheap balance check today
+
+    # Strip line comments + string literals before counting parens, so
+    # the count reflects actual code structure.
+    cleaned_lines = []
+    for line in code.splitlines():
+        # Strip ; line comments (but not inside strings)
+        out = []
+        in_string = False
+        i = 0
+        while i < len(line):
+            ch = line[i]
+            if ch == '"' and (i == 0 or line[i-1] != '\\'):
+                in_string = not in_string
+                out.append(ch)
+            elif ch == ';' and not in_string:
+                break  # rest of line is a comment
+            else:
+                out.append(ch)
+            i += 1
+        cleaned_lines.append("".join(out))
+    cleaned = "\n".join(cleaned_lines)
+
+    # Count parens, ignoring those inside string literals.
+    opens = 0
+    closes = 0
+    in_string = False
+    for i, ch in enumerate(cleaned):
+        if ch == '"' and (i == 0 or cleaned[i-1] != '\\'):
+            in_string = not in_string
+        elif not in_string:
+            if ch == '(':
+                opens += 1
+            elif ch == ')':
+                closes += 1
+
+    # Doesn't start with `(`? Almost certainly a copy/paste error where
+    # the leading paren got dropped (the most common real-world failure
+    # mode for "I pasted the solution and got a compile error").
+    first_nonws = code.lstrip()
+    if not first_nonws.startswith("("):
+        # Look at what the first 30 chars of the user's code look like
+        # so the error message can quote it back to them.
+        preview = first_nonws[:40].splitlines()[0]
+        return {
+            "passed": False,
+            "stage": "preflight",
+            "stderr": (
+                "Your code doesn't start with `(`. Every s_expression form is "
+                "a parenthesized list `(operator operand ...)`, so a valid "
+                "function definition begins with `(defn ...` or `(def ...`.\n\n"
+                f"What you submitted starts with: `{preview}`\n\n"
+                "If you copy-pasted from the Solution tab and the leading `(` "
+                "didn't make it across (a common browser quirk), use the "
+                "**↓ Load into editor** button on the Solution tab instead. "
+                "It writes the literal reference text directly into the editor "
+                "byte-for-byte."
+            ),
+        }
+
+    # Unbalanced parens? Diagnose by which side has more.
+    if opens != closes:
+        diff = opens - closes
+        if diff > 0:
+            msg = (
+                f"You have {opens} `(` but only {closes} `)`. "
+                f"Missing {diff} closing paren{'s' if diff > 1 else ''}."
+            )
+        else:
+            extra = -diff
+            msg = (
+                f"You have {opens} `(` but {closes} `)`. "
+                f"There are {extra} extra closing paren{'s' if extra > 1 else ''}."
+            )
+        return {
+            "passed": False,
+            "stage": "preflight",
+            "stderr": (
+                f"Parens are unbalanced. {msg}\n\n"
+                "Tip: every `(` needs a matching `)`. If you copy-pasted from "
+                "the Solution tab, double-check the start AND end of your code "
+                "didn't get truncated. The **↓ Load into editor** button on "
+                "the Solution tab avoids this entirely."
+            ),
+        }
+
+    return None
+
+
 def check_solution(spec: dict, lang_dir: Path, kata: dict, user_code: str) -> dict:
     """Run user_code against each kata test. Returns first-failure-only per the
     doc's "Don't reveal all hidden tests at once" guidance."""
+    # Cheap pre-flight: catch common copy/paste corruption before wrapping
+    # + compiling. If the code is malformed in an obvious way, return a
+    # helpful error instead of a Lark traceback.
+    pre = preflight_check(user_code, spec)
+    if pre is not None:
+        return pre
     tests = kata["tests"]
     # Stub-rescued katas have no tests because the reference couldn't be
     # translated. We still attempt to compile the user's submission so they
@@ -389,11 +550,20 @@ def check_solution(spec: dict, lang_dir: Path, kata: dict, user_code: str) -> di
     program = _wrap_with_test_prints(user_code, tests, spec, helpers=helpers)
     res = _compile_and_run(lang_dir, program, spec["file_extension"])
     if not res["ok"]:
+        # Include a program excerpt so users can see what was actually
+        # compiled (helpers + their code + test prints). Many "compile
+        # error" reports turn out to be helpers introducing a conflict
+        # or the test prints exposing an arity bug.
+        program_lines = program.splitlines()
+        excerpt = "\n".join(program_lines[:80])
+        if len(program_lines) > 80:
+            excerpt += f"\n... ({len(program_lines) - 80} more lines)"
         return {
             "passed": False,
             "stage": res["stage"],
             "stderr": res.get("stderr", ""),
             "test_index": None,
+            "program_excerpt": excerpt,
         }
 
     actual_lines = res["stdout"].splitlines()
@@ -439,15 +609,66 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
     LL/tree kata used to crash with "name 'll_to_list' is not defined" on
     user submissions.
 
-    Honors statement_terminator (`;` for c_like, newline for python_like).
+    Honors statement_terminator (`;` for c_like, newline for python_like,
+    `)` for s_expression - the closing paren on the test-call form).
+
+    Test calls may already be in the target language's syntax (e.g. after
+    transpile_kata) or in c_like (when called directly from a curated pack
+    against a c_like target). For s_expression we detect both shapes:
+      - already-translated: `(reverse (list 1 2 3))` -> `(print (reverse (list 1 2 3)))`
+      - c_like form:        `reverse(list(1, 2, 3))` -> transpile, then wrap
     """
-    terminator = ";" if spec.get("statement_terminator") == ";" else ""
+    syntax = (spec.get("options") or {}).get("syntax")
     lines = []
     if helpers and helpers.strip():
         lines.append(helpers.rstrip())
         lines.append("")
     lines.append(user_code.rstrip())
     lines.append("")
+
+    if syntax == "s_expression":
+        from .mechanical_translator import transpile
+        for test in tests:
+            call = test["call"].strip().rstrip(";").rstrip()
+            # If the call is already in s-expression form (parenthesized
+            # prefix call), wrap it directly. Otherwise translate from c_like.
+            if call.startswith("("):
+                lines.append(f"(print {call})")
+            else:
+                translated = transpile(f"print({call});\n", spec)
+                if translated:
+                    lines.append(translated.rstrip())
+                else:
+                    # Defensive fallback: try to coerce `name(a, b)` into
+                    # `(name a b)` lexically. Doesn't handle nested calls.
+                    lines.append(f"(print ({call.replace(',', ' ').replace('(', ' ').replace(')', '')}))")
+        return "\n".join(lines) + "\n"
+
+    if syntax == "stack_based":
+        # Forth: push args, call the word, then `.` to print the result.
+        # Test calls may already be in postfix form (`5 factorial`) or
+        # in c_like form (`factorial(5)`); detect the latter and translate.
+        from .mechanical_translator import transpile
+        for test in tests:
+            call = test["call"].strip().rstrip(";").rstrip()
+            if "(" in call and ")" in call:
+                # c_like form: translate to postfix.
+                translated = transpile(f"{call};\n", spec)
+                if translated:
+                    # Strip the trailing ` drop` that emit_expr_stmt adds
+                    # (we want to PRINT the value, not drop it).
+                    expr = translated.rstrip()
+                    if expr.endswith(" drop"):
+                        expr = expr[:-len(" drop")]
+                    lines.append(f"{expr} .")
+                else:
+                    lines.append(f"\\ couldn't translate test call: {call}")
+            else:
+                # Already postfix; just print after.
+                lines.append(f"{call} .")
+        return "\n".join(lines) + "\n"
+
+    terminator = ";" if spec.get("statement_terminator") == ";" else ""
     for test in tests:
         call = test["call"].strip().rstrip(";").rstrip()
         lines.append(f"print({call}){terminator}")
@@ -456,7 +677,13 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
 
 def _compile_and_run(lang_dir: Path, source: str, ext: str, timeout: float = 12.0) -> dict:
     """Compile + run a source string through the language's pipeline.
-    Returns {ok, stage, stdout, stderr}."""
+    Returns {ok, stage, stdout, stderr}.
+
+    Tempfile cleanup is best-effort but ATOMIC across all error paths
+    (timeout, KeyboardInterrupt, generic exception). On Windows the
+    `.out.py` may be briefly locked by the just-exited Python; we retry
+    the unlink up to 3 times with a small backoff to absorb that.
+    """
     lang_dir = lang_dir.resolve()
     compile_py = lang_dir / "compile.py"
     if not compile_py.exists():
@@ -466,6 +693,7 @@ def _compile_and_run(lang_dir: Path, source: str, ext: str, timeout: float = 12.
     with tempfile.NamedTemporaryFile("w", suffix=ext + ".__kata__", delete=False, encoding="utf-8") as f:
         f.write(source)
         src_path = Path(f.name)
+    out_py = src_path.with_suffix(src_path.suffix + ".out.py")
     try:
         env = {**os.environ, "PYTHONPATH": str(lang_dir.parent)}
         cp = subprocess.run(
@@ -476,7 +704,6 @@ def _compile_and_run(lang_dir: Path, source: str, ext: str, timeout: float = 12.
         if cp.returncode != 0:
             return {"ok": False, "stage": "compile",
                     "stdout": cp.stdout, "stderr": cp.stderr}
-        out_py = src_path.with_suffix(src_path.suffix + ".out.py")
         rp = subprocess.run(
             [sys.executable, str(out_py)],
             capture_output=True, text=True, timeout=timeout,
@@ -490,8 +717,16 @@ def _compile_and_run(lang_dir: Path, source: str, ext: str, timeout: float = 12.
     except subprocess.TimeoutExpired:
         return {"ok": False, "stage": "timeout", "stdout": "", "stderr": "timed out"}
     finally:
-        try: src_path.unlink()
-        except OSError: pass
-        out_py = src_path.with_suffix(src_path.suffix + ".out.py")
-        try: out_py.unlink()
-        except OSError: pass
+        # Robust cleanup: catch OSError (Windows file locks), retry
+        # briefly, then give up rather than leaking on the failure path.
+        # Catch ALL exceptions including KeyboardInterrupt during cleanup.
+        for path in (src_path, out_py):
+            for attempt in range(3):
+                try:
+                    path.unlink(missing_ok=True)
+                    break
+                except OSError:
+                    import time as _t
+                    _t.sleep(0.05 * (attempt + 1))
+                except Exception:
+                    break

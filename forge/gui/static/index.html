@@ -18,6 +18,8 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/commonlisp/commonlisp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/forth/forth.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
 </head>
 <body>
@@ -82,6 +84,22 @@ if x &gt; 0:
     print(x)</pre>
               </div>
             </label>
+            <label class="opt"><input type="radio" name="syntax" value="s_expression">
+              <div>
+                <strong>S-expression</strong>
+                <span>Lisp-style prefix forms, <code>;</code> comments, code is data</span>
+                <pre class="mini-code">(def x 10)
+(if (&gt; x 0) (print x) nil)</pre>
+              </div>
+            </label>
+            <label class="opt"><input type="radio" name="syntax" value="stack_based">
+              <div>
+                <strong>Stack-based</strong>
+                <span>Forth-style postfix on an implicit stack, <code>\</code> comments</span>
+                <pre class="mini-code">: square ( n -- n*n ) dup * ;
+3 square .</pre>
+              </div>
+            </label>
           </fieldset>
 
           <fieldset>
@@ -127,6 +145,20 @@ var name: string = "forge"</pre>
             <input type="text" name="name" id="name" placeholder="mylang" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required autocomplete="off">
             <small>Lowercase identifier. Becomes the Python package name.</small>
           </label>
+        </div>
+
+        <!-- Roadmap §5.4: live preview of the resulting language. Updates as
+             radios + persona/era/theme/phrasebook change so the user sees
+             what their choices add up to before they commit to generation. -->
+        <div class="live-preview" id="live-preview">
+          <div class="lp-head">
+            <span class="lp-eyebrow">Live preview</span>
+            <span class="lp-name" id="lp-name">mylang</span>
+            <span class="lp-ext" id="lp-ext">.ml</span>
+          </div>
+          <p class="lp-lore" id="lp-lore">Pick options. The preview reflects how this language will read.</p>
+          <pre class="lp-snippet" id="lp-snippet">// preview will render here</pre>
+          <div class="lp-axes" id="lp-axes"></div>
         </div>
 
         <details class="advanced">
@@ -450,9 +482,18 @@ var name: string = "forge"</pre>
         <div class="card-head">
           <div>
             <h2>Your languages</h2>
-            <p class="muted">Each language lives under <code>generated/&lt;name&gt;/</code>.</p>
+            <p class="muted">Each language lives under <code>generated/&lt;name&gt;/</code>. Cards show lineage when a language was crossbred from two parents.</p>
           </div>
-          <button class="secondary" id="lib-new-btn">+ New language</button>
+          <div class="lib-head-actions">
+            <button class="ghost" id="lib-tree-toggle" title="Show the family tree of every language and their crossbreeds (roadmap §3.2)">🌳 Family tree</button>
+            <button class="secondary" id="lib-new-btn">+ New language</button>
+          </div>
+        </div>
+        <!-- Roadmap §3.2: family tree visualization. Hidden by default;
+             toggled with the button above. SVG is rendered by JS each time. -->
+        <div id="family-tree-pane" class="family-tree-pane" hidden>
+          <p class="muted small">Edges point from parent → child. Click any node to scroll to its card. Crossbreed languages from the cards below.</p>
+          <div id="family-tree-svg" class="family-tree-svg"></div>
         </div>
         <div id="library-list" class="lang-list"></div>
         <div id="library-empty" class="empty-state" hidden>
@@ -555,6 +596,7 @@ var name: string = "forge"</pre>
             <select id="kata-pack-pick"><option value="">(none)</option></select>
           </label>
           <button class="primary" id="kata-load-pack" title="Load the selected pack against this language. Mechanical translation makes this fast (~1-4s) for most languages.">📚 Load pack</button>
+          <button class="ghost" id="kata-reload-pack" title="Re-translate and refresh the current pack. Use this if you upgraded Forge and stored references no longer compile.">🔄 Reload</button>
           <button class="ghost" id="kata-generate" title="LLM-generated fresh pack tailored to your language. Slow.">✨ Generate</button>
         </div>
         <div class="kata-topbar-right">
@@ -636,9 +678,20 @@ var name: string = "forge"</pre>
                 </div>
               </div>
               <div id="kata-solution-revealed" hidden>
-                <h4>Reference solution</h4>
+                <div class="kata-solution-head">
+                  <h4>Reference solution</h4>
+                  <div class="kata-solution-actions">
+                    <button id="kata-copy-solution" class="ghost mini" title="Copy the reference to your clipboard">📋 Copy</button>
+                    <button id="kata-load-solution" class="primary mini" title="Load the reference into the editor (replaces current code)">↓ Load into editor</button>
+                  </div>
+                </div>
                 <pre id="kata-reference-pre" class="code"></pre>
-                <p class="muted small">This is one valid solution. Yours may differ.</p>
+                <p class="muted small">This is one valid solution. Yours may differ. Click <strong>Load into editor</strong> to drop it straight into the editor below (avoids copy/paste issues with whitespace).</p>
+                <div id="kata-helpers-code" class="kata-helpers-code" hidden>
+                  <h5>Pre-defined helpers (already in scope when your code runs)</h5>
+                  <pre id="kata-helpers-pre" class="code"></pre>
+                  <p class="muted small">These functions are prepended to your submission automatically. You don't need to copy them.</p>
+                </div>
               </div>
             </div>
 
@@ -653,6 +706,7 @@ var name: string = "forge"</pre>
                 <button id="kata-run" class="ghost" title="Run your code against the visible sample tests only.">▶ Run</button>
                 <button id="kata-submit" class="primary" title="Submit against the full hidden test suite.">✓ Submit</button>
                 <button id="kata-reset" class="ghost">↺ Reset</button>
+                <button id="kata-load-ref" class="ghost" title="Drop the reference solution into the editor (byte-for-byte; avoids copy/paste mangling)" hidden>↓ Load reference</button>
                 <button id="kata-ask" class="ghost">💬 Ask AI</button>
               </div>
               <div id="kata-result" class="kata-result"></div>

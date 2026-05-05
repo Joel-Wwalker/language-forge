@@ -208,6 +208,193 @@ function makeRadio(name, value, label, blurb) {
 }
 
 // ============================================================
+// Roadmap §5.4: Live preview of the language being designed.
+// Renders a representative code snippet that updates as the user
+// changes the three core radios + persona/era/theme/phrasebook.
+// ============================================================
+const KEYWORD_THEMES_PREVIEW = {
+  pirate: { var: 'loot', func: 'yarrn', return: 'deliver', if: 'ifnay', true: 'aye' },
+  shakespearean: { var: 'thy', func: 'summon', return: 'yieldeth', if: 'perchance', true: 'verily' },
+  corporate: { var: 'asset', func: 'deliverable', return: 'deliver', if: 'if_aligned', true: 'approved' },
+  latin: { var: 'sit', func: 'munus', return: 'redde', if: 'si', true: 'verum' },
+  cozy: { var: 'thing', func: 'recipe', return: 'share', if: 'when', true: 'yes' },
+};
+
+function updateLivePreview() {
+  const form = $('#create-form');
+  if (!form) return;
+  const fd = new FormData(form);
+  const syntax = fd.get('syntax') || 'c_like';
+  const typing = fd.get('typing') || 'dynamic';
+  const memory = fd.get('memory') || 'host_gc';
+  const persona = fd.get('persona') || '';
+  const era = fd.get('era') || '';
+  const theme = fd.get('keyword_theme') || '';
+  const phrasebook = fd.get('phrasebook') || '';
+  const name = (fd.get('name') || 'mylang').toString().trim() || 'mylang';
+
+  // File extension heuristic mirrors spec_builder
+  const ext = '.' + (name.toLowerCase().slice(0, 3) || 'ml');
+
+  // Theme keyword swaps. s_expression uses Lisp-flavored defaults;
+  // stack_based uses Forth-flavored.
+  const kw = KEYWORD_THEMES_PREVIEW[theme] || {};
+  const k_var = kw.var || (
+    syntax === 'python_like' ? 'let' :
+    syntax === 's_expression' ? 'def' :
+    syntax === 'stack_based' ? 'variable' : 'var'
+  );
+  const k_func = kw.func || (
+    syntax === 'python_like' ? 'def' :
+    syntax === 's_expression' ? 'defn' :
+    syntax === 'stack_based' ? ':' : 'func'
+  );
+  const k_return = kw.return || 'return';
+  const k_if = kw.if || 'if';
+  const k_true = kw.true || (
+    syntax === 's_expression' ? 'true' :
+    syntax === 'stack_based' ? 'true' :
+    typing === 'static' && syntax === 'python_like' ? 'True' : 'true'
+  );
+
+  // Render snippet by syntax
+  let snippet;
+  if (phrasebook === 'child_speak') {
+    snippet =
+      `make answer equal 0.\n` +
+      `the way to add with a and b is {\n` +
+      `    the answer is a + b.\n` +
+      `}.\n` +
+      `print(add(2, 3));`;
+  } else if (phrasebook === 'shakespeare') {
+    snippet =
+      `${k_var} stage = "world";\n` +
+      `${k_func} hail(target) {\n` +
+      `    ${k_return} "Hail, " + target;\n` +
+      `}\n` +
+      `print(hail(stage));`;
+  } else if (phrasebook === 'english_storybook') {
+    snippet =
+      `Once upon a time, ${k_var} count was 0.\n` +
+      `Each time you call hello, return "hi!".\n` +
+      `print(hello());`;
+  } else if (phrasebook === 'ritual') {
+    snippet =
+      `${k_var} sigil = "circle";\n` +
+      `${k_func} invoke(target) {\n` +
+      `    ${k_return} "Cast on " + target;\n` +
+      `}`;
+  } else if (syntax === 's_expression') {
+    if (typing === 'static') {
+      snippet =
+        `(: count Int)\n` +
+        `(${k_var} count 0)\n` +
+        `(: double (-> Int Int))\n` +
+        `(${k_func} double (n) (* n 2))\n` +
+        `(print (double 21))`;
+    } else {
+      snippet =
+        `(${k_var} count 0)\n` +
+        `(${k_func} double (n) (* n 2))\n` +
+        `(print (double 21))`;
+    }
+  } else if (syntax === 'stack_based') {
+    snippet =
+      `\\ count = 0; double n = n * 2\n` +
+      `${k_var} count\n` +
+      `0 count !\n` +
+      `: double ( n -- n*2 ) 2 * ;\n` +
+      `21 double .`;
+  } else if (syntax === 'python_like') {
+    if (typing === 'static') {
+      snippet =
+        `${k_var} count: int = 0\n` +
+        `${k_func} double(n: int) -> int:\n` +
+        `    ${k_return} n * 2\n` +
+        `print(double(21))`;
+    } else {
+      snippet =
+        `${k_var} count = 0\n` +
+        `${k_func} double(n):\n` +
+        `    ${k_return} n * 2\n` +
+        `print(double(21))`;
+    }
+  } else {
+    if (typing === 'static') {
+      snippet =
+        `${k_var} count: int = 0;\n` +
+        `${k_func} double(n: int) -> int {\n` +
+        `    ${k_return} n * 2;\n` +
+        `}\n` +
+        `print(double(21));`;
+    } else {
+      snippet =
+        `${k_var} count = 0;\n` +
+        `${k_func} double(n) {\n` +
+        `    ${k_return} n * 2;\n` +
+        `}\n` +
+        `print(double(21));`;
+    }
+  }
+
+  $('#lp-name').textContent = name;
+  $('#lp-ext').textContent = ext;
+  $('#lp-snippet').textContent = snippet;
+
+  // Lore line: composes era + persona + theme into a single one-liner that
+  // sells what the user is making. Falls back to a default when nothing's
+  // chosen.
+  const flavorBits = [];
+  if (era) flavorBits.push(era);
+  if (persona) flavorBits.push(persona);
+  if (theme) flavorBits.push(`${theme} keywords`);
+  if (phrasebook) flavorBits.push(`${phrasebook} prose`);
+  const lore = $('#lp-lore');
+  if (flavorBits.length) {
+    lore.classList.remove('muted');
+    lore.textContent = `${name} — a ${syntax.replace('_', '-')} ${typing} language drawn from ${flavorBits.join(', ')}.`;
+  } else {
+    lore.classList.add('muted');
+    lore.textContent = `Pick a persona, era, or theme to give ${name} character.`;
+  }
+
+  // Spec axis chips. Theme/persona/era/phrasebook are highlighted as
+  // accent chips when set.
+  const axes = $('#lp-axes');
+  axes.innerHTML = '';
+  const chip = (label, accent = false) => {
+    const el = document.createElement('span');
+    el.className = 'lp-axis' + (accent ? ' accent' : '');
+    el.textContent = label;
+    return el;
+  };
+  axes.append(chip(syntax));
+  axes.append(chip(typing));
+  axes.append(chip(memory));
+  if (era) axes.append(chip(era, true));
+  if (persona) axes.append(chip(persona, true));
+  if (theme) axes.append(chip(`theme:${theme}`, true));
+  if (phrasebook) axes.append(chip(`phrasebook:${phrasebook}`, true));
+  // Feature bans (multi-select)
+  for (const b of fd.getAll('feature_bans')) {
+    axes.append(chip(b, true));
+  }
+}
+
+// Wire reactivity: any form input change repaints the preview.
+function _initLivePreview() {
+  const form = $('#create-form');
+  if (!form) return;
+  // Use a delegated listener so dynamically-added persona/era/theme/phrasebook
+  // radios participate too.
+  form.addEventListener('input', updateLivePreview);
+  form.addEventListener('change', updateLivePreview);
+  updateLivePreview();
+}
+// Run on load (after presets populate).
+document.addEventListener('DOMContentLoaded', () => setTimeout(_initLivePreview, 50));
+
+// ============================================================
 // Advanced customization
 // ============================================================
 
@@ -221,6 +408,20 @@ const DEFAULT_KEYWORDS = {
     let: 'let', def: 'def', return: 'return', if: 'if', elif: 'elif',
     else: 'else', while: 'while', true: 'True', false: 'False', null: 'None',
     print: 'print', and: 'and', or: 'or', not: 'not',
+  },
+  // Roadmap families.md Tier 1: Lisp / Clojure-flavored defaults.
+  s_expression: {
+    var: 'def', func: 'defn', return: 'return', if: 'if', else: 'else',
+    while: 'while', true: 'true', false: 'false', null: 'nil', print: 'print',
+    and: 'and', or: 'or', not: 'not',
+  },
+  // Roadmap families.md Tier 1 (item 2.2): Forth-flavored stack-based.
+  // No conventional `var`/`func` - colon definitions and variables live
+  // in the dictionary. Listed for the keyword-overrides UI.
+  stack_based: {
+    var: 'variable', func: ':', return: ';', if: 'if', else: 'else',
+    while: 'begin', true: 'true', false: 'false', null: 'nil',
+    print: '.', and: 'and', or: 'or', not: 'not',
   },
 };
 
@@ -593,6 +794,87 @@ async function showSpecModal(name) {
   document.body.append(overlay);
 }
 
+// Roadmap §4.6: language critic. Reads REVIEW.md if present, offers
+// to generate one on demand. Markdown rendered very lightly (headings
+// + paragraphs + code) — full md-it would be overkill for ~300 words.
+async function showReviewModal(name) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Review <span class="lc-ext">${escapeHtml(name)}</span></h3>
+        <button class="ghost modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="review-body">
+        <p class="muted">Loading review…</p>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+  overlay.querySelector('.modal-close').addEventListener('click', () => overlay.remove());
+  document.body.append(overlay);
+  const body = overlay.querySelector('#review-body');
+
+  const renderMd = (md) => {
+    // Minimal Markdown renderer: ###/####/**bold**/*italic*/`code`/-bullet/blank
+    const lines = md.split('\n');
+    const out = [];
+    let inList = false;
+    const inline = (s) => escapeHtml(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+    for (const raw of lines) {
+      const ln = raw.trim();
+      if (!ln) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        continue;
+      }
+      if (ln.startsWith('### ')) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(`<h4>${inline(ln.slice(4))}</h4>`);
+      } else if (ln.startsWith('#### ')) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(`<h5>${inline(ln.slice(5))}</h5>`);
+      } else if (ln.startsWith('- ') || ln.startsWith('* ')) {
+        if (!inList) { out.push('<ul>'); inList = true; }
+        out.push(`<li>${inline(ln.slice(2))}</li>`);
+      } else {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push(`<p>${inline(ln)}</p>`);
+      }
+    }
+    if (inList) out.push('</ul>');
+    return out.join('\n');
+  };
+
+  const r = await fetch(`/api/review/${name}`);
+  if (r.ok) {
+    const { review } = await r.json();
+    body.innerHTML = `<div class="review-md">${renderMd(review)}</div>` +
+      `<div style="margin-top:14px;display:flex;gap:8px"><button class="ghost" id="rev-regen">↻ Regenerate review</button></div>`;
+  } else {
+    body.innerHTML = `
+      <p class="muted">No review yet for <code>${escapeHtml(name)}</code>. Languages generated before the critic existed don't have one.</p>
+      <button class="primary" id="rev-gen">✦ Generate review (one LLM call)</button>`;
+  }
+
+  const generate = async () => {
+    body.innerHTML = '<p class="muted">Asking the critic… one LLM call, ~10-20s.</p>';
+    const r2 = await fetch(`/api/review/${name}`, { method: 'POST' });
+    const data = await r2.json();
+    if (r2.ok) {
+      body.innerHTML = `<div class="review-md">${renderMd(data.review)}</div>` +
+        `<div style="margin-top:14px;display:flex;gap:8px"><button class="ghost" id="rev-regen">↻ Regenerate review</button></div>`;
+      body.querySelector('#rev-regen')?.addEventListener('click', generate);
+    } else {
+      body.innerHTML = `<p style="color:var(--bad)">Critic failed: ${escapeHtml(data.error || 'unknown')}</p>`;
+    }
+  };
+  body.querySelector('#rev-gen')?.addEventListener('click', generate);
+  body.querySelector('#rev-regen')?.addEventListener('click', generate);
+}
+
 $('#go-create').addEventListener('click', () => switchView('create'));
 $('#go-playground').addEventListener('click', async () => {
   await refreshPlaygroundLanguages();
@@ -608,9 +890,13 @@ $('#go-playground').addEventListener('click', async () => {
 // ============================================================
 // Library
 // ============================================================
+// Cache so the parent-picker dropdowns don't refetch every open.
+let LIBRARY_CACHE = [];
+
 async function refreshLibrary() {
   const r = await fetch('/api/languages');
   const { languages } = await r.json();
+  LIBRARY_CACHE = languages;
   const list = $('#library-list');
   const empty = $('#library-empty');
   $('#lib-count').textContent = languages.length;
@@ -625,6 +911,7 @@ async function refreshLibrary() {
   for (const lang of languages) {
     const card = document.createElement('article');
     card.className = 'lang-card';
+    card.id = `lang-card-${lang.name}`;
     const opts = lang.options || {};
     const tags = ['syntax', 'typing', 'memory']
       .map(k => opts[k] ? `<span class="tag">${escapeHtml(opts[k])}</span>` : '')
@@ -641,12 +928,27 @@ async function refreshLibrary() {
     const lore = lang.origin_story
       ? `<p class="lc-lore">${escapeHtml(lang.origin_story)}</p>`
       : '<p class="lc-lore muted">Generated from your option choices.</p>';
+    // Roadmap §3.2: lineage chip. Shows parent names + generation when this
+    // language was crossbred. Click → scrolls to a parent card.
+    const lineageChip = lang.lineage && (lang.lineage.parents || []).length
+      ? `<div class="lc-lineage" title="Crossbred from ${escapeHtml((lang.lineage.parents || []).join(' × '))}">
+           <span class="lc-lineage-icon">⇆</span>
+           <span class="lc-lineage-text">
+             gen ${lang.lineage.generation || 1} ·
+             ${lang.lineage.parents.map(p =>
+               `<a class="lc-parent-link" data-parent="${escapeHtml(p)}">${escapeHtml(p)}</a>`
+             ).join(' × ')}
+             <span class="lc-lineage-strategy">(${escapeHtml(lang.lineage.strategy || 'random')})</span>
+           </span>
+         </div>`
+      : '';
     card.innerHTML = `
       <div class="lc-accent" ${accentBar}></div>
       <div class="lc-head">
         <div class="lc-name">${escapeHtml(lang.name)}<span class="lc-ext">${escapeHtml(lang.ext)}</span></div>
         <span class="lc-status status-pill checking" data-status>checking…</span>
       </div>
+      ${lineageChip}
       ${lore}
       <div class="lc-swatch" ${swatchStyle ? `style="${swatchStyle}"` : ''}>
         <span class="lc-swatch-prompt">$</span>
@@ -657,9 +959,11 @@ async function refreshLibrary() {
         <button class="primary lc-open" title="Open in the playground">Open</button>
         <button class="ghost lc-repl" title="In-browser REPL (Pyodide). No install.">▶ Browser</button>
         <button class="ghost lc-verify" title="Run all canonical tests">Verify</button>
+        <button class="ghost lc-breed" title="Cross this language with another to make a child (roadmap §3.3)">⇆ Breed</button>
       </div>
       <div class="lc-actions lc-secondary">
         <button class="link lc-spec" title="View the resolved spec">Spec</button>
+        <button class="link lc-review" title="Read the AI critic's review (roadmap §4.6)">Review</button>
         <button class="link lc-repair" title="Run the repair loop">Repair</button>
         <button class="link lc-regen" title="Regenerate from scratch with the same options">Regenerate</button>
         <button class="link lc-download" title="Download installable zip">Zip</button>
@@ -670,6 +974,8 @@ async function refreshLibrary() {
     card.querySelector('.lc-verify').addEventListener('click', (ev) => verifyLang(lang.name, ev.target, card));
     card.querySelector('.lc-repair').addEventListener('click', (ev) => repairLang(lang.name, ev.target, card));
     card.querySelector('.lc-spec').addEventListener('click', () => showSpecModal(lang.name));
+    card.querySelector('.lc-review').addEventListener('click', () => showReviewModal(lang.name));
+    card.querySelector('.lc-breed').addEventListener('click', () => showBreedModal(lang.name));
     card.querySelector('.lc-download').addEventListener('click', () => downloadLang(lang.name));
     card.querySelector('.lc-repl').addEventListener('click', () => {
       window.open(`/api/standalone/${lang.name}`, '_blank');
@@ -683,10 +989,293 @@ async function refreshLibrary() {
     });
     card.querySelector('.lc-regen').addEventListener('click', () => regenLang(lang));
     card.querySelector('.lc-delete').addEventListener('click', () => deleteLang(lang.name));
+    // Lineage chips: click a parent name → scroll to its card if present.
+    card.querySelectorAll('.lc-parent-link').forEach(a => {
+      a.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const parentName = a.dataset.parent;
+        const target = document.getElementById(`lang-card-${parentName}`);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          target.classList.add('lc-flash');
+          setTimeout(() => target.classList.remove('lc-flash'), 1400);
+        } else {
+          toast(`Parent "${parentName}" no longer in your library.`, 'warn');
+        }
+      });
+    });
     // Best-effort initial status check (cheap, runs the verifier locally)
     silentVerify(lang.name, card);
     list.append(card);
   }
+}
+
+// ============================================================
+// Roadmap §3.3 — crossbreeding modal (parent picker + strategy)
+// ============================================================
+async function showBreedModal(parentAName) {
+  // Use the cached library so we don't refetch.
+  const others = LIBRARY_CACHE.filter(l => l.name !== parentAName);
+  if (!others.length) {
+    toast('You need at least one other language to crossbreed.', 'warn');
+    return;
+  }
+  const parentA = LIBRARY_CACHE.find(l => l.name === parentAName);
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="width:min(620px,95vw)">
+      <div class="modal-head">
+        <h3>Crossbreed <span class="lc-ext">${escapeHtml(parentAName)}</span> × …</h3>
+        <button class="ghost modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted">Pick a second parent and a merge strategy. The orchestrator merges the option dicts then runs the same generate → verify → repair → critique pipeline as a fresh language.</p>
+        <div class="breed-form">
+          <label class="field">
+            <span>Other parent</span>
+            <select id="breed-parent-b">
+              ${others.map(l => `<option value="${escapeHtml(l.name)}">${escapeHtml(l.name)} ${l.options?.syntax ? `(${escapeHtml(l.options.syntax)}, ${escapeHtml(l.options.typing || '')})` : ''}</option>`).join('')}
+            </select>
+          </label>
+          <label class="field">
+            <span>Child name</span>
+            <input type="text" id="breed-child-name" placeholder="e.g. ${escapeHtml(parentAName.slice(0,3) + (others[0]?.name || '').slice(0,3))}" pattern="[a-zA-Z_][a-zA-Z0-9_]*" required>
+            <small>Lowercase identifier. Becomes the new package name.</small>
+          </label>
+          <fieldset class="ext-axis">
+            <legend>Strategy</legend>
+            <label><input type="radio" name="breed-strategy" value="random" checked> <strong>Random</strong> — each conflicting axis flips a coin between the two parents.</label>
+            <label><input type="radio" name="breed-strategy" value="dominant"> <strong>Dominant</strong> — ${escapeHtml(parentAName)} wins ties. The other parent fills only the gaps.</label>
+            <label><input type="radio" name="breed-strategy" value="union"> <strong>Union</strong> — list-valued axes (loops, design notes, bans) become the union of both.</label>
+          </fieldset>
+          <details class="advanced" style="margin-top:8px">
+            <summary>Reproducibility</summary>
+            <div class="adv-body">
+              <label class="field">
+                <span>Random seed (optional)</span>
+                <input type="number" id="breed-seed" placeholder="e.g. 42">
+                <small>Fix the seed to make the random merge reproducible.</small>
+              </label>
+            </div>
+          </details>
+          <div class="breed-summary muted small" id="breed-summary"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="primary big" id="breed-go">⇆ Forge crossbreed</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+  overlay.querySelector('.modal-close').addEventListener('click', () => overlay.remove());
+  document.body.append(overlay);
+
+  const renderSummary = () => {
+    const bName = overlay.querySelector('#breed-parent-b').value;
+    const b = LIBRARY_CACHE.find(l => l.name === bName);
+    const summary = overlay.querySelector('#breed-summary');
+    if (!b || !parentA) { summary.textContent = ''; return; }
+    const axes = ['syntax', 'typing', 'memory', 'comment_style', 'error_handling'];
+    const rows = axes.map(ax => {
+      const a = (parentA.options || {})[ax];
+      const bb = (b.options || {})[ax];
+      const same = (a == null && bb == null) || a === bb;
+      return `<div class="kv"><span>${ax}</span>${a == null ? '<em>—</em>' : `<code>${escapeHtml(String(a))}</code>`} ${same ? '=' : '≠'} ${bb == null ? '<em>—</em>' : `<code>${escapeHtml(String(bb))}</code>`}</div>`;
+    }).join('');
+    summary.innerHTML = `<h5 style="margin:8px 0 4px">Axis differences</h5>${rows}`;
+  };
+  overlay.querySelector('#breed-parent-b').addEventListener('change', renderSummary);
+  renderSummary();
+
+  overlay.querySelector('#breed-go').addEventListener('click', async () => {
+    const childName = overlay.querySelector('#breed-child-name').value.trim();
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(childName)) {
+      toast('Child name must be a valid identifier.', 'error');
+      return;
+    }
+    const parentB = overlay.querySelector('#breed-parent-b').value;
+    const strategy = overlay.querySelector('input[name="breed-strategy"]:checked').value;
+    const seedRaw = overlay.querySelector('#breed-seed').value.trim();
+    const seed = seedRaw ? parseInt(seedRaw, 10) : null;
+    const checked = $('input[name="provider"]:checked');
+    const provider = checked ? checked.value : null;
+
+    overlay.querySelector('#breed-go').disabled = true;
+    overlay.querySelector('#breed-go').textContent = 'Crossing…';
+    try {
+      const r = await fetch('/api/crossbreed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parent_a: parentAName,
+          parent_b: parentB,
+          child_name: childName,
+          strategy, seed, provider,
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) {
+        toast('Crossbreed failed: ' + (data.error || r.statusText), 'error', 5000);
+        overlay.querySelector('#breed-go').disabled = false;
+        overlay.querySelector('#breed-go').textContent = '⇆ Forge crossbreed';
+        return;
+      }
+      overlay.remove();
+      startProgress(childName, data.job_id);
+    } catch (e) {
+      toast('Crossbreed failed: ' + e.message, 'error');
+      overlay.querySelector('#breed-go').disabled = false;
+      overlay.querySelector('#breed-go').textContent = '⇆ Forge crossbreed';
+    }
+  });
+}
+
+// ============================================================
+// Roadmap §3.2 — family-tree visualization (pure SVG, no deps)
+// ============================================================
+$('#lib-tree-toggle')?.addEventListener('click', async () => {
+  const pane = $('#family-tree-pane');
+  pane.hidden = !pane.hidden;
+  if (!pane.hidden) await renderFamilyTree();
+});
+
+async function renderFamilyTree() {
+  const r = await fetch('/api/family-tree');
+  const data = await r.json();
+  const svgRoot = $('#family-tree-svg');
+  svgRoot.innerHTML = '';
+  if (!data.nodes.length) {
+    svgRoot.innerHTML = '<p class="muted small">No languages yet.</p>';
+    return;
+  }
+  // Compute hierarchical levels: roots are generation==0 (or no parents);
+  // each child sits one level below its deepest parent. We keep this simple
+  // — no fancy d3-force, just a column-per-generation layout. Plenty for
+  // tens of languages; if it grows past hundreds, swap in a real graph lib.
+  const byName = Object.fromEntries(data.nodes.map(n => [n.name, n]));
+  const childrenOf = {};
+  const parentsOf = {};
+  for (const n of data.nodes) {
+    childrenOf[n.name] = [];
+    parentsOf[n.name] = [];
+  }
+  for (const e of data.edges) {
+    if (childrenOf[e.parent]) childrenOf[e.parent].push(e.child);
+    if (parentsOf[e.child]) parentsOf[e.child].push(e.parent);
+  }
+  // Topo-ish levels by max(parent.level)+1
+  const level = {};
+  let changed = true;
+  for (const n of data.nodes) level[n.name] = 0;
+  // Iterate until fixed-point (small graphs, cheap).
+  for (let i = 0; i < data.nodes.length + 5 && changed; i++) {
+    changed = false;
+    for (const n of data.nodes) {
+      const ps = parentsOf[n.name];
+      if (!ps.length) continue;
+      const want = Math.max(...ps.map(p => (level[p] ?? 0))) + 1;
+      if (want > level[n.name]) { level[n.name] = want; changed = true; }
+    }
+  }
+  // Bucket nodes by level, sort each level by name for stable layout.
+  const levels = {};
+  for (const n of data.nodes) {
+    (levels[level[n.name]] ||= []).push(n);
+  }
+  Object.values(levels).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name)));
+  const maxLevel = Math.max(...Object.keys(levels).map(Number));
+  const colW = 200;
+  const rowH = 70;
+  const padX = 40, padY = 30;
+  const nodeW = 130, nodeH = 44;
+  const positions = {};
+  for (let lv = 0; lv <= maxLevel; lv++) {
+    const arr = levels[lv] || [];
+    arr.forEach((n, i) => {
+      positions[n.name] = {
+        x: padX + lv * colW,
+        y: padY + i * rowH,
+      };
+    });
+  }
+  const maxRows = Math.max(...Object.values(levels).map(a => a.length), 1);
+  const w = padX * 2 + (maxLevel + 1) * colW;
+  const h = padY * 2 + maxRows * rowH;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  svg.style.maxHeight = '520px';
+  // Edges first so nodes render on top.
+  for (const e of data.edges) {
+    const p = positions[e.parent];
+    const c = positions[e.child];
+    if (!p || !c) continue;
+    const path = document.createElementNS(ns, 'path');
+    const x1 = p.x + nodeW, y1 = p.y + nodeH / 2;
+    const x2 = c.x,         y2 = c.y + nodeH / 2;
+    const mx = (x1 + x2) / 2;
+    path.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', e.strategy === 'dominant' ? '#9aa4cf' :
+                                e.strategy === 'union' ? '#5fbf99' : '#7c8dca');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('stroke-dasharray', e.strategy === 'random' ? '0' : '4,3');
+    svg.append(path);
+  }
+  // Nodes
+  for (const n of data.nodes) {
+    const pos = positions[n.name];
+    const g = document.createElementNS(ns, 'g');
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', () => {
+      const target = document.getElementById(`lang-card-${n.name}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('lc-flash');
+        setTimeout(() => target.classList.remove('lc-flash'), 1400);
+      }
+    });
+    const rect = document.createElementNS(ns, 'rect');
+    rect.setAttribute('x', pos.x);
+    rect.setAttribute('y', pos.y);
+    rect.setAttribute('width', nodeW);
+    rect.setAttribute('height', nodeH);
+    rect.setAttribute('rx', 6);
+    const tk = n.theme_tokens || {};
+    rect.setAttribute('fill', tk.bg || '#1c2237');
+    rect.setAttribute('stroke', tk.accent || '#3a4467');
+    rect.setAttribute('stroke-width', '1.5');
+    g.append(rect);
+    const text = document.createElementNS(ns, 'text');
+    text.setAttribute('x', pos.x + nodeW / 2);
+    text.setAttribute('y', pos.y + nodeH / 2 - 2);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('fill', tk.text || '#e6e9f4');
+    text.setAttribute('font-family', "'Inter', sans-serif");
+    text.setAttribute('font-size', '13');
+    text.setAttribute('font-weight', '600');
+    text.textContent = n.name;
+    g.append(text);
+    const sub = document.createElementNS(ns, 'text');
+    sub.setAttribute('x', pos.x + nodeW / 2);
+    sub.setAttribute('y', pos.y + nodeH / 2 + 13);
+    sub.setAttribute('text-anchor', 'middle');
+    sub.setAttribute('fill', tk.text || '#9aa4cf');
+    sub.setAttribute('font-family', "'JetBrains Mono', monospace");
+    sub.setAttribute('font-size', '10');
+    sub.setAttribute('opacity', '0.7');
+    const subParts = [];
+    if (n.persona) subParts.push(n.persona);
+    if (n.era) subParts.push(n.era);
+    if (n.keyword_theme) subParts.push(n.keyword_theme);
+    sub.textContent = subParts.length ? subParts.join(' · ') : `gen ${n.generation}`;
+    g.append(sub);
+    svg.append(g);
+  }
+  svgRoot.append(svg);
 }
 
 async function openInPlayground(name) {
@@ -882,7 +1471,12 @@ function ensurePlayEditor() {
 function setPlayMode(syntax) {
   const ed = ensurePlayEditor();
   if (!ed) return;
-  ed.setOption('mode', syntax === 'python_like' ? 'python' : { name: 'clike', keywords: {} });
+  let mode;
+  if (syntax === 'python_like') mode = 'python';
+  else if (syntax === 's_expression') mode = 'commonlisp';   // paren-matching + lispy highlighting
+  else if (syntax === 'stack_based') mode = 'forth';         // Forth-style highlighting
+  else mode = { name: 'clike', keywords: {} };
+  ed.setOption('mode', mode);
 }
 
 function getPlaySource() {
@@ -1328,13 +1922,39 @@ function renderKataLibrary() {
     const stubBadge = kata.stub_rescued
       ? '<span class="src-badge stub" title="Auto-check unavailable for this language. Problem still attemptable.">no auto-check</span>'
       : '';
+    // Auto-validation status badge. Set by /api/katas/.../load-pack after
+    // running each kata's reference solution against every test. Verified
+    // = the shipped reference works on every test; users get full
+    // auto-check. The `via` field names the rescue strategy that produced
+    // the reference (none = pack's original; cascade = pattern-match
+    // base solution; curated_match = substituted from stack_classics).
+    const v = kata.validation || {};
+    let validationBadge = '';
+    if (v.status === 'verified' && v.tests_run) {
+      let label = '✓ verified';
+      let title = `Reference solution verified: passed ${v.tests_passed}/${v.tests_run} tests on this language.`;
+      if (v.via === 'cascade') {
+        label = '✓ base solution';
+        title = `Auto-generated cascade reference (passed ${v.tests_passed}/${v.tests_run} tests). The reference hardcodes test-input -> expected-output as a starter; users should write their own algorithm.`;
+      } else if (v.via === 'curated_match') {
+        label = '✓ verified';
+        title = `Reference substituted from the curated stack_classics pack (matched function_name). Passed ${v.tests_passed}/${v.tests_run} tests.`;
+      } else if (v.via === 'case_analysis_fallback') {
+        title += ' (case-analysis fallback)';
+      }
+      validationBadge =
+        `<span class="src-badge verified" title="${escapeHtml(title)}">${label}</span>`;
+    } else if (v.status === 'failed') {
+      validationBadge =
+        `<span class="src-badge failed" title="${escapeHtml(v.reason || 'reference broken')}">⚠ ref broken</span>`;
+    }
     const acceptance = kata.acceptance_rate != null
       ? ` · <span title="Indicative acceptance rate">${(kata.acceptance_rate * 100).toFixed(0)}%</span>`
       : '';
     const tagsHtml = (kata.tags || []).slice(0, 3).map(t =>
       `<span class="kata-tag">${escapeHtml(t)}</span>`).join('');
     row.innerHTML = `
-      <div class="kata-row-title">${escapeHtml(kata.title)}${stubBadge}
+      <div class="kata-row-title">${escapeHtml(kata.title)}${stubBadge}${validationBadge}
         <span class="kata-row-status">${isPassed ? '✓' : ''}</span>
       </div>
       <div class="kata-row-meta">
@@ -1481,6 +2101,11 @@ function selectKata(lang, pack, kata, rowEl) {
   $('#kata-editor-lang').textContent = `${lang}`;
   $('#kata-result').className = 'kata-result';
   $('#kata-result').innerHTML = '';
+  // "Load reference" button in the editor row: only meaningful when a
+  // reference exists. Becomes the one-click escape hatch when the user's
+  // copy/paste corrupted their code.
+  const loadRefBtn = $('#kata-load-ref');
+  if (loadRefBtn) loadRefBtn.hidden = !kata.reference_solution;
 
   // Reset to Description tab
   switchKataTab('description');
@@ -1511,7 +2136,47 @@ $('#kata-show-solution')?.addEventListener('click', () => {
   $('#kata-solution-locked').hidden = true;
   $('#kata-solution-revealed').hidden = false;
   $('#kata-reference-pre').textContent = currentKata.kata.reference_solution || '(no reference)';
+  // Show helpers code if the kata has any. They're auto-prepended at test
+  // time, but users want to see what's defined for them.
+  const helpers = currentKata.kata.helpers || '';
+  if (helpers.trim()) {
+    $('#kata-helpers-code').hidden = false;
+    $('#kata-helpers-pre').textContent = helpers;
+  } else {
+    $('#kata-helpers-code').hidden = true;
+  }
   toast('Solution revealed. Try writing yours first next time!', 'info', 3000);
+});
+
+// --- Copy reference to clipboard ---
+$('#kata-copy-solution')?.addEventListener('click', async () => {
+  if (!currentKata) return;
+  const text = currentKata.kata.reference_solution || '';
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Reference copied to clipboard', 'success', 2000);
+  } catch {
+    toast('Clipboard blocked - use "Load into editor" instead', 'warn', 4000);
+  }
+});
+
+// --- Load reference DIRECTLY into the editor (bypasses any clipboard
+// quirks where browsers occasionally mangle whitespace, smart-quotes, or
+// line endings on copy from a <pre>). The literal stored string lands in
+// the textarea, byte-for-byte. This is the one-click fix for "I pasted
+// the solution and got a compile error."
+$('#kata-load-solution')?.addEventListener('click', () => {
+  if (!currentKata) return;
+  const ref = currentKata.kata.reference_solution || '';
+  if (!ref) { toast('No reference solution available', 'warn'); return; }
+  $('#kata-editor').value = ref;
+  // Persist as a draft so a refresh keeps it
+  const k = `forge.katas.${currentKata.lang}.${currentKata.kata.id}.draft`;
+  localStorage.setItem(k, ref);
+  // Visually hop back to the editor
+  $('#kata-editor').focus();
+  $('#kata-editor').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast('Reference loaded into the editor. Click Submit to verify.', 'success', 3500);
 });
 
 // --- Editor draft autosave ---
@@ -1526,6 +2191,24 @@ $('#kata-reset')?.addEventListener('click', () => {
   $('#kata-editor').value = currentKata.kata.starter_code || '';
   const k = `forge.katas.${currentKata.lang}.${currentKata.kata.id}.draft`;
   localStorage.removeItem(k);
+});
+
+// "Load reference" button right next to Run/Submit. Same behavior as the
+// Solution-tab button but doesn't require revealing the solution first
+// (so a user fighting a copy/paste corruption issue can recover with
+// one click without losing their unrevealed-solution status).
+$('#kata-load-ref')?.addEventListener('click', () => {
+  if (!currentKata) return;
+  const ref = currentKata.kata.reference_solution || '';
+  if (!ref) { toast('No reference available for this kata', 'warn'); return; }
+  if (!confirm('This replaces your current code with the reference solution. Continue?')) {
+    return;
+  }
+  $('#kata-editor').value = ref;
+  const k = `forge.katas.${currentKata.lang}.${currentKata.kata.id}.draft`;
+  localStorage.setItem(k, ref);
+  $('#kata-editor').focus();
+  toast('Reference loaded into the editor.', 'success', 2500);
 });
 
 // --- Run (sample tests, full per-test results) ---
@@ -1571,7 +2254,16 @@ function renderRunResults(data, elapsed, result) {
   }
   if (data.stage && data.stage !== 'ok' && data.stage !== 'compare') {
     result.className = 'kata-result show failed';
-    result.textContent = `✕ ${data.stage}: ${data.stderr || ''}`;
+    let label;
+    if (data.stage === 'preflight') label = '⚠ Your code doesn\'t look right yet\n\n';
+    else if (data.stage === 'compile') label = '✕ Compilation error\n';
+    else if (data.stage === 'run') label = '✕ Runtime error\n';
+    else label = `✕ ${data.stage}: `;
+    let body = label + (data.stderr || '');
+    if (data.program_excerpt) {
+      body += `\n\n--- The actual program (your code + auto-prepended helpers + test prints) ---\n${data.program_excerpt}`;
+    }
+    result.textContent = body;
     return;
   }
   result.className = 'kata-result show ' + (data.passed ? 'passed' : 'failed');
@@ -1616,12 +2308,25 @@ function renderSubmitResult(data, elapsed, result) {
   } else if (data.stage === 'no_tests') {
     result.className = 'kata-result show';
     result.textContent = `⚠ ${data.stderr}`;
+  } else if (data.stage === 'preflight') {
+    // Friendly user error: malformed code caught BEFORE the compiler ran.
+    // Stderr is already a human-readable explanation from preflight_check.
+    result.className = 'kata-result show failed';
+    result.textContent = `⚠ Your code doesn't look right yet\n\n${data.stderr || ''}`;
   } else if (data.stage === 'compile') {
     result.className = 'kata-result show failed';
-    result.textContent = `✕ Compilation error\n${data.stderr || ''}`;
+    let body = `✕ Compilation error\n${data.stderr || ''}`;
+    if (data.program_excerpt) {
+      body += `\n\n--- The actual program that was compiled (your code + auto-prepended helpers + test prints) ---\n${data.program_excerpt}`;
+    }
+    result.textContent = body;
   } else if (data.stage === 'run') {
     result.className = 'kata-result show failed';
-    result.textContent = `✕ Runtime error\n${data.stderr || ''}`;
+    let body = `✕ Runtime error\n${data.stderr || ''}`;
+    if (data.program_excerpt) {
+      body += `\n\n--- The actual program that was run ---\n${data.program_excerpt}`;
+    }
+    result.textContent = body;
   } else {
     result.className = 'kata-result show failed';
     result.textContent = `✕ ${data.stage}: ${data.stderr || 'unknown error'}`;
@@ -1706,6 +2411,38 @@ async function refreshKataPacks() {
     sel.innerHTML = '<option value="">(unavailable)</option>';
   }
 }
+
+// --- Reload pack: re-translate the current pack with `?force=true`,
+// invalidating the on-disk katas.json. Useful when the user upgraded
+// Forge and the stored references no longer parse against the new
+// parser/codegen (e.g. lisplang's grammar changed). One-click recovery
+// without having to delete a file by hand.
+$('#kata-reload-pack')?.addEventListener('click', async () => {
+  const lang = $('#kata-lang').value;
+  const pack = $('#kata-pack-pick').value;
+  if (!lang) { toast('Pick a language first', 'warn'); return; }
+  if (!pack) { toast('Pick a pack first (the one you previously loaded)', 'warn'); return; }
+  const btn = $('#kata-reload-pack');
+  btn.disabled = true; btn.textContent = '🔄 Reloading…';
+  renderKataLoading(lang, /*translating=*/false);
+  try {
+    const r = await fetch(`/api/katas/${lang}/load-pack/${pack}?force=true`, { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) {
+      renderKataError(data.error || 'Reload failed');
+      toast(data.error || 'Reload failed', 'error', 6000);
+      return;
+    }
+    const dropped = data.dropped?.length || 0;
+    toast(`Pack re-translated: ${data.katas.length} katas${dropped ? `, ${dropped} dropped` : ''}`,
+          dropped ? 'warn' : 'success', 4000);
+    loadKataPack(lang);
+  } catch (e) {
+    toast('Reload failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 Reload';
+  }
+});
 
 $('#kata-load-pack')?.addEventListener('click', async () => {
   const lang = $('#kata-lang').value;
@@ -1803,7 +2540,7 @@ function renderKataIncompatible(msg) {
     <div class="kata-error">
       <strong>This pack isn't compatible with this language.</strong>
       <p style="margin:8px 0 6px">${escapeHtml(msg)}</p>
-      <p style="margin:6px 0 0">Switch the language dropdown to a vanilla c_like language (e.g. <strong>toylang</strong>), or click <strong>✨ Generate (slow)</strong> to make a fresh pack for this language.</p>
+      <p style="margin:6px 0 0">Switch the language dropdown to a reference target (<strong>toylang</strong> for c_like, <strong>lisplang</strong> for s_expression), or click <strong>✨ Generate (slow)</strong> to make a fresh pack for this language.</p>
     </div>`;
 }
 
@@ -1825,20 +2562,20 @@ function renderKataDrops(pack) {
   if (/UnexpectedCharacters|UnexpectedToken|lark|UnexpectedInput/i.test(firstReason)) {
     cause = `<code>${escapeHtml(lang)}</code>'s parser doesn't accept the references' standard <code>var/func</code> syntax. The language probably has a natural-language phrasebook or non-standard keyword spelling.`;
     action = sourceCurated
-      ? `Try a vanilla c_like language (<strong>toylang</strong> works), or click <strong>✨ Generate</strong> to have the LLM write a fresh pack in <code>${escapeHtml(lang)}</code>'s actual dialect.`
+      ? `Try a reference target (<strong>toylang</strong> for c_like, <strong>lisplang</strong> for s_expression), or click <strong>✨ Generate</strong> to have the LLM write a fresh pack in <code>${escapeHtml(lang)}</code>'s actual dialect.`
       : `Click <strong>✨ Generate</strong> again so the model can take another pass.`;
   } else if (/no_mutation|cannot reassign|immutable|cannot mutate/i.test(firstReason)) {
     cause = `<code>${escapeHtml(lang)}</code> bans variable reassignment. The references all loop with <code>i = i + 1</code>, which this language doesn't allow.`;
-    action = `Try a c_like language without the <code>no_mutation</code> ban (<strong>toylang</strong> works), or click <strong>✨ Generate</strong> for a recursion-only pack tailored to this language.`;
+    action = `Try a language without the <code>no_mutation</code> ban (<strong>toylang</strong> or <strong>lisplang</strong>), or click <strong>✨ Generate</strong> for a recursion-only pack tailored to this language.`;
   } else if (/no_loops|while.*not allowed|loop.*ban/i.test(firstReason)) {
     cause = `<code>${escapeHtml(lang)}</code> bans loops. The references use <code>while</code>.`;
-    action = `Try a c_like language with loops, or click <strong>✨ Generate</strong> for a recursion-based pack.`;
+    action = `Try a language with loops, or click <strong>✨ Generate</strong> for a recursion-based pack.`;
   } else if (/expected.*output.*lines.*got/i.test(firstReason)) {
-    cause = `The references compile but their stdout doesn't match the expected outputs. <code>${escapeHtml(lang)}</code>'s <code>print</code> formatter probably differs from toylang's (e.g. lists print as <code>(1 2 3)</code> instead of <code>[1, 2, 3]</code>).`;
+    cause = `The references compile but their stdout doesn't match the expected outputs. <code>${escapeHtml(lang)}</code>'s <code>print</code> formatter probably differs from the reference's (e.g. lists print as <code>(1 2 3)</code> in lisplang vs <code>[1, 2, 3]</code> in toylang).`;
     action = `Click <strong>✨ Generate</strong> to make a pack whose expected outputs match this language's actual print formatter.`;
   } else {
     cause = `The pack's reference solutions don't compile or run correctly on <code>${escapeHtml(lang)}</code>.`;
-    action = `Try <strong>toylang</strong> first (the reference c_like target), or click <strong>✨ Generate</strong> to make a pack tailored to <code>${escapeHtml(lang)}</code>.`;
+    action = `Try a reference target first (<strong>toylang</strong> for c_like, <strong>lisplang</strong> for s_expression), or click <strong>✨ Generate</strong> to make a pack tailored to <code>${escapeHtml(lang)}</code>.`;
   }
 
   const rows = pack.dropped.map(d => `

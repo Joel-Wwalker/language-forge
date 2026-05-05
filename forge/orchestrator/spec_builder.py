@@ -20,7 +20,7 @@ SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "language_spec.s
 
 class Options(TypedDict, total=False):
     # MVP: required
-    syntax: Literal["c_like", "python_like"]
+    syntax: Literal["c_like", "python_like", "s_expression", "stack_based"]
     typing: Literal["static", "dynamic"]
     memory: Literal["host_gc", "refcount"]
     # Tier 1: optional, default to current MVP behavior
@@ -55,6 +55,14 @@ _DEFAULT_EXTENDED = {
 _SYNTAX_EXTENDED_DEFAULTS = {
     "c_like": {"comment_style": "both", "naming_convention": "snake_case"},
     "python_like": {"comment_style": "line", "naming_convention": "snake_case"},
+    # Lisps idiomatically use `;` line comments and `kebab-case`. naming_convention
+    # is constrained to snake/camel/Pascal in the schema today, so we map kebab to
+    # snake (closest equivalent) at the spec level. Codegen keeps the kebab form.
+    "s_expression": {"comment_style": "line", "naming_convention": "snake_case"},
+    # Forth-likes use `\ line` and `( paren )` comments. Identifiers are
+    # space-separated tokens (kebab-case is idiomatic but most printable
+    # ASCII works); we map to snake_case for the schema.
+    "stack_based": {"comment_style": "both", "naming_convention": "snake_case"},
 }
 
 
@@ -166,6 +174,139 @@ _PYTHON_LIKE_BASE = {
     "keywords": ["let", "def", "return", "if", "elif", "else", "while", "True", "False", "None", "print"],
 }
 
+# ---------------------------------------------------------------------------
+# Roadmap §families.md Tier 1: S-expression / Lisp family.
+#
+# Code is data: every form is `(operator operand operand ...)`. Function
+# calls, control flow, definitions, and arithmetic all use the same shape.
+# The parser is famously trivial; what makes a Lisp a Lisp is layer 3
+# (uniform call notation, expressions everywhere) and layer 4 (lists as
+# the primary data structure).
+#
+# We model this dialect as Clojure-flavored: `nil` for null, `true`/`false`
+# unquoted, `defn` for function definition, `def` for global binding, and
+# kebab-case identifiers. The reference family ships:
+#   - `(def x 10)` for variable declaration
+#   - `(defn name (a b) body...)` for function definition
+#   - `(if cond then else)` for conditional
+#   - `(while cond body...)` for loops
+#   - `(+ a b)`, `(* a b)`, ... arithmetic as prefix calls
+#   - `(= a b)`, `(< a b)`, ... comparison as prefix calls
+#   - `(and a b)`, `(or a b)`, `(not a)` for logicals
+#
+# `block_style: parens` is a new value; the schema enum was widened.
+# `statement_terminator: ")"` because that's literally what closes a form.
+# ---------------------------------------------------------------------------
+_S_EXPRESSION_BASE = {
+    "comment_syntax": {"line": ";", "block_open": None, "block_close": None},
+    "statement_terminator": ")",
+    "block_style": "parens",
+    "function_definition": {
+        "keyword": "defn",
+        "syntax_example": "(defn add (a b) (+ a b))",
+        "type_annotations": None,
+    },
+    "variable_declaration": {
+        "keyword": "def",
+        "syntax_example": "(def x 10)",
+        "type_annotations": None,
+    },
+    "print_form": "(print x)",
+    "boolean_keywords": {"true": "true", "false": "false"},
+    "null_keyword": "nil",
+    "operators": {
+        # In an s-expression language, operators ARE function names. We list
+        # them so codegen + theme/keyword-overrides can still parameterize
+        # them, but they always appear in prefix position: `(+ a b)`.
+        "arithmetic": ["+", "-", "*", "/", "mod"],
+        "comparison": ["=", "!=", "<", ">", "<=", ">="],
+        "logical": ["and", "or", "not"],
+        # No assignment operator at the syntax level; `def` and `set!` are
+        # special forms (and `set!` only exists if the language is mutable).
+        "assignment": [],
+    },
+    "literals": {
+        "integer": "decimal digits",
+        "float": "decimal digits with '.'",
+        "string": "double-quoted with backslash escapes",
+        "boolean": "true / false (unquoted symbols)",
+    },
+    "keywords": [
+        "def", "defn", "if", "else", "when", "while", "true", "false", "nil",
+        "let", "fn", "do", "print",
+    ],
+}
+
+# ---------------------------------------------------------------------------
+# Roadmap families.md Tier 1 (item 2.2): Stack-based / concatenative family.
+#
+# Programs are sequences of operations on an implicit data stack.
+# `2 3 + 4 *` instead of `(2 + 3) * 4`. Function definitions consume and
+# produce stack values. Examples: Forth, Factor, PostScript, Joy, Cat.
+#
+# We model this dialect after Forth (the most familiar stack language)
+# with a Factor-influenced print form. Forms supported in the reference:
+#   `: name body ;`            colon definition
+#   `( ... )` / `\ comment`    paren / line comments
+#   `if ... else ... then`     conditional (compiler words)
+#   `begin ... until`          loop (until top of stack is true)
+#   `do ... loop`              counted loop (over the dual loop stack)
+#   `variable name`            variable declaration
+#   `value name !`             store
+#   `name @`                   fetch
+#   `dup drop swap over rot`   stack manipulation
+#   `+ - * / mod`              arithmetic (postfix)
+#   `= <> < > <= >=`           comparison
+#   `and or not`               logical
+#   `." text"` / `s" text"`    print / push string literal
+#   `.`                        print top of stack
+#   `cr`                       newline
+#
+# `block_style: concatenative` and `statement_terminator: " "` (whitespace).
+# ---------------------------------------------------------------------------
+_STACK_BASED_BASE = {
+    "comment_syntax": {"line": "\\", "block_open": "(", "block_close": ")"},
+    "statement_terminator": " ",
+    "block_style": "concatenative",
+    "function_definition": {
+        "keyword": ":",
+        "syntax_example": ": square ( n -- n*n ) dup * ;",
+        "type_annotations": None,
+    },
+    "variable_declaration": {
+        "keyword": "variable",
+        "syntax_example": "variable counter  0 counter !",
+        "type_annotations": None,
+    },
+    "print_form": ".",
+    "boolean_keywords": {"true": "true", "false": "false"},
+    "null_keyword": "nil",
+    "operators": {
+        # Postfix - operators are just words pulled from the dictionary.
+        # Listing them here lets keyword themes / overrides parameterize
+        # them, but at runtime they're function calls, not infix tokens.
+        "arithmetic": ["+", "-", "*", "/", "mod"],
+        "comparison": ["=", "<>", "<", ">", "<=", ">="],
+        "logical": ["and", "or", "not"],
+        # No assignment operator at the syntax level. `!` (store) and
+        # `@` (fetch) are word-form operators on declared variables.
+        "assignment": [],
+    },
+    "literals": {
+        "integer": "decimal digits (negative literals via leading `-`)",
+        "float": "decimal digits with '.'",
+        "string": "Forth idiom: `s\" hello\"` to push, `.\" hello\"` to print inline",
+        "boolean": "true / false (unquoted symbols; some dialects use 0 / -1)",
+    },
+    "keywords": [
+        ":", ";", "if", "else", "then", "begin", "until", "again",
+        "while", "repeat", "do", "loop", "variable", "constant",
+        "true", "false", "and", "or", "not",
+        "dup", "drop", "swap", "over", "rot", "nip", "tuck",
+        "@", "!", ".", "cr",
+    ],
+}
+
 
 def _typing_overlay(typing: str, syntax: str) -> dict:
     if typing == "static":
@@ -177,6 +318,32 @@ def _typing_overlay(typing: str, syntax: str) -> dict:
                     "primitive_types": ["int", "float", "string", "bool"],
                     "annotation_form": "name: type",
                     "inference": False,
+                },
+            }
+        if syntax == "s_expression":
+            # Typed Racket / Hy-style annotations: a separate `(: name type)`
+            # form that precedes the binding. Inference is the norm in typed
+            # Lisps because it matches the homoiconic philosophy.
+            return {
+                "function_definition": {"type_annotations": "(: add (-> Int Int Int))\n(defn add (a b) (+ a b))"},
+                "variable_declaration": {"type_annotations": "(: x Int)\n(def x 10)"},
+                "type_system": {
+                    "primitive_types": ["Int", "Float", "String", "Bool"],
+                    "annotation_form": "(: name type)",
+                    "inference": True,
+                },
+            }
+        if syntax == "stack_based":
+            # Forth tradition: stack-effect comments `( a b -- c )`.
+            # Static-typed Forth (rare; Joy / Cat) would attach types to
+            # word definitions in the stack-effect notation: `: add ( Int Int -- Int ) + ;`.
+            return {
+                "function_definition": {"type_annotations": ": add ( Int Int -- Int ) + ;"},
+                "variable_declaration": {"type_annotations": "variable counter ( Int )"},
+                "type_system": {
+                    "primitive_types": ["Int", "Float", "String", "Bool"],
+                    "annotation_form": "stack-effect comment ( inputs -- outputs )",
+                    "inference": True,
                 },
             }
         # python_like + static → gradual typing
@@ -243,7 +410,8 @@ def build_spec(options: Options, lang_name: str, *,
                feature_bans: list[str] | None = None,
                hostile_constraints: str | None = None,
                phrasebook: str | None = None,
-               natural_language: dict | None = None) -> dict:
+               natural_language: dict | None = None,
+               lineage: dict | None = None) -> dict:
     """Build a base spec from options + optional customization, era, persona,
     theme, feature bans, and hostile constraints.
 
@@ -268,8 +436,13 @@ def build_spec(options: Options, lang_name: str, *,
     # 1) Apply ban-derived option overrides (only fills axes the user didn't set)
     eff_opts = apply_bans(feature_bans or [], eff_opts)
 
-    if eff_opts.get("syntax") == "c_like":
+    syntax = eff_opts.get("syntax")
+    if syntax == "c_like":
         spec = dict(_C_LIKE_BASE)
+    elif syntax == "s_expression":
+        spec = dict(_S_EXPRESSION_BASE)
+    elif syntax == "stack_based":
+        spec = dict(_STACK_BASED_BASE)
     else:
         spec = dict(_PYTHON_LIKE_BASE)
     options = eff_opts  # subsequent code uses the merged effective options
@@ -454,6 +627,28 @@ def build_spec(options: Options, lang_name: str, *,
     for w in warnings(issues):
         spec["design_notes"].append(f"[coherence] {w.message}")
 
+    # ---- Roadmap §3.3: crossbreeding lineage ----
+    # Stored verbatim so the Library can draw the family tree and the resolver
+    # / readme prompts can mention "this language was crossed from X and Y".
+    if lineage:
+        spec["lineage"] = {
+            "parents": list(lineage.get("parents") or []),
+            "strategy": lineage.get("strategy") or "random",
+            "generation": int(lineage.get("generation") or 1),
+        }
+        if lineage.get("seed") is not None:
+            spec["lineage"]["seed"] = int(lineage["seed"])
+        # Surface lineage in design_notes so the resolver weaves it into the
+        # origin_story it generates (children of named parents read better
+        # when the LLM knows it's a crossbreed).
+        parents_str = " × ".join(spec["lineage"]["parents"])
+        if parents_str:
+            spec["design_notes"].append(
+                f"[lineage] crossbred from {parents_str} "
+                f"(generation {spec['lineage']['generation']}, "
+                f"strategy={spec['lineage']['strategy']})"
+            )
+
     # ---- Roadmap §3.1: per-language visual theme ----
     # Merge style_tokens from chosen presets so the generator can emit
     # `<lang>/theme.css` and the GUI knows how to dress this language.
@@ -495,6 +690,26 @@ def _apply_extended_options(spec: dict, opts: dict) -> None:
         elif cs == "nestable_block":
             spec["comment_syntax"] = {"line": "//", "block_open": "/*", "block_close": "*/", "nestable": True}
         # else: "both": leave default
+    elif opts["syntax"] == "s_expression":
+        # Lisps use `;` line comments; `#| ... |#` is the conventional block
+        # comment in Scheme/Racket. There's no widely-used "both" idiom that
+        # differs, so block / nestable_block both pick `#| |#`.
+        if cs == "block":
+            spec["comment_syntax"] = {"line": None, "block_open": "#|", "block_close": "|#"}
+        elif cs == "both" or cs == "nestable_block":
+            spec["comment_syntax"] = {"line": ";", "block_open": "#|", "block_close": "|#",
+                                      "nestable": cs == "nestable_block"}
+        # else: "line": leave default (`;` only)
+    elif opts["syntax"] == "stack_based":
+        # Forth uses `\ line` and `( paren )`. Both are idiomatic; the
+        # paren form doubles as stack-effect notation. Block comments
+        # are NEVER nestable in Forth (would require a different
+        # tokenizer entirely).
+        if cs == "line":
+            spec["comment_syntax"] = {"line": "\\", "block_open": None, "block_close": None}
+        elif cs == "block":
+            spec["comment_syntax"] = {"line": None, "block_open": "(", "block_close": ")"}
+        # else "both" / "nestable_block": leave the default (`\` + `( )`)
     else:  # python_like
         if cs == "block":
             spec["comment_syntax"] = {"line": None, "block_open": '"""', "block_close": '"""'}
@@ -525,14 +740,33 @@ def _apply_extended_options(spec: dict, opts: dict) -> None:
     # ---- default_mutability ----
     dm = opts.get("default_mutability", "mutable")
     if dm == "immutable":
-        # Convention: `let x = ...` is immutable; mutation requires `let mut x = ...`.
         spec["variable_declaration"]["mutability"] = "immutable_by_default"
-        if "mut" not in spec["keywords"]:
-            spec["keywords"] = sorted(set(spec["keywords"]) | {"mut"})
-        spec["variable_declaration"]["syntax_example"] = (
-            spec["variable_declaration"]["keyword"] + " mut x = 10" +
-            (";" if opts["syntax"] == "c_like" else "")
-        )
+        if opts["syntax"] == "s_expression":
+            # Lisp convention: `def` is immutable, `set!` is the explicit
+            # mutation operator (Scheme tradition). Reserve `set!`.
+            spec["keywords"] = sorted(set(spec["keywords"]) | {"set!"})
+            spec["variable_declaration"]["syntax_example"] = (
+                "(def x 10)  ; immutable; mutate via (set! x 11)"
+            )
+        elif opts["syntax"] == "stack_based":
+            # Forth convention: `constant` is immutable, `variable` is
+            # mutable (and you must explicitly fetch via `@` / store via `!`).
+            # When immutable is the default, prefer `constant` for new
+            # bindings; `variable` is then a less-common opt-in.
+            spec["keywords"] = sorted(set(spec["keywords"]) | {"constant"})
+            spec["variable_declaration"]["keyword"] = "constant"
+            spec["variable_declaration"]["syntax_example"] = (
+                "10 constant pi-tens  \\ immutable; reuse via name"
+            )
+        else:
+            # c_like / python_like convention: `let x = ...` is immutable;
+            # mutation requires `let mut x = ...`.
+            if "mut" not in spec["keywords"]:
+                spec["keywords"] = sorted(set(spec["keywords"]) | {"mut"})
+            spec["variable_declaration"]["syntax_example"] = (
+                spec["variable_declaration"]["keyword"] + " mut x = 10" +
+                (";" if opts["syntax"] == "c_like" else "")
+            )
     else:
         spec["variable_declaration"]["mutability"] = "mutable_by_default"
 

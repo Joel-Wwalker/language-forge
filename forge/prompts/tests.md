@@ -57,9 +57,41 @@ You MUST produce 16 keys total: 8 source files + 8 `.expected_output.txt` files.
 }
 ```
 
+### Concrete example for stack_based syntax (extension `.fth`)
+
+For stack_based languages, programs are postfix sequences of words. Comments are `\` (line) and `( paren )`. Test calls evaluate by pushing args, calling the word, then printing with `.`. Booleans print as `true` / `false`; null is `nil`.
+
+```json
+{
+  "hello_world.fth": "\\ Canonical: hello_world\n.\" Hello, World!\" cr\n",
+  "hello_world.expected_output.txt": "Hello, World!\n",
+  "arithmetic.fth": "\\ Canonical: arithmetic\n2 3 + .\n6 7 * .\n",
+  "arithmetic.expected_output.txt": "5\n42\n",
+  "functions.fth": "\\ Canonical: functions\n: factorial ( n -- n! )\n  dup 1 <= if drop 1 else dup 1 - factorial * then ;\n5 factorial .\n",
+  "functions.expected_output.txt": "120\n"
+}
+```
+
+### Concrete example for s_expression syntax (extension `.lsp`)
+
+For s_expression languages, every form is `(operator operand operand ...)`. Comments are `;`. Use prefix arithmetic (`(+ a b)`), not infix. Booleans are unquoted symbols `true` / `false`; null is `nil`. List output prints in s-expression form `(1 2 3)` not `[1, 2, 3]`.
+
+```json
+{
+  "hello_world.lsp": "; Canonical: hello_world\n(print \"Hello, World!\")\n",
+  "hello_world.expected_output.txt": "Hello, World!\n",
+  "arithmetic.lsp": "; Canonical: arithmetic\n(print (+ 1 (* 2 3)))\n(print (* (+ 1 2) 3))\n(print (- 20 4 3))\n",
+  "arithmetic.expected_output.txt": "7\n9\n13\n",
+  "variables.lsp": "; Canonical: variables\n(def x 10)\n(def y \"hello\")\n(print x)\n(print y)\n(set! x 20)\n(print x)\n",
+  "variables.expected_output.txt": "10\nhello\n20\n",
+  "functions.lsp": "; Canonical: functions\n(defn add (a b) (+ a b))\n(defn factorial (n) (if (<= n 1) 1 (* n (factorial (- n 1)))))\n(print (add 3 4))\n(print (factorial 5))\n",
+  "functions.expected_output.txt": "7\n120\n"
+}
+```
+
 (Truncated for brevity above: your real response must include all 16 entries.)
 
-Each `expected_output.txt` MUST end with a single trailing newline (`\n`). Use the spec's syntax exactly: braces vs. indents, `;` vs. newline, `//` vs. `#` comments, `&&`/`||`/`!` vs. `and`/`or`/`not`.
+Each `expected_output.txt` MUST end with a single trailing newline (`\n`). Use the spec's syntax exactly: braces vs. indents vs. parens, `;` (lisp) vs. `;` (c-like statement terminator) vs. newline, `//` vs. `#` vs. `;` comments, `&&`/`||`/`!` vs. `and`/`or`/`not`.
 
 ## Natural-language phrasebook (HIGHEST PRIORITY when present)
 

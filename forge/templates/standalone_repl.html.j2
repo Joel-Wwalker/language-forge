@@ -14,6 +14,8 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/commonlisp/commonlisp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/forth/forth.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
 
   <style>
@@ -173,14 +175,27 @@
       if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
     });
 
-    // CodeMirror editor, pick a sensible mode based on syntax style
-    const initial = EXAMPLES["hello_world"] || `print("Hello from {{ lang_name }}!")${SYNTAX === 'c_like' ? ';' : ''}\n`;
+    // CodeMirror editor, pick a sensible mode based on syntax style.
+    // Default hello_world for fallback differs per syntax: c_like uses
+    // `print(...);`, python_like uses `print(...)`, s_expression uses
+    // `(print ...)` - never produce something that won't parse.
+    let _fallbackHello;
+    if (SYNTAX === 'c_like') _fallbackHello = `print("Hello from {{ lang_name }}!");\n`;
+    else if (SYNTAX === 's_expression') _fallbackHello = `(print "Hello from {{ lang_name }}!")\n`;
+    else if (SYNTAX === 'stack_based') _fallbackHello = `." Hello from {{ lang_name }}!" cr\n`;
+    else _fallbackHello = `print("Hello from {{ lang_name }}!")\n`;
+    const initial = EXAMPLES["hello_world"] || _fallbackHello;
+    let _cmMode;
+    if (SYNTAX === 'python_like') _cmMode = 'python';
+    else if (SYNTAX === 's_expression') _cmMode = 'commonlisp';
+    else if (SYNTAX === 'stack_based') _cmMode = 'forth';
+    else _cmMode = { name: 'clike', keywords: {} };
     const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
-      mode: SYNTAX === 'python_like' ? 'python' : { name: 'clike', keywords: {} },
+      mode: _cmMode,
       theme: 'material-darker',
       lineNumbers: true,
       matchBrackets: true,
-      indentUnit: SYNTAX === 'python_like' ? 4 : 4,
+      indentUnit: SYNTAX === 's_expression' ? 2 : 4,   // Lisp idiom is 2 spaces
       extraKeys: {
         'Cmd-Enter': run,
         'Ctrl-Enter': run,

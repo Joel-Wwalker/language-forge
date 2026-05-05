@@ -10,6 +10,19 @@ let i = 0
 while i < len(names):
     print(greet(get(names, i)))
     i = i + 1
+{%- elif syntax == 's_expression' -%}
+; {{ project_name }}: a starter program in {{ lang_name }}.
+; Run: {{ lang_name }} main{{ file_extension }} && python main{{ file_extension }}.out.py
+
+(defn greet (name)
+  (join "" (list "Hello, " name "!")))
+
+(def names (list "world" "{{ project_name }}" "you"))
+(def i 0)
+(while (< i (len names))
+  (do
+    (print (greet (get names i)))
+    (set! i (+ i 1))))
 {%- else -%}
 // {{ project_name }}: a starter program in {{ lang_name }}.
 // Run: {{ lang_name }} main{{ file_extension }} && python main{{ file_extension }}.out.py

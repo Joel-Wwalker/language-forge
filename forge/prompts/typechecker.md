@@ -70,6 +70,27 @@ Same for statements: `?stmt` passthrough means a `stmt` Tree might just have one
 3. **Literal typing.** Each `*_lit` node returns a fixed type. Don't recurse into `int_lit` looking for sub-expressions.
 4. **Don't return `None` from `check_expr`.** Every path must return a type string.
 
+## S-expression family (when `options.syntax == "s_expression"`)
+
+Typed Racket / Hy convention: type annotations live in a separate `(: name type)` form that PRECEDES the binding. Example:
+
+```
+(: add (-> Int Int Int))
+(defn add (a b) (+ a b))
+
+(: x Int)
+(def x 10)
+```
+
+Grammar-wise the parser exposes these as `:_decl` rules (or similar). The typechecker should:
+- Walk `:_decl` annotations BEFORE the matching `def`/`defn` to seed the type environment.
+- Type-check function bodies against the annotated return type if present; infer otherwise.
+- Operator-headed `call` nodes (`+`, `<`, `and`, etc.) are typed exactly like the equivalent c_like binops: `(+ Int Int) -> Int`, `(< Int Int) -> Bool`, etc.
+- Primitive type names are PascalCase: `Int`, `Float`, `String`, `Bool` (not `int`/`float` like c_like).
+- `nil` has type `Null` (or whatever the spec's null model dictates). Booleans `true` / `false` are unquoted symbols of type `Bool`.
+
+Inference is the norm in typed Lisps, so it's fine to skip annotations and infer from the binding's RHS unless the spec explicitly demands annotations for every binding.
+
 ## Output format
 
 Return ONLY a single fenced ```python code block with the full file contents. No prose. No partial code.
