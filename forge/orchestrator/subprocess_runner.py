@@ -76,25 +76,41 @@ class _LazyLLMClient:
     """Defers `make_client()` until the first `call_*` method is used.
 
     Phase 0 closeout #6: templated language families (s_expression,
-    stack_based) don't make any LLM calls — but the subprocess worker
-    used to instantiate `LLMClient(...)` at startup, which blows up
-    without `ANTHROPIC_API_KEY` even for runs that would never have
-    called the API. Lazy instantiation lets templated batches run
-    without API credentials.
+    stack_based) make zero LLM calls. The subprocess worker used to
+    instantiate `LLMClient(...)` at startup, which blows up without
+    `ANTHROPIC_API_KEY` even for runs that would never call the API.
+    Lazy instantiation lets templated batches run without API
+    credentials.
 
-    The proxy mimics the surface `_LLMLike` protocol: log_dir, model,
-    telemetry, plus call_code / call_json / call_chat. Anything else
-    (e.g. an inner `client.client` attribute on the API path) falls
-    back to lazy resolution via __getattr__.
+    The proxy implements the `_LLMLike` protocol explicitly:
+    `log_dir`, `model`, `telemetry` (instance attrs / properties),
+    plus `call_code` / `call_json` / `call_chat` (the materializing
+    methods). Phase 1 carryover C2: there is no `__getattr__`
+    fallback — any unknown attribute access raises `AttributeError`
+    without materializing the real client.
+
+    Why no fallback: `hasattr(proxy, "anything")`, `getattr(proxy,
+    "anything", default)`, and other introspection idioms must be
+    side-effect-free. A `__getattr__` that materializes on unknown
+    names would turn a benign `hasattr(client, "client")` check into
+    a real LLM-client construction (and a hard failure when no API
+    key is set). Strict explicit protocol > permissive duck.
     """
+
+    # Explicit protocol surface. Listed here so the test suite can
+    # introspect what the proxy claims to expose. Read by
+    # `_LazyLLMClient.protocol_attrs()`.
+    _PROTOCOL_ATTRS = ("log_dir", "model", "telemetry",
+                       "call_code", "call_json", "call_chat")
+
     def __init__(self, provider: Optional[str] = None,
                  log_dir: Optional[str | os.PathLike] = None):
         self._provider = provider
         self._log_dir = log_dir
         self._real = None
-        # These two are read frequently by callers without forcing
-        # instantiation; pre-populate plausibly-true values.
-        self.telemetry = None     # set later by generate_all via attach()
+        # Telemetry is read frequently by callers (and set by
+        # generate_all via attach()) without triggering instantiation.
+        self.telemetry = None
 
     @property
     def log_dir(self):
@@ -102,15 +118,17 @@ class _LazyLLMClient:
 
     @log_dir.setter
     def log_dir(self, v):
-        # generate_all sometimes back-fills log_dir; mirror that.
+        # generate_all sometimes back-fills log_dir; mirror that to
+        # the real client only if it's already been materialized.
         self._log_dir = v
         if self._real is not None:
             self._real.log_dir = v
 
     @property
     def model(self):
-        # Real clients expose a `.model` attribute (e.g. "claude-sonnet-4-5").
-        # Resolve lazily; some telemetry code reads this without making a call.
+        """Real clients expose a `.model` attribute (e.g.
+        `claude-sonnet-4-5`). Telemetry code reads this without
+        making a call; resolve lazily and don't materialize."""
         if self._real is not None:
             return getattr(self._real, "model", "unknown")
         return "lazy:unresolved"
@@ -119,7 +137,7 @@ class _LazyLLMClient:
         if self._real is None:
             from .providers import make_client
             self._real = make_client(self._provider, log_dir=self._log_dir)
-            # Forward any telemetry that was attached BEFORE materialization.
+            # Forward telemetry that was attached pre-materialization.
             if self.telemetry is not None:
                 self._real.telemetry = self.telemetry
         return self._real
@@ -133,12 +151,17 @@ class _LazyLLMClient:
     def call_chat(self, *a, **kw):
         return self._materialize().call_chat(*a, **kw)
 
-    def __getattr__(self, name):
-        # Catch-all for anything else the generator might poke at.
-        # Avoid infinite recursion on the underscore-prefixed internals.
-        if name.startswith("_"):
-            raise AttributeError(name)
-        return getattr(self._materialize(), name)
+    def __repr__(self) -> str:
+        # Show resolution state without forcing materialization. Useful
+        # in tracebacks / debugger views during batch runs.
+        state = "materialized" if self._real is not None else "lazy"
+        return f"<_LazyLLMClient {state} provider={self._provider!r}>"
+
+    @classmethod
+    def protocol_attrs(cls) -> tuple:
+        """Public view of the attributes the proxy explicitly exposes.
+        Tests use this to verify no spurious attribute access escapes."""
+        return cls._PROTOCOL_ATTRS
 
 
 def _worker_main(slot_path: str) -> int:

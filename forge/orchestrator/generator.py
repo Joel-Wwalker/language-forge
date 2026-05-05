@@ -52,6 +52,29 @@ TEMPLATABLE_COMPONENTS = {"parser", "lexer", "codegen", "runtime", "stdlib"}
 COMPONENTS_DYNAMIC = ["lexer", "parser", "codegen", "runtime", "stdlib", "tests", "readme", "language_reference"]
 COMPONENTS_STATIC = ["lexer", "parser", "typechecker", "codegen", "runtime", "stdlib", "tests", "readme", "language_reference"]
 
+# Map component name -> LLM-call tag prefixes the component is allowed to
+# emit. Per-component telemetry (`record_component(..., llm_calls_made=N)`)
+# uses this to attribute calls without an over-counting delta-snapshot
+# (which would double-count under the parallel ThreadPoolExecutor in
+# `generate_all`).
+#
+# Discipline contract (pinned by tests/test_telemetry_tag_prefixes.py):
+# every component listed in COMPONENTS_STATIC must have at least one
+# prefix entry, and every prefix entry must map to a real component.
+# A future component using a non-conforming tag silently gets 0 LLM
+# calls attributed; the test prevents that.
+COMPONENT_TAG_PREFIXES = {
+    "parser":             ("gen-parser",),
+    "lexer":              ("gen-lexer",),
+    "typechecker":        ("gen-typechecker", "gen-typecheck"),
+    "codegen":            ("gen-codegen",),
+    "runtime":            ("gen-runtime",),
+    "stdlib":             ("gen-stdlib",),
+    "tests":              ("gen-tests",),
+    "readme":             ("gen-readme",),
+    "language_reference": ("gen-language-ref", "gen-language-reference"),
+}
+
 COMPONENT_FILENAMES = {
     "lexer": "lexer.py",
     "parser": "parser.py",
@@ -603,7 +626,7 @@ def _generate_one_test(name: str, spec: dict, tests_dir: Path, lang_dir: Path,
         desc=_TEST_DESCRIPTIONS[name],
         spec_json=json.dumps(spec, indent=2),
     ) + _sibling_context("tests", lang_dir)
-    raw = client.call_code(prompt, tag=f"gen-test-{name}")
+    raw = client.call_code(prompt, tag=f"gen-tests-{name}")
     # Find the two fenced blocks. Prefer labeled, but fall back to "first two
     # consecutive fenced blocks" if the model didn't label them.
     fences = re.findall(r"```([\w]*)\s*\n(.*?)```", raw, re.DOTALL)
@@ -1227,26 +1250,10 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
         "language_reference": {"stdlib"},
     }
 
-    # Map component names to the LLM-call tag prefixes they use. Tags
-    # are component-identifying by convention (e.g. `gen-codegen`,
-    # `gen-readme`, `gen-language-ref`). Per-component attribution
-    # uses this map rather than a delta-snapshot, because parallel
-    # execution makes the delta over-count (both threads see each
-    # other's calls land between snapshots).
-    _COMP_TAG_PREFIXES = {
-        "parser":             ("gen-parser",),
-        "lexer":               ("gen-lexer",),
-        "typechecker":         ("gen-typechecker", "gen-typecheck"),
-        "codegen":             ("gen-codegen",),
-        "runtime":             ("gen-runtime",),
-        "stdlib":              ("gen-stdlib",),
-        "tests":               ("gen-tests",),
-        "readme":              ("gen-readme",),
-        "language_reference":  ("gen-language-ref", "gen-language-reference"),
-    }
-
+    # Tag-prefix attribution map lives at module level
+    # (`COMPONENT_TAG_PREFIXES`) so a discipline test can pin it.
     def _count_calls_for(comp: str) -> int:
-        prefixes = _COMP_TAG_PREFIXES.get(comp, ())
+        prefixes = COMPONENT_TAG_PREFIXES.get(comp, ())
         if not prefixes:
             return 0
         # Note: telemetry.llm_calls is appended-to by other threads, but
@@ -1257,7 +1264,7 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
 
     def _run_component(comp: str) -> None:
         # Phase 0 closeout #4: per-component telemetry. Tag-based
-        # attribution (see _COMP_TAG_PREFIXES) so parallel components
+        # attribution (see COMPONENT_TAG_PREFIXES) so parallel components
         # don't double-count each other's LLM calls.
         import time as _t
         t0 = _t.monotonic()
