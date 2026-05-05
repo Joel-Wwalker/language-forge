@@ -92,6 +92,12 @@ class LLMClient:
     def call_code(self, prompt: str, *, tag: str = "code", system: Optional[str] = None,
                   max_retries: int = 2) -> str:
         last_err: Optional[Exception] = None
+        # Telemetry (Phase 0.4): track wall time + token usage + attempt count
+        # for the run that finally succeeds. The recorder is None for clients
+        # not in a `generate_all` scope, in which case the calls are a no-op.
+        rec_t0 = time.monotonic()
+        rec_in = 0
+        rec_out = 0
         for attempt in range(max_retries + 1):
             try:
                 resp = self.client.messages.create(
@@ -102,10 +108,20 @@ class LLMClient:
                 )
                 text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
                 _log_call(self.log_dir, tag, prompt, text)
+                # Capture usage (Anthropic SDK exposes it on `resp.usage`).
+                usage = getattr(resp, "usage", None)
+                if usage is not None:
+                    rec_in = int(getattr(usage, "input_tokens", 0) or 0)
+                    rec_out = int(getattr(usage, "output_tokens", 0) or 0)
+                _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                                attempt + 1, success=True, error=None)
                 return extract_first_fenced_block(text)
             except (anthropic.APIError, anthropic.APIConnectionError, anthropic.RateLimitError) as e:
                 last_err = e
                 time.sleep(2 ** attempt)
+        _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                        max_retries + 1, success=False,
+                        error=f"{type(last_err).__name__}: {last_err}")
         raise RuntimeError(f"call_code failed after {max_retries + 1} attempts: {last_err}")
 
     # --------------------------------------------------------------------
@@ -123,6 +139,12 @@ class LLMClient:
 
         last_err: Optional[Exception] = None
         retry_prompt = prompt
+        # Telemetry: same pattern as call_code. We track tokens for the
+        # successful attempt only — retries don't count separately because
+        # the caller cares about cost-to-success.
+        rec_t0 = time.monotonic()
+        rec_in = 0
+        rec_out = 0
         for attempt in range(max_retries + 1):
             try:
                 resp = self.client.messages.create(
@@ -145,6 +167,12 @@ class LLMClient:
                 if errors:
                     err_msg = "\n".join(f"- {'/'.join(map(str, e.path))}: {e.message}" for e in errors)
                     raise ValueError(f"schema validation failed:\n{err_msg}")
+                usage = getattr(resp, "usage", None)
+                if usage is not None:
+                    rec_in = int(getattr(usage, "input_tokens", 0) or 0)
+                    rec_out = int(getattr(usage, "output_tokens", 0) or 0)
+                _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                                attempt + 1, success=True, error=None)
                 return data
             except (anthropic.APIError, anthropic.APIConnectionError, anthropic.RateLimitError, ValueError) as e:
                 last_err = e
@@ -157,6 +185,9 @@ class LLMClient:
                         + "\nFix the issues and try again."
                     )
                 time.sleep(2 ** attempt)
+        _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                        max_retries + 1, success=False,
+                        error=f"{type(last_err).__name__}: {last_err}")
         raise RuntimeError(f"call_json failed after {max_retries + 1} attempts: {last_err}")
 
 
@@ -167,11 +198,41 @@ _DEFAULT_SYSTEM = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Telemetry emission (Phase 0.4).
+# Picks up `client.telemetry` if set by `generate_all`. Free no-op otherwise.
+# ---------------------------------------------------------------------------
+
+def _emit_telemetry(client, tag: str, t0: float, in_tokens: int, out_tokens: int,
+                    attempts: int, success: bool, error: Optional[str]) -> None:
+    rec = getattr(client, "telemetry", None)
+    if rec is None:
+        return
+    try:
+        from .telemetry import LLMCallRecord
+        rec.record_llm_call(LLMCallRecord(
+            tag=tag,
+            model=getattr(client, "model", "unknown"),
+            input_tokens=in_tokens,
+            output_tokens=out_tokens,
+            duration_seconds=round(time.monotonic() - t0, 3),
+            attempts=attempts,
+            success=success,
+            error=error,
+        ))
+    except Exception:
+        # Telemetry must NEVER break the call path.
+        pass
+
+
 # Chat method bolted on to LLMClient: open-ended multi-turn for the pair
 # programmer. Caller passes a full message history; we return assistant text.
 def _chat_method(self, system: str, history: list, *,
                  tag: str = "chat", max_retries: int = 2) -> str:
     last_err = None
+    rec_t0 = time.monotonic()
+    rec_in = 0
+    rec_out = 0
     for attempt in range(max_retries + 1):
         try:
             resp = self.client.messages.create(
@@ -182,10 +243,19 @@ def _chat_method(self, system: str, history: list, *,
             )
             text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
             _log_call(self.log_dir, tag, system + "\n---\n" + json.dumps(history), text)
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                rec_in = int(getattr(usage, "input_tokens", 0) or 0)
+                rec_out = int(getattr(usage, "output_tokens", 0) or 0)
+            _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                            attempt + 1, success=True, error=None)
             return text
         except Exception as e:
             last_err = e
             time.sleep(2 ** attempt)
+    _emit_telemetry(self, tag, rec_t0, rec_in, rec_out,
+                    max_retries + 1, success=False,
+                    error=f"{type(last_err).__name__}: {last_err}")
     raise RuntimeError(f"call_chat failed after {max_retries + 1} attempts: {last_err}")
 
 

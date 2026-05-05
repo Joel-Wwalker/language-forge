@@ -11,7 +11,7 @@ Generate `parser.py` for the target language. **This is the highest-failure stag
 ## Requirements
 
 - Expose a module-level string `GRAMMAR` containing a Lark grammar.
-- Use `parser="lalr"`. Use `propagate_positions=True`.
+- Use `parser="lalr"`. Use `propagate_positions=True`. ALSO pass `cache=True` to `Lark(...)` so the compiled grammar is pickled to `~/.lark_cache` and subsequent subprocess spawns reuse it (saves 50-200ms per spawn, big win for kata validation).
 - Expose `parse(src: str) -> Tree`.
 - The grammar's `start` rule produces a sequence of statements.
 - Statements MUST include: variable declaration, function definition, if/else, while loop, return, expression statement, block.
@@ -251,4 +251,80 @@ CRITICAL for python_like:
 - Always add a trailing `\n` to source before parsing.
 - Adapt keywords (`def`/`func`, `let`/`var`, `True`/`true`) to match the spec.
 
-Use whichever shape fits the spec's `block_style`.
+## Example 3, s_expression grammar (prefix-form, Lisp dialect)
+
+For `s_expression` syntax, every form is `(operator operand operand ...)`. The grammar is famously trivial . there is no operator precedence layer because there is no infix. The same `var_decl` / `func_def` / `if_stmt` / `while_stmt` / `return_stmt` / `expr_stmt` rule names MUST still be produced so the codegen prompt's tree walker dispatches correctly. Operators (`+`, `-`, `*`, `=`, `<`, `<=`, `and`, `or`, `not`, ...) are matched as NAME tokens; codegen detects them and emits Python infix.
+
+```
+GRAMMAR = r"""
+start: form*
+
+?form: var_decl | func_def | if_stmt | while_stmt | return_stmt | expr_stmt
+
+var_decl:    "(" "def" NAME expr ")"
+func_def:    "(" "defn" NAME "(" params? ")" form+ ")"
+params:      NAME (NAME)*                    // space-separated, NOT comma-separated
+if_stmt:     "(" "if" expr expr expr ")"     // Lisp `if` is always (if cond then else)
+while_stmt:  "(" "while" expr form+ ")"
+return_stmt: "(" "return" expr? ")"
+expr_stmt:   expr                            // a bare form is an expression statement
+
+?expr:       atom | call | primary
+
+call:        "(" NAME args? ")"              // (op a b ...) . function/operator call
+args:        expr (expr)*                    // space-separated
+
+primary:     INT       -> int_lit
+           | FLOAT     -> float_lit
+           | STRING    -> string_lit
+           | TRUE      -> true_lit
+           | FALSE     -> false_lit
+           | NULL      -> null_lit
+           | NAME      -> name_ref
+
+atom:        primary
+
+TRUE.2:  "true"
+FALSE.2: "false"
+NULL.2:  "nil"
+
+%import common.CNAME -> NAME
+%import common.INT
+%import common.FLOAT
+%import common.ESCAPED_STRING -> STRING
+%import common.WS
+%ignore WS
+
+LINE_COMMENT: ";" /[^\n]*/
+%ignore LINE_COMMENT
+"""
+```
+
+CRITICAL for s_expression:
+- Use `parser="lalr"` like the others. Lisp grammars are LL(1)-clean so LALR is more than enough.
+- The grammar has NO precedence layer (no `term` / `factor` / `comparison` / `equality` / `logical_or` / `logical_and`). Operators like `+`, `<`, `and` are just NAME tokens that the codegen will recognize and translate to Python infix. **The codegen prompt MUST handle this**: when it sees a `call` whose head is a binary operator name (`+`, `-`, `*`, `/`, `mod`, `=`, `!=`, `<`, `>`, `<=`, `>=`, `and`, `or`), it emits Python infix; when the head is `not`, it emits Python prefix `not`; otherwise it emits a normal function call.
+- `if` always has exactly 3 expression children (cond, then, else). There is no separate `else_clause` rule.
+- `defn` body is `form+` . one or more forms, evaluated in sequence. The last form's value is the function's return value.
+- `set!` for assignment is handled as a regular call to a special form: `(set! name expr)`. Codegen pattern-matches this.
+- Reserve `def`, `defn`, `if`, `while`, `return`, `set!`, `do`, `let`, `fn`, `true`, `false`, `nil` as keyword strings.
+- Adapt the function/var keywords (`defn`/`defun`, `def`/`define`) to match the spec's `function_definition.keyword` and `variable_declaration.keyword`.
+
+Use whichever shape fits the spec's `block_style`: `braces` matches the c_like example, `indent` matches python_like, `parens` matches s_expression, `concatenative` matches stack_based (see Example 4 below).
+
+## Example 4, stack_based / concatenative grammar (Forth-flavored)
+
+For `stack_based` syntax, programs are a flat sequence of whitespace-separated tokens. There is NO infix operator precedence layer. Forth tokenization is context-sensitive (`."` and `(` change how the next bytes are parsed), so the conventional approach is a HAND-ROLLED tokenizer rather than Lark's lexer. The reference implementation `generated/forthlang/parser.py` has a complete working hand-rolled tokenizer + recursive parser; copy and adapt that pattern rather than fighting Lark.
+
+Key structure:
+- Tokens: numbers, floats, strings (`s" text"` push, `." text"` print), names, control words (`if/else/then`, `begin/until`, `do/loop`).
+- Comments: `\` to end of line; `( ... )` paren comment (which doubles as Forth stack-effect notation).
+- Colon definitions: `: name body ;` (the body is itself a sequence of tokens).
+- Variable / constant: `variable name`, `value constant name`.
+
+The parser produces a flat list of forms (plain dicts with a `kind` field), with nested `body` lists for colon-defs / if / begin / do. The codegen walks this top-down and emits Python.
+
+CRITICAL for stack_based:
+- Forth has no precedence rules. `2 3 + 4 *` evaluates left-to-right on the stack: push 2, push 3, +, push 4, *.
+- `."` and `s"` strings consume up to the next `"`. The single space after `."` / `s"` is a delimiter, NOT part of the string.
+- `( comment )` requires a SPACE after the `(` (otherwise it's just a name).
+- The exact same control word can mean different things at compile vs run time. For our purposes both behave like ordinary tokens.

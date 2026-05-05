@@ -639,6 +639,90 @@ details summary::-webkit-details-marker { display: none; }
   gap: 14px;
   margin-top: 4px;
 }
+/* Roadmap §5.4: Live preview card in the Create flow. Renders a
+   representative code snippet + axis badges + lore in the chosen
+   palette so the user sees the language taking shape as they pick. */
+.live-preview {
+  margin: 18px 0 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lp-head {
+  display: flex; align-items: baseline; gap: 10px;
+}
+.lp-eyebrow {
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.lp-name {
+  font-size: 16px; font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lp-ext {
+  font: 500 11px/1 var(--mono);
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.lp-lore {
+  margin: 0; font-size: 12.5px;
+  color: var(--text-2); line-height: 1.55;
+  font-style: italic;
+}
+.lp-lore.muted { font-style: normal; color: var(--muted); }
+.lp-snippet {
+  margin: 0; padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  font: 500 12.5px/1.55 var(--mono);
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--text);
+}
+.lp-axes {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.lp-axis {
+  font-size: 10.5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.lp-axis.accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Roadmap §4.6: AI critic review modal */
+.review-md h4 {
+  margin: 16px 0 6px; font-size: 13px;
+  font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.review-md h5 { margin: 12px 0 4px; font-size: 12.5px; font-weight: 600; }
+.review-md p { margin: 6px 0; line-height: 1.55; font-size: 13.5px; color: var(--text-2); }
+.review-md ul { margin: 6px 0 12px; padding-left: 22px; }
+.review-md li { line-height: 1.55; margin-bottom: 4px; font-size: 13px; color: var(--text-2); }
+.review-md code {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px; border-radius: 3px;
+  font-family: var(--mono); font-size: 12px;
+}
+.review-md em { color: var(--text); font-style: italic; }
+.review-md strong { color: var(--text); font-weight: 600; }
+
 /* Roadmap §5.1: Library as museum, not list. Each card now leads with
    the language's lore (origin_story), shows a small live preview swatch
    in the language's actual palette, then spec-axis tags + actions. */
@@ -1425,6 +1509,58 @@ details summary::-webkit-details-marker { display: none; }
   font-size: 11.5px;
 }
 
+/* Solution tab: head + actions row */
+.kata-solution-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.kata-solution-head h4 { margin: 0; }
+.kata-solution-actions {
+  display: flex;
+  gap: 8px;
+}
+.kata-solution-actions .mini {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Helpers code panel: "Pre-defined helpers" block on the Solution tab */
+.kata-helpers-code {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+}
+.kata-helpers-code h5 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.kata-helpers-code pre {
+  margin: 0;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+/* Make the reference solution `<pre>` cleanly selectable. The triple-click
+   trick (select-line-by-line) loses leading whitespace in some browsers;
+   `user-select: all` makes any click into the block select the entire
+   contents at once, so users can copy without missing chars. */
+#kata-reference-pre {
+  user-select: text;     /* normal selection still works */
+  -webkit-user-select: text;
+  white-space: pre;       /* preserve all whitespace + newlines exactly */
+  word-break: normal;
+  overflow-x: auto;
+}
+
 /* Code editor + action bar */
 .kata-workspace {
   border-top: 1px solid var(--line);
@@ -1525,6 +1661,10 @@ details summary::-webkit-details-marker { display: none; }
 .src-badge.translated { background: rgba(91, 155, 255, 0.15); color: #8fb6ff; }
 .src-badge.cached     { background: rgba(180, 180, 200, 0.12); color: var(--text-2); }
 .src-badge.stub       { background: var(--diff-medium-soft); color: var(--diff-medium); }
+/* Auto-validation status badges (set by load-pack after running each */
+/* kata's reference solution against every test). */
+.src-badge.verified   { background: var(--diff-easy-soft);   color: var(--diff-easy); }
+.src-badge.failed     { background: var(--diff-hard-soft);   color: var(--diff-hard); }
 
 /* Drop list (untranslated katas) */
 .kata-partial {
@@ -1797,6 +1937,88 @@ details summary::-webkit-details-marker { display: none; }
 
 .lc-head { align-items: center; }
 .lc-status { font-size: 10px; }
+
+/* ---------- Roadmap §3.2 / §3.3: lineage chip + family tree ---------- */
+.lib-head-actions { display: flex; gap: 8px; align-items: center; }
+.lc-lineage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  background: linear-gradient(90deg, var(--accent-soft) 0%, transparent 60%);
+  border-left: 2px solid var(--accent);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: -2px 0 4px;
+  font-family: var(--mono);
+  letter-spacing: 0.01em;
+}
+.lc-lineage-icon { color: var(--accent); font-weight: 700; }
+.lc-lineage-strategy { opacity: 0.6; font-size: 10.5px; margin-left: 4px; }
+.lc-parent-link {
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+.lc-parent-link:hover { color: var(--accent); }
+.lc-flash {
+  animation: lcFlash 1.4s ease-out;
+}
+@keyframes lcFlash {
+  0%   { box-shadow: 0 0 0 0 var(--accent); }
+  30%  { box-shadow: 0 0 0 4px var(--accent-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.family-tree-pane {
+  margin: 12px 0 18px;
+  padding: 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.family-tree-svg {
+  width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.family-tree-svg svg { display: block; }
+
+/* Breed modal: parent picker + axis-diff summary */
+.breed-form { display: grid; gap: 12px; margin-top: 8px; }
+.breed-form .field { display: grid; gap: 4px; }
+.breed-form select,
+.breed-form input[type="text"],
+.breed-form input[type="number"] {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.breed-summary { margin-top: 8px; }
+.breed-summary .kv {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px dotted var(--line);
+  font-size: 12px;
+}
+.breed-summary .kv span:first-child { color: var(--muted); font-family: var(--mono); }
+.breed-summary code {
+  background: var(--card);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11.5px;
+}
 
 /* ---------- responsive ---------- */
 @media (max-width: 800px) {

@@ -559,9 +559,28 @@ def build_case_analysis_kata(canonical_kata: dict, spec: dict, lang_dir: Path,
             target_src = _emit_typed_python_case_analysis(
                 canonical_kata, params, expected_outputs, typed=(typing_ == "static"),
             )
+        elif syntax == "s_expression":
+            # Force a Lisp transpile bypassing the typing-gate in can_handle.
+            # The case-analysis reference is just a hardcoded if-cascade, so
+            # we emit it as dynamic-form Lisp regardless of the target's
+            # typing setting. Type annotations would be ideal but missing
+            # them is better than emitting c_like that won't parse.
+            from .mechanical_translator import SExpressionBackend, _walk_stmt, _toylang_parse, INDENT_STEP
+            backend = SExpressionBackend(spec)
+            try:
+                tree = _toylang_parse(clike_src)
+                lines = []
+                for stmt in tree.children:
+                    if hasattr(stmt, "data"):
+                        lines.append(_walk_stmt(stmt, backend, ""))
+                target_src = "\n".join(lines) + "\n"
+            except Exception:
+                target_src = None
     if target_src is None:
-        # Last resort: keep c_like source — most generated languages inherit
-        # from toylang's grammar and accept it.
+        # Last resort: keep c_like source. Most generated languages inherit
+        # from toylang's grammar and accept it. For s_expression languages
+        # this lands as a self-validation drop, which is the right outcome
+        # (case-analysis fallback can't handle this kata in this language).
         target_src = clike_src
 
     # Step 5: build the candidate kata, re-derive expected outputs, validate

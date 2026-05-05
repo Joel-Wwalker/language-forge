@@ -949,6 +949,559 @@ CLASSICS_C_LIKE = _enrich(CLASSICS_C_LIKE)
 CLASSICS_C_LIKE_RECURSIVE = _enrich(CLASSICS_C_LIKE_RECURSIVE)
 
 
+# ---------------------------------------------------------------------------
+# Stack-based / concatenative classics. Curated specifically for Forth-
+# flavored languages because the c_like classics lean heavily on lists +
+# dicts + loops over indexed collections, all awkward in pure stack form.
+# Per families.md item 2.2: "Pair this family with a curated kata pack
+# tuned to it."
+#
+# Two themes:
+#   1. Number theory + iteration: factorial, fib, gcd, sum_to_n,
+#      is_prime, count_digits, reverse_digits, power_of_two.
+#   2. Data structures via dict cells: ll_length, ll_sum, ll_reverse,
+#      tree_max_depth, tree_sum. Helpers (ll-node, vals->ll, t-node,
+#      leaf) are pre-defined per kata so the user only writes the algo.
+#
+# VALIDATION GUARANTEE: every reference solution in this pack is run
+# against every test by `forge.orchestrator.validate_kata_pack` (and
+# `tests/test_kata_pack_pipeline.py` in CI). Any regression in the
+# parser, codegen, runtime, or a kata's reference text fails the
+# pipeline with a per-kata-per-test breakdown. To re-validate ad-hoc:
+#
+#     python -m forge.orchestrator.validate_kata_pack stack_classics
+# ---------------------------------------------------------------------------
+
+STACK_CLASSICS_FORTH: list[dict] = [
+    {
+        "id": "factorial",
+        "title": "Factorial",
+        "difficulty": "easy",
+        "problem": (
+            "Given a non-negative integer n, return n! (the product 1*2*...*n). "
+            "0! and 1! are both 1. Define the word `factorial` that consumes "
+            "n from the stack and produces n!."
+        ),
+        "function_name": "factorial",
+        "starter_code": ": factorial ( n -- n! )\n    \\ your code\n;\n",
+        "reference_solution": (
+            ": factorial ( n -- n! )\n"
+            "    dup 1 <= if drop 1 else dup 1 - factorial * then ;\n"
+        ),
+        "tests": [
+            {"call": "0 factorial",  "expected": "1"},
+            {"call": "1 factorial",  "expected": "1"},
+            {"call": "5 factorial",  "expected": "120"},
+            {"call": "6 factorial",  "expected": "720"},
+            {"call": "10 factorial", "expected": "3628800"},
+        ],
+    },
+    {
+        "id": "fib",
+        "title": "Fibonacci (iterative)",
+        "difficulty": "easy",
+        "problem": (
+            "Given n, return the nth Fibonacci number where fib(0)=0, fib(1)=1, "
+            "fib(n)=fib(n-1)+fib(n-2). Use iteration via `do/loop` for speed; "
+            "deep recursion would overflow the call stack on n>30. Define the "
+            "word `fib` that consumes n and produces fib(n)."
+        ),
+        "function_name": "fib",
+        "starter_code": ": fib ( n -- fib(n) )\n    \\ your code\n;\n",
+        "reference_solution": (
+            "variable fib_n\n"
+            ": fib ( n -- fib(n) )\n"
+            "    fib_n !\n"
+            "    fib_n @ 2 < if fib_n @ else\n"
+            "        0 1\n"
+            "        fib_n @ 1 - 0 do over over + rot drop loop\n"
+            "        nip\n"
+            "    then ;\n"
+        ),
+        "tests": [
+            {"call": "0 fib",  "expected": "0"},
+            {"call": "1 fib",  "expected": "1"},
+            {"call": "2 fib",  "expected": "1"},
+            {"call": "5 fib",  "expected": "5"},
+            {"call": "10 fib", "expected": "55"},
+            {"call": "15 fib", "expected": "610"},
+        ],
+    },
+    {
+        "id": "gcd",
+        "title": "Greatest common divisor (Euclidean)",
+        "difficulty": "easy",
+        "problem": (
+            "Define `gcd ( a b -- gcd )` returning the greatest common divisor "
+            "of a and b. The Euclidean algorithm is the cleanest approach: "
+            "gcd(a, 0) = a; gcd(a, b) = gcd(b, a mod b)."
+        ),
+        "function_name": "gcd",
+        "starter_code": ": gcd ( a b -- gcd )\n    \\ your code\n;\n",
+        "reference_solution": (
+            ": gcd ( a b -- gcd )\n"
+            "    dup 0 = if drop else swap over mod gcd then ;\n"
+        ),
+        "tests": [
+            {"call": "12 18 gcd",  "expected": "6"},
+            {"call": "17 5 gcd",   "expected": "1"},
+            {"call": "100 75 gcd", "expected": "25"},
+            {"call": "13 13 gcd",  "expected": "13"},
+            {"call": "48 18 gcd",  "expected": "6"},
+            {"call": "0 5 gcd",    "expected": "5"},
+        ],
+    },
+    {
+        "id": "sum_to_n",
+        "title": "Sum 1..n",
+        "difficulty": "easy",
+        "problem": (
+            "Define `sum-to-n ( n -- sum )` returning 1 + 2 + ... + n. "
+            "n is non-negative; sum-to-n of 0 is 0. Use `do/loop` for "
+            "iteration. The result of 100 sum-to-n is the famous 5050."
+        ),
+        "function_name": "sum-to-n",
+        "starter_code": ": sum-to-n ( n -- sum )\n    \\ your code\n;\n",
+        "reference_solution": (
+            ": sum-to-n ( n -- sum )\n"
+            "    0 swap 1 + 1 do i + loop ;\n"
+        ),
+        "tests": [
+            {"call": "1 sum-to-n",   "expected": "1"},
+            {"call": "5 sum-to-n",   "expected": "15"},
+            {"call": "10 sum-to-n",  "expected": "55"},
+            {"call": "100 sum-to-n", "expected": "5050"},
+        ],
+    },
+    {
+        "id": "is_prime",
+        "title": "Primality check",
+        "difficulty": "medium",
+        "problem": (
+            "Define `is-prime ( n -- bool )` returning true if n is prime, "
+            "false otherwise. Numbers less than 2 are not prime. Trial-divide "
+            "from 2 up to sqrt(n); use a `begin/until` loop with a sentinel "
+            "variable to exit early when a divisor is found."
+        ),
+        "function_name": "is-prime",
+        "starter_code": ": is-prime ( n -- bool )\n    \\ your code\n;\n",
+        "reference_solution": (
+            "variable is_prime_n\n"
+            "variable is_prime_d\n"
+            "variable is_prime_result\n"
+            ": is-prime ( n -- bool )\n"
+            "    is_prime_n !\n"
+            "    is_prime_n @ 2 < if false else\n"
+            "        2 is_prime_d !\n"
+            "        true is_prime_result !\n"
+            "        begin\n"
+            "            is_prime_d @ dup * is_prime_n @ >\n"
+            "            if true else\n"
+            "                is_prime_n @ is_prime_d @ mod 0 = if\n"
+            "                    false is_prime_result !\n"
+            "                    true\n"
+            "                else\n"
+            "                    is_prime_d @ 1 + is_prime_d !\n"
+            "                    false\n"
+            "                then\n"
+            "            then\n"
+            "        until\n"
+            "        is_prime_result @\n"
+            "    then ;\n"
+        ),
+        "tests": [
+            {"call": "0 is-prime",   "expected": "false"},
+            {"call": "1 is-prime",   "expected": "false"},
+            {"call": "2 is-prime",   "expected": "true"},
+            {"call": "3 is-prime",   "expected": "true"},
+            {"call": "4 is-prime",   "expected": "false"},
+            {"call": "9 is-prime",   "expected": "false"},
+            {"call": "17 is-prime",  "expected": "true"},
+            {"call": "25 is-prime",  "expected": "false"},
+            {"call": "97 is-prime",  "expected": "true"},
+        ],
+    },
+    {
+        "id": "count_digits",
+        "title": "Count digits",
+        "difficulty": "easy",
+        "problem": (
+            "Define `count-digits ( n -- count )` returning the number of "
+            "decimal digits in n. Convention: count-digits of 0 is 0 (not 1). "
+            "n is non-negative. Repeatedly divide by 10 until you hit zero, "
+            "counting iterations."
+        ),
+        "function_name": "count-digits",
+        "starter_code": ": count-digits ( n -- count )\n    \\ your code\n;\n",
+        "reference_solution": (
+            ": count-digits ( n -- count )\n"
+            "    0 swap\n"
+            "    begin\n"
+            "        dup 0 >\n"
+            "        if 10 / swap 1 + swap false\n"
+            "        else drop true then\n"
+            "    until ;\n"
+        ),
+        "tests": [
+            {"call": "0 count-digits",       "expected": "0"},
+            {"call": "5 count-digits",       "expected": "1"},
+            {"call": "10 count-digits",      "expected": "2"},
+            {"call": "123 count-digits",     "expected": "3"},
+            {"call": "9999 count-digits",    "expected": "4"},
+            {"call": "1000000 count-digits", "expected": "7"},
+        ],
+    },
+    {
+        "id": "reverse_digits",
+        "title": "Reverse digits",
+        "difficulty": "medium",
+        "problem": (
+            "Define `reverse-digits ( n -- reversed )` that returns n with "
+            "its decimal digits reversed. 123 -> 321. Trailing zeros become "
+            "leading zeros (which are dropped): 1000 -> 1. n is non-negative; "
+            "reverse-digits of 0 is 0."
+        ),
+        "function_name": "reverse-digits",
+        "starter_code": ": reverse-digits ( n -- reversed )\n    \\ your code\n;\n",
+        "reference_solution": (
+            ": reverse-digits ( n -- reversed )\n"
+            "    0 swap\n"
+            "    begin\n"
+            "        dup 0 >\n"
+            "        if dup 10 mod\n"
+            "            rot 10 * + swap\n"
+            "            10 / false\n"
+            "        else drop true then\n"
+            "    until ;\n"
+        ),
+        "tests": [
+            {"call": "0 reverse-digits",      "expected": "0"},
+            {"call": "5 reverse-digits",      "expected": "5"},
+            {"call": "10 reverse-digits",     "expected": "1"},
+            {"call": "123 reverse-digits",    "expected": "321"},
+            {"call": "1000 reverse-digits",   "expected": "1"},
+            {"call": "987654 reverse-digits", "expected": "456789"},
+        ],
+    },
+    {
+        "id": "power_of_two",
+        "title": "Power of two?",
+        "difficulty": "medium",
+        "problem": (
+            "Define `power-of-two? ( n -- bool )` returning true if n is "
+            "a power of 2 (1, 2, 4, 8, 16, ...). Numbers less than 1 are "
+            "not powers of 2. Repeatedly halve n; if you ever hit a non-"
+            "even-non-1 value, it isn't a power of 2."
+        ),
+        "function_name": "power-of-two?",
+        "starter_code": ": power-of-two? ( n -- bool )\n    \\ your code\n;\n",
+        "reference_solution": (
+            "variable pow2_n\n"
+            ": power-of-two? ( n -- bool )\n"
+            "    pow2_n !\n"
+            "    pow2_n @ 1 < if false else\n"
+            "        true\n"
+            "        begin\n"
+            "            pow2_n @ 1 = if true\n"
+            "            else\n"
+            "                pow2_n @ 2 mod 0 <> if\n"
+            "                    drop false true\n"
+            "                else\n"
+            "                    pow2_n @ 2 / pow2_n !\n"
+            "                    false\n"
+            "                then\n"
+            "            then\n"
+            "        until\n"
+            "    then ;\n"
+        ),
+        "tests": [
+            {"call": "0 power-of-two?",     "expected": "false"},
+            {"call": "1 power-of-two?",     "expected": "true"},
+            {"call": "2 power-of-two?",     "expected": "true"},
+            {"call": "3 power-of-two?",     "expected": "false"},
+            {"call": "4 power-of-two?",     "expected": "true"},
+            {"call": "8 power-of-two?",     "expected": "true"},
+            {"call": "15 power-of-two?",    "expected": "false"},
+            {"call": "1024 power-of-two?",  "expected": "true"},
+            {"call": "1023 power-of-two?",  "expected": "false"},
+        ],
+    },
+
+    # -------------------------------------------------------------------
+    # Data-structure katas. Forth doesn't have native linked lists or
+    # trees, but with `dict` cells (added to forthlang's runtime) we can
+    # model nodes as `{ "val" -> v, "next" -> n }` for linked lists and
+    # `{ "val" -> v, "left" -> l, "right" -> r }` for binary trees.
+    #
+    # Helpers (`ll-node`, `vals->ll`, `ll->vals`, `t-node`, `leaf`) are
+    # provided as the kata's `helpers` field. They get auto-prepended to
+    # the user's submission at test time, so the user only writes the
+    # core algorithm.
+    # -------------------------------------------------------------------
+
+    # Shared helper blocks. Pull them into local strings to avoid copy/
+    # paste between the linked-list and tree katas.
+    {
+        "id": "ll_length",
+        "title": "Linked list length",
+        "difficulty": "easy",
+        "problem": (
+            "Define `ll-length ( head -- n )` that returns the number of "
+            "nodes in a linked list. Empty list (`nil`) has length 0. "
+            "The list nodes are dicts: each has a `val` and a `next` "
+            "pointing to the next node or `nil`. Helpers `ll-node`, "
+            "`vals->ll`, `ll->vals` are pre-defined for you."
+        ),
+        "function_name": "ll-length",
+        "starter_code": ": ll-length ( head -- n )\n    \\ your code\n;\n",
+        "helpers": (
+            ": ll-node ( val next -- node )\n"
+            "    dict swap s\" next\" swap dset\n"
+            "    swap s\" val\" swap dset ;\n"
+            ": vals->ll ( v1 ... vN n -- head )\n"
+            "    nil swap 0 do ll-node loop ;\n"
+            ": ll->vals ( head -- list )\n"
+            "    list swap\n"
+            "    begin\n"
+            "        dup nil =\n"
+            "        if drop true\n"
+            "        else dup s\" val\" get rot swap push swap\n"
+            "             s\" next\" get false\n"
+            "        then\n"
+            "    until ;\n"
+        ),
+        "reference_solution": (
+            ": ll-length ( head -- n )\n"
+            "    0 swap\n"
+            "    begin\n"
+            "        dup nil =\n"
+            "        if drop true\n"
+            "        else s\" next\" get swap 1 + swap false\n"
+            "        then\n"
+            "    until ;\n"
+        ),
+        "tests": [
+            {"call": "nil ll-length",                       "expected": "0"},
+            {"call": "42 nil ll-node ll-length",            "expected": "1"},
+            {"call": "1 2 3 3 vals->ll ll-length",          "expected": "3"},
+            {"call": "10 20 30 40 50 5 vals->ll ll-length", "expected": "5"},
+            {"call": "0 0 0 0 0 0 0 7 vals->ll ll-length",  "expected": "7"},
+        ],
+    },
+    {
+        "id": "ll_sum",
+        "title": "Linked list sum",
+        "difficulty": "easy",
+        "problem": (
+            "Define `ll-sum ( head -- sum )` that returns the sum of all "
+            "values in a linked list. Empty list sums to 0. Helpers "
+            "`ll-node`, `vals->ll`, `ll->vals` are pre-defined."
+        ),
+        "function_name": "ll-sum",
+        "starter_code": ": ll-sum ( head -- sum )\n    \\ your code\n;\n",
+        "helpers": (
+            ": ll-node ( val next -- node )\n"
+            "    dict swap s\" next\" swap dset\n"
+            "    swap s\" val\" swap dset ;\n"
+            ": vals->ll ( v1 ... vN n -- head )\n"
+            "    nil swap 0 do ll-node loop ;\n"
+            ": ll->vals ( head -- list )\n"
+            "    list swap\n"
+            "    begin\n"
+            "        dup nil =\n"
+            "        if drop true\n"
+            "        else dup s\" val\" get rot swap push swap\n"
+            "             s\" next\" get false\n"
+            "        then\n"
+            "    until ;\n"
+        ),
+        "reference_solution": (
+            ": ll-sum ( head -- sum )\n"
+            "    0 swap\n"
+            "    begin\n"
+            "        dup nil =\n"
+            "        if drop true\n"
+            "        else dup s\" val\" get rot + swap s\" next\" get false\n"
+            "        then\n"
+            "    until ;\n"
+        ),
+        "tests": [
+            {"call": "nil ll-sum",                          "expected": "0"},
+            {"call": "42 nil ll-node ll-sum",               "expected": "42"},
+            {"call": "1 2 3 3 vals->ll ll-sum",             "expected": "6"},
+            {"call": "10 20 30 40 4 vals->ll ll-sum",       "expected": "100"},
+            {"call": "5 5 5 5 5 5 5 5 5 5 10 vals->ll ll-sum", "expected": "50"},
+        ],
+    },
+    {
+        "id": "ll_reverse",
+        "title": "Reverse a linked list",
+        "difficulty": "medium",
+        "problem": (
+            "Define `ll-reverse ( head -- new-head )` that reverses a "
+            "linked list in place. The result is a list with the same "
+            "values in reverse order. Hint: walk the list with three "
+            "pointer-variables (`prev`, `curr`, `tmp`) and re-link as "
+            "you go. Test calls use `ll->vals` to print the result."
+        ),
+        "function_name": "ll-reverse",
+        "starter_code": (
+            "variable ll_prev\n"
+            "variable ll_curr\n"
+            "variable ll_tmp\n"
+            ": ll-reverse ( head -- new-head )\n"
+            "    \\ your code\n"
+            ";\n"
+        ),
+        "helpers": (
+            ": ll-node ( val next -- node )\n"
+            "    dict swap s\" next\" swap dset\n"
+            "    swap s\" val\" swap dset ;\n"
+            ": vals->ll ( v1 ... vN n -- head )\n"
+            "    nil swap 0 do ll-node loop ;\n"
+            ": ll->vals ( head -- list )\n"
+            "    list swap\n"
+            "    begin\n"
+            "        dup nil =\n"
+            "        if drop true\n"
+            "        else dup s\" val\" get rot swap push swap\n"
+            "             s\" next\" get false\n"
+            "        then\n"
+            "    until ;\n"
+        ),
+        "reference_solution": (
+            "variable ll_prev\n"
+            "variable ll_curr\n"
+            "variable ll_tmp\n"
+            ": ll-reverse ( head -- new-head )\n"
+            "    nil ll_prev !\n"
+            "    ll_curr !\n"
+            "    begin\n"
+            "        ll_curr @ nil =\n"
+            "        if true\n"
+            "        else\n"
+            "            ll_curr @ s\" next\" get ll_tmp !\n"
+            "            ll_curr @ s\" next\" ll_prev @ dset drop\n"
+            "            ll_curr @ ll_prev !\n"
+            "            ll_tmp @ ll_curr !\n"
+            "            false\n"
+            "        then\n"
+            "    until\n"
+            "    ll_prev @ ;\n"
+        ),
+        "tests": [
+            {"call": "nil ll-reverse ll->vals",                   "expected": "[]"},
+            {"call": "42 nil ll-node ll-reverse ll->vals",        "expected": "[42]"},
+            {"call": "1 2 3 3 vals->ll ll-reverse ll->vals",      "expected": "[3, 2, 1]"},
+            {"call": "1 2 3 4 5 5 vals->ll ll-reverse ll->vals",  "expected": "[5, 4, 3, 2, 1]"},
+            {"call": "7 1 vals->ll ll-reverse ll->vals",          "expected": "[7]"},
+        ],
+    },
+    {
+        "id": "tree_max_depth",
+        "title": "Binary tree max depth",
+        "difficulty": "medium",
+        "problem": (
+            "Define `tree-max-depth ( tree -- depth )` returning the "
+            "maximum depth of a binary tree (longest path from root to "
+            "any leaf, counted in nodes). An empty tree (`nil`) has "
+            "depth 0; a single leaf has depth 1. Helpers `t-node` "
+            "( val left right -- node ) and `leaf` ( v -- node ) "
+            "are pre-defined."
+        ),
+        "function_name": "tree-max-depth",
+        "starter_code": ": tree-max-depth ( tree -- depth )\n    \\ your code\n;\n",
+        "helpers": (
+            ": t-node ( val left right -- node )\n"
+            "    dict swap s\" right\" swap dset\n"
+            "    swap s\" left\" swap dset\n"
+            "    swap s\" val\" swap dset ;\n"
+            ": leaf ( v -- node )\n"
+            "    nil nil t-node ;\n"
+        ),
+        "reference_solution": (
+            ": tree-max-depth ( tree -- depth )\n"
+            "    dup nil =\n"
+            "    if drop 0\n"
+            "    else\n"
+            "        dup s\" left\" get tree-max-depth\n"
+            "        swap s\" right\" get tree-max-depth\n"
+            "        over over <\n"
+            "        if nip\n"
+            "        else drop\n"
+            "        then\n"
+            "        1 +\n"
+            "    then ;\n"
+        ),
+        "tests": [
+            {"call": "nil tree-max-depth",                                          "expected": "0"},
+            {"call": "5 leaf tree-max-depth",                                        "expected": "1"},
+            {"call": "1 2 leaf 3 leaf t-node tree-max-depth",                        "expected": "2"},
+            {"call": "1 2 3 leaf 4 leaf t-node 5 leaf t-node tree-max-depth",        "expected": "3"},
+            {"call": "1 2 3 4 leaf 5 leaf t-node nil t-node 6 leaf t-node tree-max-depth", "expected": "4"},
+        ],
+    },
+    {
+        "id": "tree_sum",
+        "title": "Binary tree sum",
+        "difficulty": "easy",
+        "problem": (
+            "Define `tree-sum ( tree -- sum )` returning the sum of all "
+            "values in a binary tree. Empty tree (`nil`) sums to 0. "
+            "Helpers `t-node` and `leaf` pre-defined."
+        ),
+        "function_name": "tree-sum",
+        "starter_code": ": tree-sum ( tree -- sum )\n    \\ your code\n;\n",
+        "helpers": (
+            ": t-node ( val left right -- node )\n"
+            "    dict swap s\" right\" swap dset\n"
+            "    swap s\" left\" swap dset\n"
+            "    swap s\" val\" swap dset ;\n"
+            ": leaf ( v -- node )\n"
+            "    nil nil t-node ;\n"
+        ),
+        "reference_solution": (
+            ": tree-sum ( tree -- sum )\n"
+            "    dup nil =\n"
+            "    if drop 0\n"
+            "    else\n"
+            "        dup s\" left\" get tree-sum\n"
+            "        over s\" right\" get tree-sum\n"
+            "        rot s\" val\" get + +\n"
+            "    then ;\n"
+        ),
+        "tests": [
+            {"call": "nil tree-sum",                                       "expected": "0"},
+            {"call": "5 leaf tree-sum",                                     "expected": "5"},
+            {"call": "1 2 leaf 3 leaf t-node tree-sum",                     "expected": "6"},
+            {"call": "10 20 leaf 30 leaf t-node tree-sum",                  "expected": "60"},
+            {"call": "1 2 3 leaf 4 leaf t-node 5 leaf t-node tree-sum",     "expected": "15"},
+        ],
+    },
+]
+
+
+def _enrich_stack(katas: list[dict]) -> list[dict]:
+    """Add metadata + sample_test_indices to stack-classics. Stack katas
+    don't reuse the c_like CLASSICS_META (different problem set), so we
+    add a small set of defaults inline."""
+    out = []
+    for k in katas:
+        k = dict(k)
+        # Sample tests: first 2 are visible (Run mode); rest are hidden (Submit mode).
+        n = len(k.get("tests", []))
+        k["sample_test_indices"] = list(range(min(2, n)))
+        k.setdefault("tags", ["stack", "math"])
+        k.setdefault("examples", [])
+        k.setdefault("constraints", [])
+        k.setdefault("acceptance_rate", 0.6)
+        out.append(k)
+    return out
+
+
+STACK_CLASSICS_FORTH = _enrich_stack(STACK_CLASSICS_FORTH)
+
+
 PACKS: dict[str, dict] = {
     "classics": {
         "title": "LeetCode classics",
@@ -956,6 +1509,16 @@ PACKS: dict[str, dict] = {
                        "linked-list reverse, binary tree max depth, plus more.",
         "katas": CLASSICS_C_LIKE,
         "syntax_family": "c_like",
+    },
+    "stack_classics": {
+        "title": "Stack-based classics",
+        "description": "8 stack-friendly problems: factorial, fib, gcd, sum-to-n, "
+                       "is-prime, count-digits, reverse-digits, power-of-two. "
+                       "Postfix-natural; written in Forth syntax. Curated for "
+                       "stack_based languages where pointer-heavy LeetCode "
+                       "classics would feel awkward.",
+        "katas": STACK_CLASSICS_FORTH,
+        "syntax_family": "stack_based",
     },
 }
 

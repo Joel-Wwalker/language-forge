@@ -133,14 +133,24 @@ class ClaudeCLIClient:
     def call_code(self, prompt: str, *, tag: str = "code", system: Optional[str] = None,
                   max_retries: int = 2) -> str:
         last_err: Optional[Exception] = None
+        # Telemetry (Phase 0.4). The CLI path doesn't expose token counts, so
+        # we record 0 tokens but keep duration — still useful for "which
+        # generation took how long" in batch summaries.
+        from .llm_client import _emit_telemetry
+        rec_t0 = time.monotonic()
         for attempt in range(max_retries + 1):
             try:
                 text = self._invoke(prompt, system=system or _DEFAULT_SYSTEM)
                 _log_call(self.log_dir, tag, prompt, text)
+                _emit_telemetry(self, tag, rec_t0, 0, 0,
+                                attempt + 1, success=True, error=None)
                 return extract_first_fenced_block(text)
             except RuntimeError as e:
                 last_err = e
                 time.sleep(2 ** attempt)
+        _emit_telemetry(self, tag, rec_t0, 0, 0,
+                        max_retries + 1, success=False,
+                        error=f"{type(last_err).__name__}: {last_err}")
         raise RuntimeError(f"call_code failed after {max_retries + 1} attempts: {last_err}")
 
     def call_chat(self, system: str, history: list, *,
@@ -149,33 +159,60 @@ class ClaudeCLIClient:
         CLI can swallow (the `claude -p` mode is one-shot per call). Each
         turn's role is annotated for the model."""
         import json as _json
+        from .llm_client import _emit_telemetry
         flat = []
         for msg in history:
             role = msg.get("role", "user").upper()
             flat.append(f"\n[{role}]\n{msg.get('content', '')}\n")
         prompt = "".join(flat).strip()
         last_err: Optional[Exception] = None
+        rec_t0 = time.monotonic()
         for attempt in range(max_retries + 1):
             try:
                 text = self._invoke(prompt, system=system)
                 _log_call(self.log_dir, tag, system + "\n---\n" + _json.dumps(history), text)
+                _emit_telemetry(self, tag, rec_t0, 0, 0,
+                                attempt + 1, success=True, error=None)
                 return text
             except RuntimeError as e:
                 last_err = e
                 time.sleep(2 ** attempt)
+        _emit_telemetry(self, tag, rec_t0, 0, 0,
+                        max_retries + 1, success=False,
+                        error=f"{type(last_err).__name__}: {last_err}")
         raise RuntimeError(f"call_chat failed after {max_retries + 1} attempts: {last_err}")
 
     def call_json(self, prompt: str, schema: dict, *, tag: str = "json",
                   system: Optional[str] = None, max_retries: int = 2) -> dict:
         validator = Draft7Validator(schema)
+        # The CLI path doesn't have anthropic tool-use schema enforcement;
+        # the only thing keeping the LLM honest is the prompt + post-hoc
+        # validation. So we include the actual schema in the system message
+        # and a one-shot example showing how to fill it. Without this, the
+        # model invents field names and enum values (e.g. "s-expression"
+        # vs "s_expression", "gc" vs "host_gc").
+        # Note: use the module-level `json` import here. `_json` is a local
+        # alias inside call_chat() but never imported at this scope; using
+        # it would crash with NameError on the resolver step.
+        schema_str = json.dumps(schema, indent=2)
         sys_msg = (
             (system or _DEFAULT_SYSTEM)
             + "\n\nIMPORTANT: respond with a SINGLE valid JSON object inside a "
               "```json fenced code block. No prose before or after. The object "
-              "must strictly match the schema described below."
+              "must STRICTLY match this JSON Schema (use only the listed enum "
+              "values verbatim — no synonyms, hyphens, or made-up keys):\n\n"
+              "```json\n"
+            + schema_str
+            + "\n```\n\nUse only the property names that appear in the schema. "
+              "If you are tempted to introduce a new field name (e.g. "
+              "`era_preset`, `paradigm`, `syntax_style`, `type_system`), "
+              "STOP — those are not in the schema. Map your idea to the "
+              "closest schema field instead."
         )
         retry_prompt = prompt
         last_err: Optional[Exception] = None
+        from .llm_client import _emit_telemetry
+        rec_t0 = time.monotonic()
         for attempt in range(max_retries + 1):
             try:
                 text = self._invoke(retry_prompt, system=sys_msg)
@@ -189,6 +226,8 @@ class ClaudeCLIClient:
                         f"- {'/'.join(map(str, e.path))}: {e.message}" for e in errors
                     )
                     raise ValueError(f"schema validation failed:\n{err_msg}")
+                _emit_telemetry(self, tag, rec_t0, 0, 0,
+                                attempt + 1, success=True, error=None)
                 return data
             except (RuntimeError, ValueError) as e:
                 last_err = e
@@ -200,4 +239,7 @@ class ClaudeCLIClient:
                         + "\nFix the issues and respond with corrected JSON only."
                     )
                 time.sleep(2 ** attempt)
+        _emit_telemetry(self, tag, rec_t0, 0, 0,
+                        max_retries + 1, success=False,
+                        error=f"{type(last_err).__name__}: {last_err}")
         raise RuntimeError(f"call_json failed after {max_retries + 1} attempts: {last_err}")

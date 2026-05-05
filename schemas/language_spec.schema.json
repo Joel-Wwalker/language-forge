@@ -28,7 +28,7 @@
       "type": "object",
       "required": ["syntax", "typing", "memory"],
       "properties": {
-        "syntax": {"enum": ["c_like", "python_like"]},
+        "syntax": {"enum": ["c_like", "python_like", "s_expression", "stack_based"]},
         "typing": {"enum": ["static", "dynamic"]},
         "memory": {"enum": ["host_gc", "refcount"]},
         "comment_style": {"enum": ["line", "block", "both", "nestable_block"]},
@@ -91,8 +91,8 @@
       "type": "string"
     },
     "block_style": {
-      "description": "'braces' for c_like, 'indent' for python_like",
-      "enum": ["braces", "indent"]
+      "description": "'braces' for c_like, 'indent' for python_like, 'parens' for s_expression, 'concatenative' for stack_based (no blocks; ': name ... ;' colon definitions)",
+      "enum": ["braces", "indent", "parens", "concatenative"]
     },
     "function_definition": {
       "type": "object",
@@ -260,6 +260,31 @@
     "origin_story": {
       "type": "string",
       "description": "In-world 2-3 sentence description of where this language came from (roadmap §5.2 lore framing). Resolver fills this in."
+    },
+    "lineage": {
+      "type": "object",
+      "description": "Crossbreeding genealogy (roadmap §3.2 + §3.3). Present only for languages bred from existing parents.",
+      "properties": {
+        "parents": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Names of the parent languages this child was crossed from."
+        },
+        "strategy": {
+          "enum": ["random", "dominant", "union"],
+          "description": "Conflict-resolution strategy used at merge time."
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1 = first-generation crossbreed; 2 = bred from a 1st-gen, etc."
+        },
+        "seed": {
+          "type": ["integer", "null"],
+          "description": "RNG seed (when 'random' strategy was used) so the merge is reproducible."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

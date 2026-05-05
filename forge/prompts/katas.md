@@ -2,11 +2,12 @@
 
 Produce 5 katas for the language described below: 2 easy, 2 medium, 1 hard. Each kata is a small, self-contained programming problem the user solves by writing one function in this language. The user submits a solution; an automated checker runs it against your test cases.
 
-## CRITICAL: drops are silent. The 3 ways katas die:
+## CRITICAL: drops are silent. The 4 ways katas die:
 
 1. **Phrasebook violation.** If `spec.customization.natural_language` is set, the parser ONLY accepts those templates. Standard `var`, `func`, `if`, `while`, `return` will fail. Example: if `var_decl = "make <name> equal <value>."` is set, write `make total equal 0.`, NOT `var total = 0;`. Reread the templates before writing any code.
 2. **Wrong keyword spellings.** Use `spec.function_definition.keyword`, `spec.variable_declaration.keyword`, `spec.boolean_keywords.true/false`, `spec.null_keyword` EXACTLY. If `boolean_keywords.true = "yes"`, your test `expected` must say `yes`, not `true`.
 3. **Wrong stdlib.** Use only what's in `spec.stdlib.functions`. The list is not exhaustive of Python builtins. If `map` isn't there, don't write `map(...)`.
+4. **Wrong syntax family.** If `spec.options.syntax == "s_expression"`, EVERYTHING is in prefix form: `(defn fname (a b) (+ a b))` not `func fname(a, b) { return a + b; }`. Test calls are `(fname arg arg)` not `fname(arg, arg)`. Lists print as `(1 2 3)` not `[1, 2, 3]`. Booleans print as `true`/`false` (unquoted symbols), null as `nil`. If `spec.options.syntax == "stack_based"` (Forth-flavored), EVERYTHING is in postfix form: `: fname ( a b -- a+b ) + ;` not `func fname(a, b) { return a + b; }`. Test calls are `arg arg fname` not `fname(arg, arg)`. Print with `.` (number) or `." text"` (string). Arithmetic + comparison are postfix function calls: `2 3 +` not `2 + 3`.
 
 ## Resolved spec
 

@@ -512,10 +512,37 @@ def list_samples() -> list[dict]:
     ]
 
 
-def get_sample(key: str, syntax: str) -> str | None:
+def get_sample(key: str, syntax: str, spec: dict | None = None) -> str | None:
+    """Return a sample's source in the target language's syntax.
+
+    For c_like and python_like the sample dict has hand-written variants.
+    For s_expression we mechanically transpile the c_like variant via the
+    SExpressionBackend so the lisplang-templated languages get usable
+    examples without us hand-writing every sample three ways.
+    """
     sample = SAMPLES.get(key)
     if sample is None:
         return None
     if syntax == "python_like":
         return sample.get("python_like") or sample.get("c_like")
+    if syntax == "s_expression":
+        # Mechanically transpile the c_like variant. Requires a spec for the
+        # backend to use the right keyword overrides; falls back to a minimal
+        # stub spec when none is provided (works for vanilla lisplang).
+        c_src = sample.get("c_like")
+        if not c_src:
+            return None
+        try:
+            from forge.orchestrator.mechanical_translator import transpile
+            mock_spec = spec or {
+                "options": {"syntax": "s_expression", "typing": "dynamic",
+                            "memory": "host_gc"},
+                "lang_name": "_sample",
+                "boolean_keywords": {"true": "true", "false": "false"},
+                "null_keyword": "nil",
+            }
+            translated = transpile(c_src, mock_spec)
+            return translated  # may be None if mechanical translation failed
+        except Exception:
+            return None
     return sample.get("c_like")

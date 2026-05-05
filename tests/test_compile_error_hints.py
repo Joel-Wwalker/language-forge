@@ -15,6 +15,17 @@ from forge.gui.app import _explain_compile_error
 
 
 WORKSPACE = Path(__file__).resolve().parents[1]
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def _fixture_lang(name: str) -> Path:
+    """Resolve a tracked stub language fixture under `tests/fixtures/`.
+
+    `_explain_compile_error` only reads `resolved_spec.json` from the
+    language dir (`comment_syntax`, `options.syntax`, `literals.string`).
+    A minimal stub spec is enough to exercise every hint branch without
+    requiring an LLM-generated language to be present on disk."""
+    return FIXTURES / name
 
 
 def _stderr_unexpected_char(ch: str, line: int = 1, col: int = 1) -> str:
@@ -38,7 +49,8 @@ def _stderr_unexpected_token(kind: str, value: str, line: int = 1) -> str:
 
 def test_hint_for_slash_in_block_only_language():
     """love has comment_style=block. // is rejected. Hint should suggest /* */"""
-    hint = _explain_compile_error(_stderr_unexpected_char("/"), WORKSPACE / "generated" / "love")
+    lang = _fixture_lang("love")
+    hint = _explain_compile_error(_stderr_unexpected_char("/"), lang)
     assert hint is not None
     assert "block comments" in hint or "/*" in hint
     assert "//" in hint        # mentions what to replace
@@ -46,7 +58,8 @@ def test_hint_for_slash_in_block_only_language():
 
 def test_hint_for_slash_in_python_like_language():
     """hardcombo is python_like. # is the line comment. Hint should suggest #."""
-    hint = _explain_compile_error(_stderr_unexpected_char("/"), WORKSPACE / "generated" / "hardcombo")
+    lang = _fixture_lang("hardcombo")
+    hint = _explain_compile_error(_stderr_unexpected_char("/"), lang)
     assert hint is not None
     assert "#" in hint
 
@@ -60,8 +73,9 @@ def test_hint_for_hash_in_c_like_language():
 
 def test_hint_for_assignment_token_rejected():
     """Some languages have parsers that don't accept assignment as a statement."""
+    lang = _fixture_lang("love")
     hint = _explain_compile_error(_stderr_unexpected_token("EQUAL", "=", line=16),
-                                  WORKSPACE / "generated" / "love")
+                                  lang)
     assert hint is not None
     assert "assignment" in hint.lower()
     assert "16" in hint
@@ -71,11 +85,12 @@ def test_hint_for_slash_tokenized_as_factor_op():
     """`//` mis-tokenized as two FACTOR_OPs (lexer has no line-comment rule).
     The hint must still point at the comment-style mismatch and offer the
     Fix comments button."""
+    lang = _fixture_lang("love")
     stderr = (
         "lark.exceptions.UnexpectedToken: Unexpected token Token('FACTOR_OP', '/') "
         "at line 1, column 1.\n"
     )
-    hint = _explain_compile_error(stderr, WORKSPACE / "generated" / "love")
+    hint = _explain_compile_error(stderr, lang)
     assert hint is not None
     assert "//" in hint
     assert "/*" in hint or "block" in hint
@@ -84,11 +99,12 @@ def test_hint_for_slash_tokenized_as_factor_op():
 
 def test_hint_for_factor_op_slash_in_python_target():
     """Same FACTOR_OP `/` error on a python_like language should point at `#`."""
+    lang = _fixture_lang("hardcombo")
     stderr = (
         "lark.exceptions.UnexpectedToken: Unexpected token Token('FACTOR_OP', '/') "
         "at line 1, column 1.\n"
     )
-    hint = _explain_compile_error(stderr, WORKSPACE / "generated" / "hardcombo")
+    hint = _explain_compile_error(stderr, lang)
     assert hint is not None
     assert "#" in hint
     assert "Fix comments" in hint

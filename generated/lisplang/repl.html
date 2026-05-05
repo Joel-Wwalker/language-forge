@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lisplang. In-browser REPL</title>
+
+  <!-- Pyodide: runs Python (and our generated compiler) in the browser via WASM -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <!-- CodeMirror 5 (CDN-friendly; the basic c-like and python modes work for both syntax styles) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    :root {
+      /* shadcn dark, same palette as the main GUI */
+      --bg: #0a0e16; --bg-2: #0d1220; --card: #0a0e16;
+      --card-2: #131a2a;
+      --line: #1e293b; --line-2: #2a3a55;
+      --text: #f8fafc; --text-2: #cbd5e1; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-2: #60a5fa;
+      --good: #22c55e; --bad: #ef4444; --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      background:
+        radial-gradient(900px 600px at 50% -200px, rgba(59,130,246,.06), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    ::selection { background: var(--accent); color: #fff; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 26px; margin: 0; letter-spacing: -0.02em; font-weight: 700;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h1 .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: rgba(59,130,246,.12); color: var(--accent);
+      border: 1px solid rgba(59,130,246,.25);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .lede { color: var(--text-2); font-size: 14px; margin: 6px 0 0; }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    select, button {
+      background: var(--bg-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 14px; font: 500 13px/1 'Inter', sans-serif;
+      cursor: pointer; height: 34px;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    select:hover, button:hover { background: var(--card-2); border-color: var(--line-2); }
+    select:focus, button:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary {
+      background: var(--accent);
+      color: #fff; border-color: var(--accent); font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary:active { background: #1d4ed8; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .grid {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px;
+      height: calc(100vh - 200px); min-height: 480px;
+    }
+    .pane {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 8px; padding: 14px; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .pane h3 { margin: 0 0 10px; font-size: 11px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+    .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+    .output {
+      flex: 1; margin: 0; padding: 12px; overflow: auto;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+      white-space: pre-wrap; color: var(--text-2); line-height: 1.5;
+    }
+    .output.error { color: var(--bad); }
+    .output.success { color: var(--text); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .status.loading { background: rgba(59,130,246,.12); color: var(--accent); }
+    .status.ready { background: rgba(34,197,94,.12); color: var(--good); }
+    .status.running { background: rgba(245,158,11,.12); color: var(--warn); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .footer {
+      margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-2); }
+    .keyword-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--muted);
+      background: var(--bg-2); padding: 4px 8px; border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      .pane { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>lisplang <span class="badge">.lsp</span></h1>
+        <p class="lede">In-browser REPL: runs without installing anything. Powered by Pyodide + CodeMirror.</p>
+      </div>
+      <div class="toolbar">
+        <select id="example-picker"><option value="">Load example…</option></select>
+        <span class="keyword-hint">⌘/Ctrl + Enter to run</span>
+        <button class="primary" id="run-btn">▶ Run</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="pane">
+        <h3>Source <span class="status loading" id="boot-status"><span class="dot"></span> Booting Pyodide…</span></h3>
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="pane">
+        <h3>Output <span class="status" id="run-status" style="display:none;"></span></h3>
+        <pre class="output" id="output">Click <strong>Run</strong> to compile + execute your program. The first run downloads the Lark parser (≈ 2 MB), then everything is local.</pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated with <a href="https://example.com/forge" style="color: var(--accent); text-decoration: none;">Language Forge</a>.
+      Read the <code>LANGUAGE.md</code> in the project for the full reference.
+      Source goes through your real <code>lisplang</code> compiler, no fakes, no mocks.
+    </div>
+  </div>
+
+  <!-- Embedded compiler files. Each entry maps a relative path to its content. -->
+  <script id="compiler-files" type="application/json">{"__init__.py": "\"\"\"lisplang. Hand-written reference s_expression compiler.\n\nMirrors the role toylang plays for c_like and python_like generation.\nWhen a user picks `syntax = s_expression` in the GUI, the orchestrator\ntemplates from this directory rather than asking the LLM to generate\nparser/codegen/runtime from scratch. That drops generation time from\n~15 minutes to seconds and removes a whole class of LLM-introduced\nbugs (e.g. the `(lambda : ()[-1])` closure bug).\n\nDialect: Clojure-flavored Lisp. Forms supported:\n  - (def NAME expr)             - global binding\n  - (defn NAME (a b ...) body+) - function definition; last form is the return\n  - (fn (a b ...) body+)        - anonymous function; same return rule\n  - (if cond then else)         - conditional expression (always 3-arg)\n  - (when cond body+)           - conditional, returns nil when false\n  - (while cond body+)          - imperative loop, returns nil\n  - (let ((n v) ...) body+)     - local bindings\n  - (do form+)                  - sequence; value is the last form\n  - (set! NAME expr)            - mutation (use sparingly)\n  - (return expr)               - early return (rare in Lisp; honored)\n  - (op a b)                    - prefix arithmetic / comparison / logic\n  - (f a b ...)                 - function call\n\nComments: `; line` and `#| block |#`.\nBooleans: `true` / `false`. Null: `nil`.\n\"\"\"\n__version__ = \"0.1.0\"\n", "lexer.py": "\"\"\"lisplang lexer view. The Lark grammar in parser.py handles tokenization;\nthis module exposes a `tokenize` API for debugging + component-level tests.\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Lark\nfrom .parser import GRAMMAR\n\n\n_LEXER_PARSER = Lark(GRAMMAR, parser=\"earley\", start=\"start\")\n\n\ndef tokenize(src: str):\n    return list(_LEXER_PARSER.lex(src))\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    for tok in tokenize(text):\n        print(f\"{tok.type:<20} {tok!r}\")\n", "parser.py": "\"\"\"lisplang parser. Lark grammar + `parse` entrypoint.\n\ns_expression syntax: every form is `(operator operand operand ...)`.\nThe grammar has no precedence layer because there is no infix syntax.\nOperators (`+`, `<`, `and`, `not`, ...) are matched as `NAME` tokens\nthat the codegen pattern-matches on the head of `call` nodes.\n\nSpecial forms are explicit grammar rules (`var_decl`, `func_def`,\n`if_stmt`, `while_stmt`, `return_stmt`, `let_stmt`, `do_stmt`,\n`when_stmt`, `set_stmt`, `fn_expr`) so codegen can dispatch by\nnode.data without sniffing keyword strings inside generic `call`\nnodes. This makes the codegen far simpler and more robust.\n\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Lark, Tree\n\n\nGRAMMAR = r\"\"\"\nstart: form*\n\n?form: var_decl\n     | func_def\n     | if_stmt\n     | while_stmt\n     | when_stmt\n     | let_stmt\n     | do_stmt\n     | set_stmt\n     | return_stmt\n     | expr_stmt\n\nvar_decl:    \"(\" \"def\"     NAME expr \")\"\nfunc_def:    \"(\" \"defn\"    NAME \"(\" params \")\" form+ \")\"\nparams:      (NAME)*\nif_stmt:     \"(\" \"if\"      expr expr expr \")\"\nwhile_stmt:  \"(\" \"while\"   expr form+ \")\"\nwhen_stmt:   \"(\" \"when\"    expr form+ \")\"\nlet_stmt:    \"(\" \"let\"     \"(\" binding+ \")\" form+ \")\"\nbinding:     \"(\" NAME expr \")\"\ndo_stmt:     \"(\" \"do\"      form+ \")\"\nset_stmt:    \"(\" \"set!\"    NAME expr \")\"\nreturn_stmt: \"(\" \"return\"  expr? \")\"\nexpr_stmt:   expr\n\n?expr: int_lit\n     | float_lit\n     | string_lit\n     | true_lit\n     | false_lit\n     | null_lit\n     | name_ref\n     | fn_expr\n     | if_expr\n     | do_expr\n     | when_expr\n     | let_expr\n     | call\n\n// Special forms in expression position. Distinct from their statement\n// counterparts so codegen can emit Python expression syntax (ternary,\n// tuple-subscript, etc.) instead of statement blocks.\nfn_expr:   \"(\" \"fn\"   \"(\" params \")\" form+ \")\"\nif_expr:   \"(\" \"if\"   expr expr expr \")\"\ndo_expr:   \"(\" \"do\"   form+ \")\"\nwhen_expr: \"(\" \"when\" expr form+ \")\"\nlet_expr:  \"(\" \"let\"  \"(\" binding+ \")\" form+ \")\"\n\ncall:    \"(\" call_head args \")\"\ncall_head: NAME | OP_NAME\nargs:    (expr)*\n\nint_lit:    INT\nfloat_lit:  FLOAT\nstring_lit: STRING\ntrue_lit:   TRUE\nfalse_lit:  FALSE\nnull_lit:   NULL\nname_ref:   NAME\n\nTRUE.2:  \"true\"\nFALSE.2: \"false\"\nNULL.2:  \"nil\"\n\nINT:    /-?[0-9]+/\nFLOAT:  /-?[0-9]+\\.[0-9]+/\n\nOP_NAME: /[+\\-*\\/=<>!%]+/\n\nNAME: /[a-zA-Z_][a-zA-Z0-9_!?\\-]*/\n\n%import common.ESCAPED_STRING -> STRING\n%import common.WS\n%ignore WS\n\nLINE_COMMENT: \";\" /[^\\n]*/\n%ignore LINE_COMMENT\n\n// Block comments: #| ... |#  (no nesting; LL(1)-friendly)\nBLOCK_COMMENT: \"#|\" /(.|\\n)*?/ \"|#\"\n%ignore BLOCK_COMMENT\n\"\"\"\n\n\n# Note on parser choice: `earley` is more permissive than `lalr` and\n# accepts the ambiguity-prone pattern of `(if cond t e)` matching both\n# `if_stmt` and `if_expr`. Earley is slower in theory; in practice for\n# Lisp source it's plenty fast (microseconds for typical programs).\n_PARSER = Lark(GRAMMAR, parser=\"earley\", start=\"start\",\n               propagate_positions=True, ambiguity=\"resolve\")\n\n\ndef parse(src: str) -> Tree:\n    \"\"\"Parse lisplang source and return a Lark Tree.\"\"\"\n    return _PARSER.parse(src)\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    print(parse(text).pretty())\n", "codegen.py": "\"\"\"lisplang codegen. Walks a parse tree and emits runnable Python.\n\nTwo emission contexts:\n  - emit_stmt(node)  - returns a list of indented Python lines\n  - emit_expr(node)  - returns a single-line Python expression string\n\nThe split matters because Python distinguishes statements from\nexpressions, while every Lisp form is technically an expression.\nFor special forms like `(if ...)`, `(do ...)`, `(when ...)`, `(let ...)`\nwe accept either form (the parser uses two distinct rules: `if_stmt`\nin form position, `if_expr` in expression position) and emit\nappropriate Python.\n\nThe transpiler is COMPLETE - no `...` stubs, no missing branches.\n\"\"\"\nfrom __future__ import annotations\n\nfrom lark import Tree, Token\n\n\nPRELUDE = \"\"\"\\\nfrom lisplang.runtime import (\n    toy_print as print,\n    toy_input as input,\n    toy_list as list,\n    toy_len as len,\n    toy_get as get,\n    toy_set as set,\n    toy_push as push,\n    toy_pop as pop,\n    toy_dict as dict,\n    toy_has as has,\n    toy_keys as keys,\n    toy_range as range,\n    toy_str as str,\n    toy_split as split,\n    toy_join as join,\n    toy_upper as upper,\n    toy_lower as lower,\n    toy_replace as replace,\n    toy_int as int,\n    toy_float as float,\n    toy_read_file as read_file,\n    toy_write_file as write_file,\n    toy_argv as argv,\n    toy_exit as exit,\n    toy_truthy as _toy_truthy,\n)\n\"\"\"\n\n\n# ---------------------------------------------------------------------------\n# Operator dispatch (heads of `call` nodes that should emit Python infix)\n# ---------------------------------------------------------------------------\n\nARITHMETIC_OPS = {\"+\", \"-\", \"*\", \"/\", \"%\", \"mod\"}\nCOMPARISON_OPS = {\"=\", \"!=\", \"<\", \">\", \"<=\", \">=\"}\nLOGICAL_OPS    = {\"and\", \"or\"}\n\n\ndef _py_arith(op: str) -> str:\n    if op == \"mod\":\n        return \"%\"\n    return op\n\n\ndef _py_name(name: str) -> str:\n    \"\"\"Lisp identifiers can include `-`, `?`, `!` which aren't valid in\n    Python. Substitute them with safe equivalents so the transpiled\n    Python compiles. We translate consistently both at definition AND\n    call sites by walking through this helper everywhere.\"\"\"\n    return (\n        name\n        .replace(\"-\", \"_\")\n        .replace(\"!\", \"_bang\")\n        .replace(\"?\", \"_q\")\n    )\n\n\n# ---------------------------------------------------------------------------\n# Code emitter\n# ---------------------------------------------------------------------------\n\nclass CodeGen:\n    \"\"\"Stateful code generator. One instance per `generate()` call.\n\n    State carried between visits:\n      - indent_level: current Python indent depth.\n      - scope_stack:  list[set[str]]; the names declared in each enclosing\n                      function. Used to compute `nonlocal` / `global`\n                      directives for closures that mutate captured names.\n      - module_scope: names declared at module level (top of `start`).\n    \"\"\"\n\n    def __init__(self):\n        self.indent_level = 0\n        self.scope_stack: list[set[str]] = []\n        self.module_scope: set[str] = set()\n        self._anon_counter = 0\n\n    def indent(self) -> str:\n        return \"    \" * self.indent_level\n\n    def fresh_anon(self, base: str) -> str:\n        self._anon_counter += 1\n        return f\"_lisp_{base}_{self._anon_counter}\"\n\n    # -------------------------------------------------------------------\n    # Top-level entry: walk the `start` tree\n    # -------------------------------------------------------------------\n\n    def generate(self, tree: Tree) -> str:\n        # First pass: collect module-scope bindings so nested functions can\n        # emit `global X` for captured assignments to module-scope names.\n        for child in tree.children:\n            if isinstance(child, Tree):\n                if child.data == \"var_decl\":\n                    self.module_scope.add(_py_name(str(child.children[0])))\n                elif child.data == \"func_def\":\n                    self.module_scope.add(_py_name(str(child.children[0])))\n\n        out_lines = [PRELUDE]\n        for child in tree.children:\n            out_lines.extend(self.emit_stmt(child))\n        return \"\\n\".join(out_lines) + \"\\n\"\n\n    # -------------------------------------------------------------------\n    # Statement emitters\n    # -------------------------------------------------------------------\n\n    def emit_stmt(self, node) -> list[str]:\n        \"\"\"Emit statement-position lines for `node`. Returns list of\n        already-indented Python source lines.\"\"\"\n        if isinstance(node, Token):\n            return [f\"{self.indent()}{str(node)}\"]\n        method = getattr(self, f\"stmt_{node.data}\", None)\n        if method is None:\n            # Default: an expression statement. Evaluate but discard the\n            # value (or assign to `_` to silence linters about unused vals).\n            expr = self.emit_expr(node)\n            return [f\"{self.indent()}{expr}\"]\n        return method(node)\n\n    def stmt_var_decl(self, node) -> list[str]:\n        # (def NAME expr)\n        name = _py_name(str(node.children[0]))\n        val = self.emit_expr(node.children[1])\n        return [f\"{self.indent()}{name} = {val}\"]\n\n    def stmt_func_def(self, node) -> list[str]:\n        # (defn NAME (params) form+)\n        name = _py_name(str(node.children[0]))\n        params_node = node.children[1]\n        params = [_py_name(str(p)) for p in params_node.children]\n        body_forms = node.children[2:]\n        return self._emit_function(name, params, body_forms)\n\n    def stmt_if_stmt(self, node) -> list[str]:\n        # (if cond then else) - statement form. Emits Python if/else.\n        cond = self.emit_expr(node.children[0])\n        then_node = node.children[1]\n        else_node = node.children[2]\n\n        lines = [f\"{self.indent()}if _toy_truthy({cond}):\"]\n        self.indent_level += 1\n        lines.extend(self._stmt_or_expr_block(then_node))\n        self.indent_level -= 1\n        lines.append(f\"{self.indent()}else:\")\n        self.indent_level += 1\n        lines.extend(self._stmt_or_expr_block(else_node))\n        self.indent_level -= 1\n        return lines\n\n    def stmt_while_stmt(self, node) -> list[str]:\n        # (while cond form+)\n        cond = self.emit_expr(node.children[0])\n        body = node.children[1:]\n        lines = [f\"{self.indent()}while _toy_truthy({cond}):\"]\n        self.indent_level += 1\n        for f in body:\n            lines.extend(self.emit_stmt(f))\n        if not body:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n    def stmt_when_stmt(self, node) -> list[str]:\n        # (when cond form+)  =  (if cond (do form+) nil)\n        cond = self.emit_expr(node.children[0])\n        body = node.children[1:]\n        lines = [f\"{self.indent()}if _toy_truthy({cond}):\"]\n        self.indent_level += 1\n        for f in body:\n            lines.extend(self.emit_stmt(f))\n        if not body:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n    def stmt_let_stmt(self, node) -> list[str]:\n        # (let ((n v) (n v) ...) form+)\n        bindings = []\n        body = []\n        for c in node.children:\n            if isinstance(c, Tree) and c.data == \"binding\":\n                bindings.append(c)\n            else:\n                body.append(c)\n        lines = []\n        for b in bindings:\n            n = _py_name(str(b.children[0]))\n            v = self.emit_expr(b.children[1])\n            lines.append(f\"{self.indent()}{n} = {v}\")\n        for f in body:\n            lines.extend(self.emit_stmt(f))\n        return lines\n\n    def stmt_do_stmt(self, node) -> list[str]:\n        # (do form+) - sequence forms; same as inlining them.\n        lines = []\n        for f in node.children:\n            lines.extend(self.emit_stmt(f))\n        return lines\n\n    def stmt_set_stmt(self, node) -> list[str]:\n        # (set! NAME expr)\n        name = _py_name(str(node.children[0]))\n        val = self.emit_expr(node.children[1])\n        return [f\"{self.indent()}{name} = {val}\"]\n\n    def stmt_return_stmt(self, node) -> list[str]:\n        if not node.children:\n            return [f\"{self.indent()}return\"]\n        val = self.emit_expr(node.children[0])\n        return [f\"{self.indent()}return {val}\"]\n\n    def stmt_expr_stmt(self, node) -> list[str]:\n        # A bare expression at statement position. Evaluate for side effect.\n        expr = self.emit_expr(node.children[0])\n        return [f\"{self.indent()}{expr}\"]\n\n    # -------------------------------------------------------------------\n    # Expression emitters\n    # -------------------------------------------------------------------\n\n    def emit_expr(self, node) -> str:\n        if isinstance(node, Token):\n            return _py_name(str(node))\n        # Statement-position wrappers can appear in tail position of a\n        # function body or as a child of `if_stmt` arms; transparently\n        # unwrap them so the inner expression emits cleanly.\n        if isinstance(node, Tree) and node.data == \"expr_stmt\":\n            return self.emit_expr(node.children[0])\n        if isinstance(node, Tree) and node.data == \"do_stmt\":\n            # `(do ...)` in expression position uses tuple-subscript trick.\n            body = node.children\n            if not body:\n                return \"None\"\n            if len(body) == 1:\n                return self.emit_expr(body[0])\n            exprs = [self.emit_expr(f) for f in body]\n            return f\"({', '.join(exprs)})[-1]\"\n        method = getattr(self, f\"expr_{node.data}\", None)\n        if method is None:\n            # Defensive: turn any straggler into a string so we never emit\n            # silent garbage like `()[-1]`.\n            return f\"None  # unhandled {node.data}\"\n        return method(node)\n\n    def expr_int_lit(self, node) -> str:\n        return str(node.children[0])\n\n    def expr_float_lit(self, node) -> str:\n        return str(node.children[0])\n\n    def expr_string_lit(self, node) -> str:\n        # ESCAPED_STRING already includes quotes + handles escapes.\n        return str(node.children[0])\n\n    def expr_true_lit(self, node) -> str:\n        return \"True\"\n\n    def expr_false_lit(self, node) -> str:\n        return \"False\"\n\n    def expr_null_lit(self, node) -> str:\n        return \"None\"\n\n    def expr_name_ref(self, node) -> str:\n        return _py_name(str(node.children[0]))\n\n    def expr_call(self, node) -> str:\n        # call: \"(\" call_head args \")\"\n        head_node = node.children[0]\n        head = str(head_node.children[0]) if isinstance(head_node, Tree) else str(head_node)\n        args_node = node.children[1] if len(node.children) > 1 else None\n        args = []\n        if args_node is not None:\n            args = [self.emit_expr(c) for c in args_node.children]\n\n        # Operator-headed calls become Python infix.\n        if head in ARITHMETIC_OPS and len(args) == 2:\n            return f\"({args[0]} {_py_arith(head)} {args[1]})\"\n        if head == \"=\" and len(args) == 2:\n            return f\"({args[0]} == {args[1]})\"\n        if head in COMPARISON_OPS and len(args) == 2:\n            return f\"({args[0]} {head} {args[1]})\"\n        if head in LOGICAL_OPS and len(args) == 2:\n            return f\"({args[0]} {head} {args[1]})\"\n        if head == \"not\" and len(args) == 1:\n            return f\"(not _toy_truthy({args[0]}))\"\n\n        # n-ary arithmetic: `(+ a b c d)` becomes `(a + b + c + d)` (Lisp idiom).\n        if head in ARITHMETIC_OPS and len(args) > 2:\n            sep = f\" {_py_arith(head)} \"\n            return \"(\" + sep.join(args) + \")\"\n        if head in LOGICAL_OPS and len(args) > 2:\n            sep = f\" {head} \"\n            return \"(\" + sep.join(args) + \")\"\n\n        # Plain function call.\n        return f\"{_py_name(head)}({', '.join(args)})\"\n\n    def expr_fn_expr(self, node) -> str:\n        # (fn (params) form+)\n        params_node = node.children[0]\n        params = [_py_name(str(p)) for p in params_node.children]\n        body_forms = node.children[1:]\n        # If the body is a single expression with no statements, emit a\n        # Python lambda. Otherwise we need a real `def` because lambda\n        # can't hold statements like `nonlocal` or `set!` blocks.\n        if self._is_pure_expr_body(body_forms):\n            param_str = \", \".join(params) if params else \"\"\n            if len(body_forms) == 1:\n                body = self.emit_expr(body_forms[0])\n            else:\n                # Multi-form pure body: tuple-subscript trick.\n                exprs = [self.emit_expr(f) for f in body_forms]\n                body = f\"({', '.join(exprs)})[-1]\"\n            return f\"(lambda {param_str}: {body})\"\n        # Emit a hoisted nested def. The fn is replaced with a NAME that\n        # refers to the just-defined function. Hoisted lines go through\n        # self._pending_hoists and get inserted by the enclosing emit_stmt.\n        anon = self.fresh_anon(\"fn\")\n        hoisted = self._emit_function(anon, params, body_forms)\n        # Stash the hoisted def at the current scope's pending list.\n        self._pending_hoists.extend(hoisted)\n        return anon\n\n    def expr_if_expr(self, node) -> str:\n        cond = self.emit_expr(node.children[0])\n        then_e = self.emit_expr(node.children[1])\n        else_e = self.emit_expr(node.children[2])\n        return f\"({then_e} if _toy_truthy({cond}) else {else_e})\"\n\n    def expr_do_expr(self, node) -> str:\n        body = node.children\n        if not body:\n            return \"None\"\n        if len(body) == 1:\n            return self.emit_expr(body[0])\n        exprs = [self.emit_expr(f) for f in body]\n        return f\"({', '.join(exprs)})[-1]\"\n\n    def expr_when_expr(self, node) -> str:\n        cond = self.emit_expr(node.children[0])\n        body = node.children[1:]\n        if len(body) == 1:\n            inner = self.emit_expr(body[0])\n        else:\n            exprs = [self.emit_expr(f) for f in body]\n            inner = f\"({', '.join(exprs)})[-1]\"\n        return f\"({inner} if _toy_truthy({cond}) else None)\"\n\n    def expr_let_expr(self, node) -> str:\n        # In expression position, `let` collapses to a tuple-subscript over\n        # walrus-assignments: `((a := 1, b := 2, body)[-1])`. Limited but\n        # works for pure-expression `let` blocks.\n        bindings = []\n        body = []\n        for c in node.children:\n            if isinstance(c, Tree) and c.data == \"binding\":\n                bindings.append(c)\n            else:\n                body.append(c)\n        parts = []\n        for b in bindings:\n            n = _py_name(str(b.children[0]))\n            v = self.emit_expr(b.children[1])\n            parts.append(f\"({n} := {v})\")\n        if len(body) == 1:\n            parts.append(self.emit_expr(body[0]))\n        else:\n            for f in body:\n                parts.append(self.emit_expr(f))\n        return \"(\" + \", \".join(parts) + \")[-1]\"\n\n    # -------------------------------------------------------------------\n    # Helpers\n    # -------------------------------------------------------------------\n\n    # Hoisted lines collected during expression emission (used for fn_expr\n    # that requires a real def). The enclosing emit_stmt prepends them\n    # before its own line.\n    _pending_hoists: list[str] = []\n\n    def _is_pure_expr_body(self, body_forms) -> bool:\n        \"\"\"True if every form in `body_forms` can be emitted as a Python\n        expression (no statement-only forms like set!, while, var_decl).\"\"\"\n        for f in body_forms:\n            if not isinstance(f, Tree):\n                continue\n            kind = f.data\n            if kind in {\"var_decl\", \"func_def\", \"while_stmt\",\n                        \"set_stmt\", \"return_stmt\", \"if_stmt\",\n                        \"when_stmt\", \"let_stmt\", \"do_stmt\"}:\n                return False\n        return True\n\n    def _stmt_or_expr_block(self, node) -> list[str]:\n        \"\"\"Emit a single child as a statement block. Used for then/else\n        arms of `if_stmt` where the child might be `do_stmt` (sequence)\n        or a single expression/statement.\"\"\"\n        if isinstance(node, Tree) and node.data == \"do_stmt\":\n            return self.stmt_do_stmt(node)\n        return self.emit_stmt(node)\n\n    def _emit_function(self, name: str, params: list[str],\n                       body_forms: list) -> list[str]:\n        \"\"\"Emit `def name(params): ...` honoring closure semantics.\n\n        For each body form except the LAST: emit as a statement.\n        For the LAST: emit `return <value>` so the function returns a\n        meaningful value (Lisp tradition: function value = last form's value),\n        UNLESS the form itself is a control-flow statement that doesn't\n        produce a value (set!, var_decl, while, return, etc.).\n\n        Closure handling: scan the body for `set_stmt` targets that\n        aren't declared locally. If they're declared in any enclosing\n        function scope, emit `nonlocal X` at the top of the body. If\n        they're at module scope, emit `global X`.\n        \"\"\"\n        head = f\"{self.indent()}def {name}({', '.join(params)}):\"\n\n        # 1. Collect names declared INSIDE this body (params + var_decl + nested defs).\n        declared = set(params)\n        for f in body_forms:\n            if not isinstance(f, Tree):\n                continue\n            if f.data == \"var_decl\":\n                declared.add(_py_name(str(f.children[0])))\n            elif f.data == \"func_def\":\n                declared.add(_py_name(str(f.children[0])))\n            elif f.data == \"let_stmt\":\n                for c in f.children:\n                    if isinstance(c, Tree) and c.data == \"binding\":\n                        declared.add(_py_name(str(c.children[0])))\n\n        # 2. Scan for set! targets that aren't locally declared.\n        set_targets = set()\n        self._collect_set_targets(body_forms, set_targets)\n        free_assigned = set_targets - declared\n        nonlocals = sorted(n for n in free_assigned\n                           if any(n in s for s in self.scope_stack))\n        globals_  = sorted(n for n in free_assigned\n                           if n not in nonlocals and n in self.module_scope)\n\n        # 3. Emit the body, with nonlocal/global directives at the top.\n        self.indent_level += 1\n        self.scope_stack.append(declared)\n        # Reset the hoist buffer - hoists from THIS function's body should\n        # go into THIS function's body, not leak to the parent.\n        outer_hoists = self._pending_hoists\n        self._pending_hoists = []\n\n        body_lines = []\n        if nonlocals:\n            body_lines.append(f\"{self.indent()}nonlocal {', '.join(nonlocals)}\")\n        if globals_:\n            body_lines.append(f\"{self.indent()}global {', '.join(globals_)}\")\n\n        # 4. Walk body forms.\n        for i, form in enumerate(body_forms):\n            is_last = (i == len(body_forms) - 1)\n            if is_last and self._can_return(form):\n                # Statement-position special forms in TAIL position: emit\n                # them as Python `if/else` etc. that return from each arm.\n                if isinstance(form, Tree) and form.data == \"if_stmt\":\n                    body_lines.extend(self._emit_tail_if(form))\n                    continue\n                if isinstance(form, Tree) and form.data == \"when_stmt\":\n                    body_lines.extend(self._emit_tail_when(form))\n                    continue\n                if isinstance(form, Tree) and form.data == \"do_stmt\":\n                    # Inline the do-sequence; the do's last form gets\n                    # the same tail treatment recursively.\n                    body_lines.extend(\n                        self._emit_function_body_inner(form.children)\n                    )\n                    continue\n                if isinstance(form, Tree) and form.data == \"let_stmt\":\n                    # Emit the bindings, then the body forms with tail return.\n                    bindings, inner = [], []\n                    for c in form.children:\n                        if isinstance(c, Tree) and c.data == \"binding\":\n                            bindings.append(c)\n                        else:\n                            inner.append(c)\n                    for b in bindings:\n                        n = _py_name(str(b.children[0]))\n                        v = self.emit_expr(b.children[1])\n                        body_lines.append(f\"{self.indent()}{n} = {v}\")\n                    body_lines.extend(self._emit_function_body_inner(inner))\n                    continue\n                # Otherwise emit as a plain expression and `return` it.\n                expr = self.emit_expr(form)\n                # Drain any hoists produced while emitting `expr`\n                if self._pending_hoists:\n                    body_lines.extend(self._pending_hoists)\n                    self._pending_hoists = []\n                body_lines.append(f\"{self.indent()}return {expr}\")\n            else:\n                # Statement context. Capture hoists, then emit.\n                stmt_lines = self.emit_stmt(form)\n                if self._pending_hoists:\n                    body_lines.extend(self._pending_hoists)\n                    self._pending_hoists = []\n                body_lines.extend(stmt_lines)\n\n        if not body_lines:\n            body_lines.append(f\"{self.indent()}pass\")\n\n        self.scope_stack.pop()\n        self.indent_level -= 1\n        # Restore parent hoist buffer.\n        self._pending_hoists = outer_hoists\n\n        return [head] + body_lines\n\n    def _can_return(self, form) -> bool:\n        \"\"\"True if `form` produces a value usable in a `return X` line.\n\n        var_decl/func_def/set_stmt/while are pure statements with no value;\n        if their last in body, the function returns None and downstream\n        code still runs them as statements (no implicit return wrapping).\n        \"\"\"\n        if isinstance(form, Token):\n            return True\n        if not isinstance(form, Tree):\n            return False\n        kind = form.data\n        if kind in {\"var_decl\", \"func_def\", \"while_stmt\", \"set_stmt\",\n                    \"return_stmt\"}:\n            return False\n        return True\n\n    def _emit_tail_if(self, node) -> list[str]:\n        \"\"\"Emit `(if cond then else)` in tail position: each arm returns.\"\"\"\n        cond = self.emit_expr(node.children[0])\n        then_node = node.children[1]\n        else_node = node.children[2]\n        lines = [f\"{self.indent()}if _toy_truthy({cond}):\"]\n        self.indent_level += 1\n        lines.extend(self._emit_function_body_inner([then_node]))\n        self.indent_level -= 1\n        lines.append(f\"{self.indent()}else:\")\n        self.indent_level += 1\n        lines.extend(self._emit_function_body_inner([else_node]))\n        self.indent_level -= 1\n        return lines\n\n    def _emit_tail_when(self, node) -> list[str]:\n        \"\"\"Emit `(when cond body+)` in tail position. Returns the last\n        body form's value when cond is truthy; returns None otherwise.\"\"\"\n        cond = self.emit_expr(node.children[0])\n        body = node.children[1:]\n        lines = [f\"{self.indent()}if _toy_truthy({cond}):\"]\n        self.indent_level += 1\n        lines.extend(self._emit_function_body_inner(body))\n        self.indent_level -= 1\n        lines.append(f\"{self.indent()}return None\")\n        return lines\n\n    def _emit_function_body_inner(self, forms) -> list[str]:\n        \"\"\"Emit a sequence of forms inside a function body. The LAST form\n        gets the tail treatment (return / if-with-returns / etc.). Earlier\n        forms emit as plain statements. Used recursively from\n        _emit_tail_if / _emit_tail_when / do-as-tail.\"\"\"\n        out = []\n        if not forms:\n            out.append(f\"{self.indent()}return None\")\n            return out\n        for i, f in enumerate(forms):\n            is_last = (i == len(forms) - 1)\n            if is_last and self._can_return(f):\n                if isinstance(f, Tree) and f.data == \"if_stmt\":\n                    out.extend(self._emit_tail_if(f))\n                elif isinstance(f, Tree) and f.data == \"when_stmt\":\n                    out.extend(self._emit_tail_when(f))\n                elif isinstance(f, Tree) and f.data == \"do_stmt\":\n                    out.extend(self._emit_function_body_inner(list(f.children)))\n                else:\n                    expr = self.emit_expr(f)\n                    if self._pending_hoists:\n                        out.extend(self._pending_hoists)\n                        self._pending_hoists = []\n                    out.append(f\"{self.indent()}return {expr}\")\n            else:\n                stmt_lines = self.emit_stmt(f)\n                if self._pending_hoists:\n                    out.extend(self._pending_hoists)\n                    self._pending_hoists = []\n                out.extend(stmt_lines)\n        return out\n\n    def _collect_set_targets(self, forms, out: set[str]) -> None:\n        \"\"\"Walk every nested form and collect `(set! name _)` targets.\"\"\"\n        for f in forms:\n            if not isinstance(f, Tree):\n                continue\n            if f.data == \"set_stmt\":\n                out.add(_py_name(str(f.children[0])))\n                # Also recurse into the value (rare nested set!s)\n                self._collect_set_targets(f.children[1:], out)\n            else:\n                self._collect_set_targets(f.children, out)\n\n\n# ---------------------------------------------------------------------------\n# Public entry point\n# ---------------------------------------------------------------------------\n\ndef generate(tree: Tree) -> str:\n    \"\"\"Walk the parse tree, return runnable Python source.\"\"\"\n    cg = CodeGen()\n    return cg.generate(tree)\n\n\nif __name__ == \"__main__\":\n    import sys\n    from .parser import parse\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    print(generate(parse(text)))\n", "runtime.py": "\"\"\"lisplang runtime. Same shape as toylang's runtime (the codegen\nprelude imports `toy_*` names) so we don't fork stringification or\ntruthiness rules. Lisp-flavored: `nil` for None, `true`/`false` for\nbooleans (both the Lisp tradition AND what toylang's _toy_str produces).\n\"\"\"\nfrom __future__ import annotations\n\nimport builtins as _builtins\nimport os as _os\nimport sys as _sys\n\n\n# ---------------------------------------------------------------------------\n# Stringification + truthiness (Lisp-flavored: nil / true / false)\n# ---------------------------------------------------------------------------\n\ndef _toy_str(v):\n    if v is True:\n        return \"true\"\n    if v is False:\n        return \"false\"\n    if v is None:\n        return \"nil\"\n    if isinstance(v, float):\n        if v.is_integer():\n            return str(int(v))\n        return repr(v)\n    if isinstance(v, list):\n        return \"(\" + \" \".join(_toy_str(x) for x in v) + \")\"\n    if isinstance(v, dict):\n        parts = [f\"{_toy_str(k)} {_toy_str(val)}\" for k, val in v.items()]\n        return \"{\" + \" \".join(parts) + \"}\"\n    return str(v)\n\n\ndef toy_print(*args):\n    \"\"\"print(...) in lisplang. Joins with spaces, terminates with newline.\n\n    Lisp-flavored: prints `nil` for None, `true`/`false` for booleans,\n    and lists in s-expression form: `(1 2 3)` not `[1, 2, 3]`.\n    \"\"\"\n    _builtins.print(\" \".join(_toy_str(a) for a in args))\n\n\ndef toy_str(v):\n    return _toy_str(v)\n\n\ndef toy_truthy(v):\n    \"\"\"lisplang truthiness. nil and false are falsy; everything else\n    (including 0 and empty string) is truthy. Mirrors Clojure semantics.\"\"\"\n    return v is not None and v is not False\n\n\n# ---------------------------------------------------------------------------\n# Collections\n# ---------------------------------------------------------------------------\n\ndef toy_list(*items):\n    return _builtins.list(items)\n\n\ndef toy_len(coll):\n    return _builtins.len(coll)\n\n\ndef toy_get(coll, k, default=None):\n    if isinstance(coll, _builtins.list):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            return coll[k]\n        return default\n    if isinstance(coll, dict):\n        return coll.get(k, default)\n    if isinstance(coll, str):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            return coll[k]\n        return default\n    raise TypeError(f\"get(): unsupported type {type(coll).__name__}\")\n\n\ndef toy_set(coll, k, v):\n    if isinstance(coll, _builtins.list):\n        if not isinstance(k, int):\n            raise TypeError(\"set(): list keys must be integers\")\n        while _builtins.len(coll) <= k:\n            coll.append(None)\n        coll[k] = v\n    elif isinstance(coll, dict):\n        coll[k] = v\n    else:\n        raise TypeError(\"set(): need list or dict\")\n    return coll\n\n\ndef toy_push(lst, x):\n    lst.append(x)\n    return lst\n\n\ndef toy_pop(lst):\n    return lst.pop()\n\n\ndef toy_dict(*pairs):\n    if _builtins.len(pairs) % 2 != 0:\n        raise ValueError(\"dict() needs an even number of arguments\")\n    return _builtins.dict(_builtins.zip(pairs[0::2], pairs[1::2]))\n\n\ndef toy_has(coll, k):\n    if isinstance(coll, dict):\n        return k in coll\n    if isinstance(coll, _builtins.list):\n        return isinstance(k, int) and 0 <= k < _builtins.len(coll)\n    if isinstance(coll, str):\n        return k in coll\n    return False\n\n\ndef toy_keys(d):\n    return _builtins.list(d.keys())\n\n\ndef toy_range(a, b=None):\n    if b is None:\n        return _builtins.list(_builtins.range(a))\n    return _builtins.list(_builtins.range(a, b))\n\n\n# ---------------------------------------------------------------------------\n# Strings\n# ---------------------------------------------------------------------------\n\ndef toy_split(s, sep):\n    return s.split(sep)\n\n\ndef toy_join(sep, lst):\n    return sep.join(_toy_str(x) for x in lst)\n\n\ndef toy_upper(s):\n    return s.upper()\n\n\ndef toy_lower(s):\n    return s.lower()\n\n\ndef toy_replace(s, old, new):\n    return s.replace(old, new)\n\n\n# ---------------------------------------------------------------------------\n# Numbers\n# ---------------------------------------------------------------------------\n\ndef toy_int(v):\n    return _builtins.int(v)\n\n\ndef toy_float(v):\n    return _builtins.float(v)\n\n\n# ---------------------------------------------------------------------------\n# Files and processes\n# ---------------------------------------------------------------------------\n\ndef toy_read_file(path):\n    with _builtins.open(path, \"r\", encoding=\"utf-8\") as f:\n        return f.read()\n\n\ndef toy_write_file(path, content):\n    with _builtins.open(path, \"w\", encoding=\"utf-8\") as f:\n        f.write(content)\n    return None\n\n\ndef toy_input(prompt=\"\"):\n    return _builtins.input(prompt)\n\n\ndef toy_argv():\n    return _builtins.list(_sys.argv[1:])\n\n\ndef toy_exit(code=0):\n    _sys.exit(_builtins.int(code))\n", "stdlib.py": "\"\"\"lisplang stdlib re-exports. The codegen prelude imports from\nruntime directly; this file is convenience for user programs that\nwant to `from lisplang.stdlib import *`.\"\"\"\nfrom .runtime import (\n    toy_print as print,\n    toy_input as input,\n    toy_list as list,\n    toy_len as len,\n    toy_get as get,\n    toy_set as set,\n    toy_push as push,\n    toy_pop as pop,\n    toy_dict as dict,\n    toy_has as has,\n    toy_keys as keys,\n    toy_range as range,\n    toy_str as str,\n    toy_split as split,\n    toy_join as join,\n    toy_upper as upper,\n    toy_lower as lower,\n    toy_replace as replace,\n    toy_int as int,\n    toy_float as float,\n    toy_read_file as read_file,\n    toy_write_file as write_file,\n    toy_argv as argv,\n    toy_exit as exit,\n)\n\n__all__ = [\n    \"print\", \"input\",\n    \"list\", \"len\", \"get\", \"set\", \"push\", \"pop\", \"dict\", \"has\", \"keys\", \"range\",\n    \"str\", \"split\", \"join\", \"upper\", \"lower\", \"replace\",\n    \"int\", \"float\",\n    \"read_file\", \"write_file\", \"argv\", \"exit\",\n]\n"}</script>
+  <script id="examples-data" type="application/json">{"hello_world": "; Canonical: hello_world\n(print \"hello, world\")\n", "arithmetic": "; Canonical: arithmetic.\n(print (+ 2 3))\n(print (- 10 4))\n(print (* 6 7))\n(print (/ 20 4))\n(print (mod 17 5))\n(print (+ 1 (* 2 3)))\n", "variables": "; Canonical: variables. Bindings + mutation.\n(def x 10)\n(def name \"lisp\")\n(print x)\n(print name)\n(set! x (+ x 5))\n(print x)\n", "conditionals": "; Canonical: conditionals.\n(def n 7)\n(if (> n 0)\n    (print \"positive\")\n    (print \"non-positive\"))\n\n(if (= n 0)\n    (print \"zero\")\n    (if (> n 0)\n        (print \"positive\")\n        (print \"negative\")))\n\n(when (< n 100)\n  (print \"small\"))\n", "loops": "; Canonical: loops. Sum 1..10 imperatively.\n(def i 1)\n(def total 0)\n(while (<= i 10)\n  (set! total (+ total i))\n  (set! i (+ i 1)))\n(print total)\n", "functions": "; Canonical: functions. Definition, call, recursion.\n(defn add (a b)\n  (+ a b))\n\n(defn factorial (n)\n  (if (<= n 1)\n      1\n      (* n (factorial (- n 1)))))\n\n(print (add 3 4))\n(print (factorial 5))\n", "closures": "; Canonical: closures. Function returning a function that captures + mutates a binding.\n(defn make-counter ()\n  (def count 0)\n  (fn ()\n    (set! count (+ count 1))\n    count))\n\n(def counter (make-counter))\n(print (counter))\n(print (counter))\n(print (counter))\n\n; Independent counters don't share state.\n(def other (make-counter))\n(print (other))\n(print (counter))\n", "strings": "; Canonical: strings. Concatenation, length, upper.\n(def greeting \"hello\")\n(def name \"lisp\")\n(print (+ greeting \", \" name))\n(print (len greeting))\n(print (upper name))\n"}</script>
+
+  <script>
+    const LANG_NAME = "lisplang";
+    const FILE_EXT = ".lsp";
+    const SYNTAX = "s_expression";
+    const COMPILER_FILES = JSON.parse(document.getElementById('compiler-files').textContent);
+    const EXAMPLES = JSON.parse(document.getElementById('examples-data').textContent);
+
+    // Populate examples dropdown
+    const picker = document.getElementById('example-picker');
+    for (const [name, _] of Object.entries(EXAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      picker.append(opt);
+    }
+    picker.addEventListener('change', () => {
+      if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
+    });
+
+    // CodeMirror editor, pick a sensible mode based on syntax style
+    const initial = EXAMPLES["hello_world"] || `print("Hello from lisplang!")${SYNTAX === 'c_like' ? ';' : ''}\n`;
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      mode: SYNTAX === 'python_like' ? 'python' : { name: 'clike', keywords: {} },
+      theme: 'material-darker',
+      lineNumbers: true,
+      matchBrackets: true,
+      indentUnit: SYNTAX === 'python_like' ? 4 : 4,
+      extraKeys: {
+        'Cmd-Enter': run,
+        'Ctrl-Enter': run,
+      },
+    });
+    editor.setValue(initial);
+
+    // Boot Pyodide and seed it with the embedded compiler files.
+    let pyodide = null;
+    async function boot() {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+      await pyodide.loadPackage(['micropip']);
+      // lark may not be in the official pyodide package list; fall back to micropip
+      try {
+        await pyodide.loadPackage(['lark']);
+      } catch (e) {
+        await pyodide.runPythonAsync(`
+          import micropip
+          await micropip.install('lark')
+        `);
+      }
+      // Write the compiler files into Pyodide's virtual filesystem under /<lang>/
+      pyodide.FS.mkdir('/' + LANG_NAME);
+      for (const [path, content] of Object.entries(COMPILER_FILES)) {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const sub = '/' + LANG_NAME + '/' + parts.slice(0, i).join('/');
+          try { pyodide.FS.mkdir(sub); } catch (_) { /* exists */ }
+        }
+        pyodide.FS.writeFile('/' + LANG_NAME + '/' + path, content);
+      }
+      await pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+      const status = document.getElementById('boot-status');
+      status.className = 'status ready';
+      status.innerHTML = '<span class="dot"></span> Ready';
+    }
+
+    async function run() {
+      if (!pyodide) {
+        toast('Still booting Pyodide… try again in a few seconds.', true);
+        return;
+      }
+      const status = document.getElementById('run-status');
+      const output = document.getElementById('output');
+      status.style.display = 'inline-flex';
+      status.className = 'status running';
+      status.innerHTML = '<span class="dot"></span> Running';
+      output.className = 'output';
+      output.textContent = 'Compiling…';
+      const userSrc = editor.getValue();
+      pyodide.FS.writeFile('/program' + FILE_EXT, userSrc);
+      let stage = 'transpile';
+      try {
+        // Transpile. Wrap in try/except so we can return a STRUCTURED
+        // result (stage + error message) rather than a raw JS exception.
+        const transpileResult = await pyodide.runPythonAsync(`
+import sys, importlib, traceback
+for _mod_name in list(sys.modules):
+    if _mod_name.startswith('${LANG_NAME}.') or _mod_name == '${LANG_NAME}':
+        del sys.modules[_mod_name]
+_ok = True
+_err = ''
+try:
+    from ${LANG_NAME}.parser import parse
+    from ${LANG_NAME}.codegen import generate
+    _src = open('/program${FILE_EXT}').read()
+    _tree = parse(_src)
+    _py = generate(_tree)
+    open('/program.out.py', 'w').write(_py)
+except Exception:
+    _ok = False
+    _err = traceback.format_exc()
+(_ok, _err)
+        `);
+        const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
+        if (transpileResult.destroy) transpileResult.destroy();
+        if (!transpileOk) {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Transpile failed';
+          output.className = 'output error';
+          output.textContent = transpileErr;
+          return;
+        }
+        stage = 'execute';
+        // Execute and capture stdout. Pyodide's runPythonAsync returns the
+        // value of the last TOP-LEVEL expression. A try/except block is a
+        // statement, so we must hoist the result tuple to the final line.
+        const result = await pyodide.runPythonAsync(`
+import io, contextlib, traceback
+_buf_out = io.StringIO()
+_buf_err = io.StringIO()
+_ok = True
+_tb = ''
+try:
+    with contextlib.redirect_stdout(_buf_out), contextlib.redirect_stderr(_buf_err):
+        _code = compile(open('/program.out.py').read(), '<program>', 'exec')
+        exec(_code, {'__name__': '__main__'})
+except Exception:
+    _ok = False
+    _tb = traceback.format_exc()
+(_buf_out.getvalue(), (_buf_err.getvalue() + ('\\n' + _tb if _tb else '')), _ok)
+        `);
+        if (result === undefined || result === null) {
+          throw new Error("Pyodide returned no result, the embedded script may be malformed.");
+        }
+        const arr = result.toJs ? result.toJs() : result;
+        const [stdout, stderr, ok] = arr;
+        if (result.destroy) result.destroy();      // free the PyProxy
+        if (ok) {
+          status.className = 'status ready';
+          status.innerHTML = '<span class="dot"></span> Done';
+          output.className = 'output success';
+          output.textContent = stdout || '(no output)';
+          if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
+        } else {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Runtime error';
+          output.className = 'output error';
+          output.textContent = stdout + '\n' + stderr;
+        }
+      } catch (e) {
+        status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+        status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
+        output.className = 'output error';
+        // Surface as much as Pyodide gives us. e.message is usually the Python
+        // traceback when runPythonAsync raises; e.toString as fallback.
+        let msg = '';
+        if (e && e.message) msg = String(e.message);
+        else if (e && e.toString) msg = e.toString();
+        else msg = String(e);
+        output.textContent = `(stage: ${stage})\n${msg}`;
+      }
+    }
+
+    document.getElementById('run-btn').onclick = run;
+    boot().catch(err => {
+      const status = document.getElementById('boot-status');
+      status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+      status.innerHTML = '<span class="dot"></span> Boot failed';
+      document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
+    });
+  </script>
+</body>
+</html>

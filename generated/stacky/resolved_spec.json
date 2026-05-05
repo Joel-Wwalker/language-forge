@@ -1,0 +1,308 @@
+{
+  "lang_name": "stacky",
+  "options": {
+    "syntax": "stack_based",
+    "typing": "static",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "c_style",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [
+      "while"
+    ],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "camelCase",
+    "null_model": "nullable"
+  },
+  "file_extension": ".sta",
+  "comment_syntax": {
+    "line": "\\",
+    "block_open": "(",
+    "block_close": ")",
+    "nestable": true
+  },
+  "keywords": [
+    ":",
+    ";",
+    "if",
+    "else",
+    "then",
+    "begin",
+    "until",
+    "again",
+    "while",
+    "repeat",
+    "do",
+    "loop",
+    "variable",
+    "constant",
+    "true",
+    "false",
+    "and",
+    "or",
+    "not",
+    "dup",
+    "drop",
+    "swap",
+    "over",
+    "rot",
+    "nip",
+    "tuck",
+    "@",
+    "!",
+    ".",
+    "cr"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "mod"
+    ],
+    "comparison": [
+      "=",
+      "<>",
+      "<",
+      ">",
+      "<=",
+      ">="
+    ],
+    "logical": [
+      "and",
+      "or",
+      "not"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal, hex (0x), octal (0o), binary (0b)",
+    "integer_form": "c_style",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "verum / falsum (unquoted symbols)"
+  },
+  "statement_terminator": " ",
+  "block_style": "concatenative",
+  "function_definition": {
+    "keyword": ":",
+    "syntax_example": ": square ( n -- n*n ) dup * ;",
+    "type_annotations": ": add ( Int Int -- Int ) + ;"
+  },
+  "variable_declaration": {
+    "keyword": "variable",
+    "syntax_example": "variable counter  0 counter !",
+    "type_annotations": "variable counter ( Int )",
+    "mutability": "mutable_by_default"
+  },
+  "print_form": ".",
+  "boolean_keywords": {
+    "true": "verum",
+    "false": "falsum"
+  },
+  "null_keyword": "void",
+  "type_system": {
+    "primitive_types": [
+      "Int",
+      "Float",
+      "String",
+      "Bool"
+    ],
+    "annotation_form": "stack-effect comment ( inputs -- outputs )",
+    "inference": true
+  },
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "Natural language phrasebook incompatible with stack-based concatenative syntax; parser ignores phrasebook and uses Forth-style postfix notation.",
+    "Static typing via stack-effect comments ( inputs -- outputs ); type inference validates stack depth and types at compile time.",
+    "Short-circuit boolean evaluation implemented via conditional branching words (if/then/else), despite stack-based execution model.",
+    "Null handling uses void keyword to push null sentinel; nullable model permits null in any stack slot or variable."
+  ],
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [
+    "while"
+  ],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "camelCase",
+  "null_model": "nullable",
+  "null_keyword_status": "active",
+  "origin_story": "Compiled in Venetian monastery crypts, 1543-1589, for calculating celestial events. Later plundered by scholarly pirates who rewrote the documentation in vernacular. Stack discipline mirrors contemplative minimalism.",
+  "customization": {
+    "docs_persona": "pirate",
+    "natural_language": {
+      "var_decl": "let it be known that <name> is <value>.",
+      "func_def": "to invoke <name> upon <params> one must <body>.",
+      "if_stmt": "should <cond> hold then <body> else <else>.",
+      "while_stmt": "as long as <cond> persists, <body>.",
+      "return_stmt": "the result, henceforth, is <value>.",
+      "print_form": "proclaim <args>",
+      "true_word": "verum",
+      "false_word": "falsum",
+      "null_word": "void",
+      "and_word": "and",
+      "or_word": "or",
+      "not_word": "not"
+    }
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#0e0a1c",
+      "bg_2": "#150f28",
+      "card": "#0e0a1c",
+      "card_2": "#1c1438",
+      "line": "#352560",
+      "line_2": "#5a4090",
+      "text": "#f5e8d0",
+      "text_2": "#d8c0a0",
+      "muted": "#9080a0",
+      "accent": "#d4a850",
+      "accent_2": "#f0c878",
+      "font_family": "'Cinzel', 'EB Garamond', serif",
+      "mono_font": "'JetBrains Mono', monospace",
+      "radius": "4px",
+      "decoration": "",
+      "name_treatment": "calligraphic"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": "ritual"
+    }
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "comment_syntax": {
+    "line": "\\",
+    "block_open": "(",
+    "block_close": ")"
+  },
+  "statement_terminator": " ",
+  "block_style": "concatenative",
+  "function_definition": {
+    "keyword": ":",
+    "syntax_example": ": square ( n -- n*n ) dup * ;",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "variable",
+    "syntax_example": "variable counter  0 counter !",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": ".",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "nil",
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "mod"
+    ],
+    "comparison": [
+      "=",
+      "<>",
+      "<",
+      ">",
+      "<=",
+      ">="
+    ],
+    "logical": [
+      "and",
+      "or",
+      "not"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits (negative literals via leading `-`)",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "boolean": "true / false (unquoted symbols; some dialects use 0 / -1)",
+    "string_form": "double",
+    "integer_form": "decimal_only"
+  },
+  "keywords": [
+    ":",
+    ";",
+    "if",
+    "else",
+    "then",
+    "begin",
+    "until",
+    "again",
+    "while",
+    "repeat",
+    "do",
+    "loop",
+    "variable",
+    "constant",
+    "true",
+    "false",
+    "and",
+    "or",
+    "not",
+    "dup",
+    "drop",
+    "swap",
+    "over",
+    "rot",
+    "nip",
+    "tuck",
+    "@",
+    "!",
+    ".",
+    "cr"
+  ],
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "lang_name": "forthlang",
+  "options": {
+    "syntax": "stack_based",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [
+      "while"
+    ],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".fth",
+  "design_notes": [],
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [
+    "while"
+  ],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#3b82f6",
+      "accent_2": "#60a5fa",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "origin_story": "forthlang is the hand-written reference stack_based dialect that ships with Forge. New Forth-flavored languages template from it instead of being LLM-generated, dropping creation time from minutes to seconds."
+}
