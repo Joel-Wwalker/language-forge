@@ -1,0 +1,405 @@
+[
+  {
+    "slot_id": "slot_001",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1001,
+    "target_rarity": "common",
+    "notes": "Plain C-like, baseline canary"
+  },
+  {
+    "slot_id": "slot_002",
+    "options": {"syntax": "c_like", "typing": "static", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1002,
+    "target_rarity": "common",
+    "notes": "C-like, static typing"
+  },
+  {
+    "slot_id": "slot_003",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "refcount"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1003,
+    "target_rarity": "common",
+    "notes": "C-like, refcount memory"
+  },
+  {
+    "slot_id": "slot_004",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "stroustrup", "era": "1980s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1004,
+    "target_rarity": "common",
+    "notes": "C-like with Stroustrup persona, 1980s era"
+  },
+  {
+    "slot_id": "slot_005",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "wirth", "era": "1970s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1005,
+    "target_rarity": "common",
+    "notes": "C-like with Wirth persona, 1970s era"
+  },
+  {
+    "slot_id": "slot_006",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "ousterhout", "era": "1990s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1006,
+    "target_rarity": "rare",
+    "notes": "C-like, less-common persona Ousterhout"
+  },
+  {
+    "slot_id": "slot_007",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "pirate", "phrasebook": null, "feature_bans": []},
+    "seed": 1007,
+    "target_rarity": "rare",
+    "notes": "C-like, pirate theme"
+  },
+  {
+    "slot_id": "slot_008",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "shakespearean", "phrasebook": null, "feature_bans": []},
+    "seed": 1008,
+    "target_rarity": "rare",
+    "notes": "C-like, Shakespearean theme"
+  },
+  {
+    "slot_id": "slot_009",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "corporate", "phrasebook": null, "feature_bans": []},
+    "seed": 1009,
+    "target_rarity": "common",
+    "notes": "C-like, corporate theme"
+  },
+  {
+    "slot_id": "slot_010",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "latin", "phrasebook": null, "feature_bans": []},
+    "seed": 1010,
+    "target_rarity": "rare",
+    "notes": "C-like, Latin theme"
+  },
+  {
+    "slot_id": "slot_011",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "cozy", "phrasebook": null, "feature_bans": []},
+    "seed": 1011,
+    "target_rarity": "common",
+    "notes": "C-like, cozy theme"
+  },
+  {
+    "slot_id": "slot_012",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "2000s", "theme": null, "phrasebook": null, "feature_bans": ["no_null"]},
+    "seed": 1012,
+    "target_rarity": "rare",
+    "notes": "C-like, 2000s era, no_null ban"
+  },
+  {
+    "slot_id": "slot_013",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "2020s", "theme": null, "phrasebook": null, "feature_bans": ["no_exceptions"]},
+    "seed": 1013,
+    "target_rarity": "rare",
+    "notes": "C-like, 2020s era, no_exceptions ban"
+  },
+  {
+    "slot_id": "slot_014",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "dijkstra", "era": "1960s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1014,
+    "target_rarity": "rare",
+    "notes": "C-like, Dijkstra + 1960s combo"
+  },
+  {
+    "slot_id": "slot_015",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "stroustrup", "era": null, "theme": "corporate", "phrasebook": null, "feature_bans": []},
+    "seed": 1015,
+    "target_rarity": "epic",
+    "notes": "C-like persona+theme combo (Stroustrup + corporate)"
+  },
+  {
+    "slot_id": "slot_016",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": [], "hostile_constraints": "Every keyword must be a single character. Numbers print in hex."},
+    "seed": 1016,
+    "target_rarity": "epic",
+    "notes": "C-like, hostile constraint: single-char keywords + hex"
+  },
+  {
+    "slot_id": "slot_017",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "pirate", "feature_bans": []},
+    "seed": 1017,
+    "target_rarity": "epic",
+    "notes": "C-like with phrasebook customization"
+  },
+  {
+    "slot_id": "slot_018",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "shakespearean", "feature_bans": []},
+    "seed": 1018,
+    "target_rarity": "epic",
+    "notes": "C-like with Shakespearean phrasebook"
+  },
+  {
+    "slot_id": "slot_019",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "1980s", "theme": "pirate", "phrasebook": null, "feature_bans": ["no_null"], "hostile_constraints": "Boolean values must be the strings 'aye' and 'nay'."},
+    "seed": 1019,
+    "target_rarity": "epic",
+    "notes": "C-like hostile combo: era + theme + ban + constraint"
+  },
+  {
+    "slot_id": "slot_020",
+    "options": {"syntax": "c_like", "typing": "static", "memory": "host_gc"},
+    "customization": {"persona": "wirth", "era": "1970s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 1020,
+    "target_rarity": "common",
+    "notes": "Static c_like, classic Pascal-era flavor"
+  },
+
+  {
+    "slot_id": "slot_021",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 2001,
+    "target_rarity": "common",
+    "notes": "Plain python_like baseline"
+  },
+  {
+    "slot_id": "slot_022",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "matz", "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 2002,
+    "target_rarity": "common",
+    "notes": "python_like, Matz persona (Ruby-style happiness)"
+  },
+  {
+    "slot_id": "slot_023",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "2010s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 2003,
+    "target_rarity": "common",
+    "notes": "python_like, 2010s era"
+  },
+  {
+    "slot_id": "slot_024",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "cozy", "phrasebook": null, "feature_bans": []},
+    "seed": 2004,
+    "target_rarity": "rare",
+    "notes": "python_like, cozy theme"
+  },
+  {
+    "slot_id": "slot_025",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "latin", "phrasebook": null, "feature_bans": []},
+    "seed": 2005,
+    "target_rarity": "rare",
+    "notes": "python_like, Latin theme"
+  },
+  {
+    "slot_id": "slot_026",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "corporate", "feature_bans": []},
+    "seed": 2006,
+    "target_rarity": "epic",
+    "notes": "python_like with corporate phrasebook"
+  },
+  {
+    "slot_id": "slot_027",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "wadler", "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 2007,
+    "target_rarity": "rare",
+    "notes": "python_like, Wadler persona (functional flavor)"
+  },
+  {
+    "slot_id": "slot_028",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": ["no_inheritance"]},
+    "seed": 2008,
+    "target_rarity": "rare",
+    "notes": "python_like, no_inheritance ban"
+  },
+  {
+    "slot_id": "slot_029",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "matz", "era": "2010s", "theme": "cozy", "phrasebook": null, "feature_bans": []},
+    "seed": 2009,
+    "target_rarity": "epic",
+    "notes": "python_like persona+era+theme"
+  },
+  {
+    "slot_id": "slot_030",
+    "options": {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": [], "hostile_constraints": "Function calls use square brackets instead of parentheses."},
+    "seed": 2010,
+    "target_rarity": "epic",
+    "notes": "python_like hostile constraint: square-bracket calls"
+  },
+
+  {
+    "slot_id": "slot_031",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 3001,
+    "target_rarity": "common",
+    "notes": "Plain Lisp baseline"
+  },
+  {
+    "slot_id": "slot_032",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "mccarthy", "era": "1960s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 3002,
+    "target_rarity": "common",
+    "notes": "Lisp with McCarthy + 1960s (canonical pairing)"
+  },
+  {
+    "slot_id": "slot_033",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "hickey", "era": "2010s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 3003,
+    "target_rarity": "rare",
+    "notes": "Lisp with Hickey + 2010s (Clojure-flavor)"
+  },
+  {
+    "slot_id": "slot_034",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "1980s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 3004,
+    "target_rarity": "common",
+    "notes": "Lisp 1980s (Common Lisp era)"
+  },
+  {
+    "slot_id": "slot_035",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "pirate", "phrasebook": null, "feature_bans": []},
+    "seed": 3005,
+    "target_rarity": "rare",
+    "notes": "Lisp with pirate theme"
+  },
+  {
+    "slot_id": "slot_036",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "shakespearean", "feature_bans": []},
+    "seed": 3006,
+    "target_rarity": "epic",
+    "notes": "Lisp with Shakespearean phrasebook"
+  },
+  {
+    "slot_id": "slot_037",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": ["no_mutation"]},
+    "seed": 3007,
+    "target_rarity": "rare",
+    "notes": "Lisp, no_mutation ban (purely functional)"
+  },
+  {
+    "slot_id": "slot_038",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "wadler", "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 3008,
+    "target_rarity": "rare",
+    "notes": "Lisp with Wadler persona"
+  },
+  {
+    "slot_id": "slot_039",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "latin", "phrasebook": null, "feature_bans": []},
+    "seed": 3009,
+    "target_rarity": "epic",
+    "notes": "Lisp with Latin theme"
+  },
+  {
+    "slot_id": "slot_040",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "hickey", "era": null, "theme": "cozy", "phrasebook": null, "feature_bans": ["no_mutation"]},
+    "seed": 3010,
+    "target_rarity": "epic",
+    "notes": "Lisp Clojure-style + cozy + no_mutation"
+  },
+
+  {
+    "slot_id": "slot_041",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 4001,
+    "target_rarity": "common",
+    "notes": "Plain Forth baseline"
+  },
+  {
+    "slot_id": "slot_042",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "1970s", "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 4002,
+    "target_rarity": "common",
+    "notes": "Forth, 1970s era"
+  },
+  {
+    "slot_id": "slot_043",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "pirate", "phrasebook": null, "feature_bans": []},
+    "seed": 4003,
+    "target_rarity": "rare",
+    "notes": "Forth with pirate theme (exercises stack-runtime shim)"
+  },
+  {
+    "slot_id": "slot_044",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "pirate", "feature_bans": []},
+    "seed": 4004,
+    "target_rarity": "rare",
+    "notes": "Forth with pirate phrasebook (exercises rescue ladder)"
+  },
+  {
+    "slot_id": "slot_045",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": "shakespearean", "feature_bans": []},
+    "seed": 4005,
+    "target_rarity": "rare",
+    "notes": "Forth with Shakespearean phrasebook"
+  },
+  {
+    "slot_id": "slot_046",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "corporate", "phrasebook": null, "feature_bans": []},
+    "seed": 4006,
+    "target_rarity": "rare",
+    "notes": "Forth with corporate theme"
+  },
+  {
+    "slot_id": "slot_047",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": "dijkstra", "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 4007,
+    "target_rarity": "epic",
+    "notes": "Forth with Dijkstra persona (rare combo)"
+  },
+  {
+    "slot_id": "slot_048",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": "1980s", "theme": "latin", "phrasebook": null, "feature_bans": []},
+    "seed": 4008,
+    "target_rarity": "epic",
+    "notes": "Forth, 1980s + Latin theme"
+  },
+  {
+    "slot_id": "slot_049",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": [], "hostile_constraints": "Stack ops use words from biology: dup is mitose, drop is shed, swap is rotate."},
+    "seed": 4009,
+    "target_rarity": "epic",
+    "notes": "Forth hostile constraint: biological op names"
+  },
+  {
+    "slot_id": "slot_050",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": "cozy", "phrasebook": null, "feature_bans": []},
+    "seed": 4010,
+    "target_rarity": "common",
+    "notes": "Forth, cozy theme"
+  }
+]
