@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from forge.catalog.planner import Slot, slot_to_dict
+from forge.catalog.smoke_test import smoke_test, SmokeResult
 from forge.orchestrator.subprocess_runner import (
     SubprocessResult, run_one, write_batch_summary,
 )
@@ -133,6 +134,8 @@ class BatchOutcome:
     completed: int
     failed: int
     skipped_resumed: int    # how many slots were skipped because resume found them done
+    smoke_passed: int       # of `completed` slots, how many passed smoke
+    smoke_failed: int       # of `completed` slots, how many failed smoke
     wall_clock_seconds: float
     state_path: str         # absolute path to state.json
     summary_path: str       # absolute path to batch_summary.json
@@ -141,6 +144,11 @@ class BatchOutcome:
     def pass_rate(self) -> float:
         denom = self.completed + self.failed
         return (self.completed / denom) if denom else 0.0
+
+    @property
+    def smoke_pass_rate(self) -> float:
+        denom = self.smoke_passed + self.smoke_failed
+        return (self.smoke_passed / denom) if denom else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +180,7 @@ class BatchRunner:
                  timeout_per_slot: float = 600.0,
                  client_provider: Optional[str] = None,
                  plan_path: Optional[Path] = None,
+                 run_smoke: bool = True,
                  on_progress: Optional[ProgressFn] = None):
         self.plan = list(plan)
         self.output_root = Path(output_root).resolve()
@@ -179,6 +188,7 @@ class BatchRunner:
         self.timeout_per_slot = float(timeout_per_slot)
         self.client_provider = client_provider
         self.plan_path = Path(plan_path) if plan_path else Path("(in-memory)")
+        self.run_smoke = bool(run_smoke)
         self.on_progress = on_progress
         self._state: Optional[BatchState] = None
 
@@ -309,9 +319,34 @@ class BatchRunner:
                     entry["llm_output_tokens"] = summary.get("llm", {}).get("total_output_tokens")
                 except Exception:
                     pass
+
+            # Phase 1.3: smoke-test the language. Doesn't affect the
+            # slot's status (a smoke-failed slot is still `completed` —
+            # it generated, just with quality issues). Smoke result
+            # lands as a sub-field for Phase 2's filter to consume.
+            if self.run_smoke and res.lang_dir:
+                try:
+                    smoke = smoke_test(res.lang_dir)
+                    entry["smoke"] = {
+                        "passed": smoke.passed,
+                        "canonical": smoke.canonical,
+                        "kata": smoke.kata,
+                        "repl": smoke.repl,
+                        "failures": smoke.failures,
+                        "skips": smoke.skips,
+                        "duration_seconds": smoke.duration_seconds,
+                    }
+                except Exception as e:
+                    entry["smoke"] = {
+                        "passed": False,
+                        "failures": [f"smoke crashed: "
+                                     f"{type(e).__name__}: {e}"],
+                    }
+
             state.slots[slot.slot_id] = entry
             self._emit(slot.slot_id, STATUS_COMPLETED, elapsed,
-                       lang_dir=res.lang_dir)
+                       lang_dir=res.lang_dir,
+                       smoke_passed=entry.get("smoke", {}).get("passed"))
         else:
             # Trim stderr for state.json — full text lives on disk in
             # the per-slot output dir if the subprocess wrote it.
@@ -383,6 +418,22 @@ class BatchRunner:
         failed = sum(1 for s in state.slots.values()
                      if s.get("status") == STATUS_FAILED)
 
+        # Smoke aggregate: for completed slots only, how many passed/
+        # failed smoke. Slots without a smoke field (run_smoke=False)
+        # don't count either way.
+        smoke_passed = sum(
+            1 for s in state.slots.values()
+            if s.get("status") == STATUS_COMPLETED
+            and isinstance(s.get("smoke"), dict)
+            and s["smoke"].get("passed") is True
+        )
+        smoke_failed = sum(
+            1 for s in state.slots.values()
+            if s.get("status") == STATUS_COMPLETED
+            and isinstance(s.get("smoke"), dict)
+            and s["smoke"].get("passed") is False
+        )
+
         # Final batch summary using the existing helper. We pass only
         # this run's results, not historical ones, so a resumed run's
         # batch_summary.json reflects only what THIS invocation did.
@@ -394,6 +445,8 @@ class BatchRunner:
             completed=completed,
             failed=failed,
             skipped_resumed=skipped,
+            smoke_passed=smoke_passed,
+            smoke_failed=smoke_failed,
             wall_clock_seconds=round(wall, 3),
             state_path=str(_state_path(self.output_root)),
             summary_path=str(summary_path),
