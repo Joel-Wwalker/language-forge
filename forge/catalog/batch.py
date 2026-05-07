@@ -70,6 +70,12 @@ def main(argv: list[str] | None = None) -> int:
         help="skip slots already marked completed/failed in state.json. "
              "Use this after Ctrl+C or a crash to pick up where you left off.",
     )
+    parser.add_argument(
+        "--no-smoke", action="store_true",
+        help="skip the post-generation smoke test (canonical / kata / REPL). "
+             "Use to debug generation issues without smoke noise; the "
+             "Phase 2 quality filter will run its own checks anyway.",
+    )
     args = parser.parse_args(argv)
 
     # Load plan first so a malformed plan fails fast before we spin up
@@ -91,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout_per_slot=args.timeout_per_slot,
         client_provider=args.client_provider,
         plan_path=args.plan,
+        run_smoke=not args.no_smoke,
         on_progress=lambda *a: print(_format_progress(*a), flush=True),
     )
 
@@ -109,6 +116,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  failed:             {outcome.failed}")
     print(f"  skipped (resumed):  {outcome.skipped_resumed}")
     print(f"  pass rate:          {outcome.pass_rate:.1%}")
+    if not args.no_smoke and (outcome.smoke_passed + outcome.smoke_failed) > 0:
+        print(f"  smoke passed:       {outcome.smoke_passed} / "
+              f"{outcome.smoke_passed + outcome.smoke_failed}  "
+              f"({outcome.smoke_pass_rate:.1%})")
     print(f"  wall clock:         {outcome.wall_clock_seconds:.1f}s")
     print(f"  state:              {outcome.state_path}")
     print(f"  summary:            {outcome.summary_path}")

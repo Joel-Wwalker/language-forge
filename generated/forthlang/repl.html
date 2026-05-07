@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>forthlang. In-browser REPL</title>
+
+  <!-- Pyodide: runs Python (and our generated compiler) in the browser via WASM -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+
+  <!-- CodeMirror 5 (CDN-friendly; the basic c-like and python modes work for both syntax styles) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/theme/material-darker.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/commonlisp/commonlisp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/forth/forth.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+  <style>
+    :root {
+      /* shadcn dark, same palette as the main GUI */
+      --bg: #0a0e16; --bg-2: #0d1220; --card: #0a0e16;
+      --card-2: #131a2a;
+      --line: #1e293b; --line-2: #2a3a55;
+      --text: #f8fafc; --text-2: #cbd5e1; --muted: #94a3b8;
+      --accent: #3b82f6; --accent-2: #60a5fa;
+      --good: #22c55e; --bad: #ef4444; --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 24px;
+      background:
+        radial-gradient(900px 600px at 50% -200px, rgba(59,130,246,.06), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+    }
+    ::selection { background: var(--accent); color: #fff; }
+    .wrap { max-width: 1200px; margin: 0 auto; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    h1 {
+      font-size: 26px; margin: 0; letter-spacing: -0.02em; font-weight: 700;
+      display: flex; align-items: center; gap: 12px;
+    }
+    h1 .badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+      background: rgba(59,130,246,.12); color: var(--accent);
+      border: 1px solid rgba(59,130,246,.25);
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .lede { color: var(--text-2); font-size: 14px; margin: 6px 0 0; }
+    .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    select, button {
+      background: var(--bg-2); color: var(--text);
+      border: 1px solid var(--line); border-radius: 8px;
+      padding: 8px 14px; font: 500 13px/1 'Inter', sans-serif;
+      cursor: pointer; height: 34px;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    select:hover, button:hover { background: var(--card-2); border-color: var(--line-2); }
+    select:focus, button:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary {
+      background: var(--accent);
+      color: #fff; border-color: var(--accent); font-weight: 500;
+      box-shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    button.primary:active { background: #1d4ed8; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .grid {
+      display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px;
+      height: calc(100vh - 200px); min-height: 480px;
+    }
+    .pane {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 8px; padding: 14px; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .pane h3 { margin: 0 0 10px; font-size: 11px; color: var(--muted); font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; }
+    .CodeMirror { flex: 1; height: auto; border-radius: 6px; font-size: 13.5px; line-height: 1.5; }
+    .output {
+      flex: 1; margin: 0; padding: 12px; overflow: auto;
+      background: var(--bg-2); border: 1px solid var(--line); border-radius: 6px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px;
+      white-space: pre-wrap; color: var(--text-2); line-height: 1.5;
+    }
+    .output.error { color: var(--bad); }
+    .output.success { color: var(--text); }
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10.5px; padding: 3px 9px; border-radius: 999px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .status.loading { background: rgba(59,130,246,.12); color: var(--accent); }
+    .status.ready { background: rgba(34,197,94,.12); color: var(--good); }
+    .status.running { background: rgba(245,158,11,.12); color: var(--warn); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .footer {
+      margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .footer code { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-2); }
+    .keyword-hint {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 11px; color: var(--muted);
+      background: var(--bg-2); padding: 4px 8px; border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; height: auto; }
+      .pane { min-height: 320px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>forthlang <span class="badge">.fth</span></h1>
+        <p class="lede">In-browser REPL: runs without installing anything. Powered by Pyodide + CodeMirror.</p>
+      </div>
+      <div class="toolbar">
+        <select id="example-picker"><option value="">Load example…</option></select>
+        <span class="keyword-hint">⌘/Ctrl + Enter to run</span>
+        <button class="primary" id="run-btn">▶ Run</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="pane">
+        <h3>Source <span class="status loading" id="boot-status"><span class="dot"></span> Booting Pyodide…</span></h3>
+        <textarea id="editor"></textarea>
+      </div>
+      <div class="pane">
+        <h3>Output <span class="status" id="run-status" style="display:none;"></span></h3>
+        <pre class="output" id="output">Click <strong>Run</strong> to compile + execute your program. The first run downloads the Lark parser (≈ 2 MB), then everything is local.</pre>
+      </div>
+    </div>
+
+    <div class="footer">
+      Generated with <a href="https://example.com/forge" style="color: var(--accent); text-decoration: none;">Language Forge</a>.
+      Read the <code>LANGUAGE.md</code> in the project for the full reference.
+      Source goes through your real <code>forthlang</code> compiler, no fakes, no mocks.
+    </div>
+  </div>
+
+  <!-- Embedded compiler files. Each entry maps a relative path to its content. -->
+  <script id="compiler-files" type="application/json">{"__init__.py": "\"\"\"forthlang. Hand-written reference stack_based / concatenative compiler.\n\nMirrors lisplang's role for s_expression. When a user picks\n`syntax = stack_based` in the GUI, the orchestrator templates from this\ndirectory rather than asking the LLM to generate parser/codegen/runtime\nfrom scratch. Drops generation time from minutes to seconds.\n\nDialect: Forth-flavored, with a Factor-influenced print form. Forms supported:\n  : name body ;            colon definition (consumes/produces stack values)\n  ( ... )                  paren comments (stack-effect notation)\n  \\\\ rest of line           line comments\n  if cond_body else then   conditional (`else` is optional)\n  begin ... until          loop until top-of-stack is true\n  begin ... again          infinite loop (Forth requires `leave` to exit;\n                           we don't ship `leave`, so use `until` instead)\n  do ... loop              counted loop: `limit start do ... loop`\n  variable name            declare a mutable cell\n  value name !             store\n  name @                   fetch\n  dup drop swap over rot   stack manipulation\n  + - * / mod              arithmetic (postfix)\n  = <> < > <= >=           comparison; returns Python True/False\n  and or not               logical\n  .\" text\"                 inline-print string literal\n  s\" text\"                 push string literal\n  .                        print top of stack\n  cr                       newline\n\nBooleans: `true` / `false`. Null: `nil`.\nFile extension: `.fth`.\n\"\"\"\n__version__ = \"0.1.0\"\n", "lexer.py": "\"\"\"forthlang lexer view. Forth tokenization is context-sensitive\n(see parser._tokenize). This module exposes a thin `tokenize` API\nfor tooling + debugging.\"\"\"\nfrom __future__ import annotations\n\nfrom .parser import _tokenize\n\n\ndef tokenize(src: str) -> list:\n    \"\"\"Yield (kind, value, line) tokens. Kinds: NUM, FLOAT, STRPUSH,\n    STRPRINT, NAME, COLON, SEMI, IF, ELSE, THEN, BEGIN, UNTIL, AGAIN,\n    WHILE, REPEAT, DO, LOOP, VARIABLE, CONSTANT.\"\"\"\n    return _tokenize(src)\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    for tok in tokenize(text):\n        print(f\"{tok[0]:<10} {tok[1]!r}  (line {tok[2]})\")\n", "parser.py": "\"\"\"forthlang parser.\n\nForth tokenization is context-sensitive in three places:\n  - `.\" text\"` is print-this-string. The `.\"` is a single token; the\n    text runs until the next `\"`.\n  - `s\" text\"` pushes a string literal onto the stack. Same shape.\n  - `( ... )` is a paren comment. Spans tokens until the closing `)`.\n\nLark's lexer doesn't handle these naturally, so we tokenize by hand.\nThe parser then builds a small structural AST: a flat list of items\nwhere colon-definitions, if/else/then, begin/until, and do/loop are\nrepresented as nested dicts. Codegen walks the AST top-down.\n\nWe intentionally use plain dicts (not Lark Tree) because:\n  1. Forth's \"AST\" is mostly linear; nesting only happens at colon\n     definitions and control structures.\n  2. Plain dicts are easy to inspect in tests + tooling.\n  3. The verifier/mechanical_translator don't introspect parser output.\n\"\"\"\nfrom __future__ import annotations\n\nimport re\nfrom typing import Any\n\n\nclass ParseError(Exception):\n    pass\n\n\ndef _tokenize(src: str) -> list[tuple[str, Any, int]]:\n    \"\"\"Yield (kind, value, line) tokens.\n\n    Kinds: NUM, FLOAT, STRPUSH, STRPRINT, NAME, COLON, SEMI, IF, ELSE,\n           THEN, BEGIN, UNTIL, AGAIN, WHILE, REPEAT, DO, LOOP,\n           VARIABLE, CONSTANT.\n    \"\"\"\n    tokens = []\n    i = 0\n    line = 1\n    n = len(src)\n    while i < n:\n        ch = src[i]\n        if ch == \"\\n\":\n            line += 1\n            i += 1\n            continue\n        if ch.isspace():\n            i += 1\n            continue\n        # Line comment: \\ <text> until newline. Forth requires whitespace\n        # AFTER the backslash; lone `\\` at EOL is also valid.\n        if ch == \"\\\\\" and (i + 1 >= n or src[i + 1].isspace()):\n            j = src.find(\"\\n\", i)\n            if j == -1:\n                break\n            i = j\n            continue\n        # Paren comment: `( ... )` (must be a separate token, i.e. surrounded\n        # by whitespace on both sides). Inside the parens we span any chars\n        # until the matching `)`, with balanced-paren counting so embedded\n        # `(...)` like stack-effect notation `( n -- fib(n) )` works.\n        # Traditional Forth doesn't actually allow nested parens here, but\n        # users (and the families.md doc) write them all the time.\n        if ch == \"(\" and (i + 1 < n and src[i + 1].isspace()):\n            depth = 1\n            j = i + 1\n            while j < n and depth > 0:\n                if src[j] == \"(\":\n                    depth += 1\n                elif src[j] == \")\":\n                    depth -= 1\n                if depth == 0:\n                    break\n                if src[j] == \"\\n\":\n                    line += 1\n                j += 1\n            if depth != 0:\n                raise ParseError(f\"line {line}: unterminated `(` comment\")\n            i = j + 1\n            continue\n        # `.\" string\"` print-string. Keyword is `.\"` followed by ONE space\n        # delimiter then text until matching `\"`. The delimiter space is\n        # NOT part of the string per Forth tradition.\n        if ch == \".\" and i + 1 < n and src[i + 1] == '\"':\n            # Skip the optional single space after `.\"` (Forth delimiter).\n            start = i + 2\n            if start < n and src[start] == \" \":\n                start += 1\n            j = src.find('\"', start)\n            if j == -1:\n                raise ParseError(f\"line {line}: unterminated `.\\\"` literal\")\n            text = src[start:j]\n            line += text.count(\"\\n\")\n            tokens.append((\"STRPRINT\", text, line))\n            i = j + 1\n            continue\n        # `s\" string\"` push-string. Same delimiter rule as `.\" `.\n        if ch == \"s\" and i + 1 < n and src[i + 1] == '\"':\n            start = i + 2\n            if start < n and src[start] == \" \":\n                start += 1\n            j = src.find('\"', start)\n            if j == -1:\n                raise ParseError(f\"line {line}: unterminated `s\\\"` literal\")\n            text = src[start:j]\n            line += text.count(\"\\n\")\n            tokens.append((\"STRPUSH\", text, line))\n            i = j + 1\n            continue\n        # Otherwise: read up to next whitespace as a single token.\n        j = i\n        while j < n and not src[j].isspace():\n            j += 1\n        word = src[i:j]\n        i = j\n        # Classify\n        kind = _classify(word)\n        if kind == \"NUM\":\n            tokens.append((\"NUM\", int(word), line))\n        elif kind == \"FLOAT\":\n            tokens.append((\"FLOAT\", float(word), line))\n        elif kind in {\"COLON\", \"SEMI\", \"IF\", \"ELSE\", \"THEN\",\n                      \"BEGIN\", \"UNTIL\", \"AGAIN\", \"WHILE\", \"REPEAT\",\n                      \"DO\", \"LOOP\", \"VARIABLE\", \"CONSTANT\"}:\n            tokens.append((kind, word, line))\n        else:\n            tokens.append((\"NAME\", word, line))\n    return tokens\n\n\n_NUM_RE = re.compile(r\"^-?\\d+$\")\n_FLOAT_RE = re.compile(r\"^-?\\d+\\.\\d+$\")\n\n_KEYWORDS = {\n    \":\": \"COLON\", \";\": \"SEMI\",\n    \"if\": \"IF\", \"else\": \"ELSE\", \"then\": \"THEN\",\n    \"begin\": \"BEGIN\", \"until\": \"UNTIL\", \"again\": \"AGAIN\",\n    \"while\": \"WHILE\", \"repeat\": \"REPEAT\",\n    \"do\": \"DO\", \"loop\": \"LOOP\",\n    \"variable\": \"VARIABLE\", \"constant\": \"CONSTANT\",\n}\n\n\ndef _classify(word: str) -> str:\n    if word in _KEYWORDS:\n        return _KEYWORDS[word]\n    if _NUM_RE.match(word):\n        return \"NUM\"\n    if _FLOAT_RE.match(word):\n        return \"FLOAT\"\n    return \"NAME\"\n\n\ndef parse(src: str) -> list[dict]:\n    \"\"\"Parse forthlang source into a flat list of forms.\n\n    Forms have a `kind` field plus type-specific extras. Codegen\n    dispatches by kind.\n\n    Example AST (program: `: square dup * ; 7 square .`):\n      [\n        {\"kind\": \"colon_def\", \"name\": \"square\", \"body\": [\n            {\"kind\": \"name\", \"value\": \"dup\"},\n            {\"kind\": \"name\", \"value\": \"*\"},\n        ]},\n        {\"kind\": \"num\", \"value\": 7},\n        {\"kind\": \"name\", \"value\": \"square\"},\n        {\"kind\": \"name\", \"value\": \".\"},\n      ]\n    \"\"\"\n    tokens = _tokenize(src)\n    pos = [0]   # mutable index for the recursive parser\n\n    def peek() -> tuple[str, Any, int] | None:\n        return tokens[pos[0]] if pos[0] < len(tokens) else None\n\n    def consume() -> tuple[str, Any, int]:\n        t = tokens[pos[0]]\n        pos[0] += 1\n        return t\n\n    def parse_seq(end_kinds: set[str]) -> tuple[list[dict], str]:\n        \"\"\"Parse forms until we hit one of `end_kinds`. Returns (body, terminator_kind).\"\"\"\n        body: list[dict] = []\n        while pos[0] < len(tokens):\n            t = peek()\n            if t is None:\n                break\n            if t[0] in end_kinds:\n                consume()\n                return body, t[0]\n            body.append(parse_form())\n        return body, \"\"\n\n    def parse_form() -> dict:\n        kind, value, line = consume()\n        if kind == \"COLON\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `:` must be followed by a name\")\n            consume()\n            name = t[1]\n            inner_body, term = parse_seq({\"SEMI\"})\n            if term != \"SEMI\":\n                raise ParseError(f\"line {line}: `: {name}` not terminated by `;`\")\n            return {\"kind\": \"colon_def\", \"name\": name, \"body\": inner_body, \"line\": line}\n        if kind == \"IF\":\n            then_body, term = parse_seq({\"ELSE\", \"THEN\"})\n            else_body: list[dict] = []\n            if term == \"ELSE\":\n                else_body, term = parse_seq({\"THEN\"})\n            if term != \"THEN\":\n                raise ParseError(f\"line {line}: `if` not terminated by `then`\")\n            return {\"kind\": \"if\", \"then_body\": then_body, \"else_body\": else_body, \"line\": line}\n        if kind == \"BEGIN\":\n            inner, term = parse_seq({\"UNTIL\", \"AGAIN\", \"REPEAT\"})\n            if term == \"UNTIL\":\n                return {\"kind\": \"begin_until\", \"body\": inner, \"line\": line}\n            if term == \"AGAIN\":\n                return {\"kind\": \"begin_again\", \"body\": inner, \"line\": line}\n            raise ParseError(f\"line {line}: `begin` must be closed by `until`/`again`\")\n        if kind == \"DO\":\n            inner, term = parse_seq({\"LOOP\"})\n            if term != \"LOOP\":\n                raise ParseError(f\"line {line}: `do` not terminated by `loop`\")\n            return {\"kind\": \"do_loop\", \"body\": inner, \"line\": line}\n        if kind == \"VARIABLE\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `variable` must be followed by a name\")\n            consume()\n            return {\"kind\": \"variable_decl\", \"name\": t[1], \"line\": line}\n        if kind == \"CONSTANT\":\n            t = peek()\n            if t is None or t[0] != \"NAME\":\n                raise ParseError(f\"line {line}: `constant` must be followed by a name\")\n            consume()\n            return {\"kind\": \"constant_decl\", \"name\": t[1], \"line\": line}\n        if kind == \"NUM\":\n            return {\"kind\": \"num\", \"value\": value, \"line\": line}\n        if kind == \"FLOAT\":\n            return {\"kind\": \"float\", \"value\": value, \"line\": line}\n        if kind == \"STRPUSH\":\n            return {\"kind\": \"strpush\", \"value\": value, \"line\": line}\n        if kind == \"STRPRINT\":\n            return {\"kind\": \"strprint\", \"value\": value, \"line\": line}\n        if kind == \"NAME\":\n            return {\"kind\": \"name\", \"value\": value, \"line\": line}\n        # Stray closer like `;`, `then`, `loop` outside a structure.\n        raise ParseError(f\"line {line}: unexpected `{value}`\")\n\n    program: list[dict] = []\n    while pos[0] < len(tokens):\n        program.append(parse_form())\n    return program\n\n\n# Lark-shaped GRAMMAR string for documentation / parser-prompt parity.\n# This is INFORMATIONAL ONLY - the actual parser is hand-rolled above\n# because Forth's `.\"`/`s\"`/`(` lexing is context-sensitive and Lark's\n# lexer would fight us on it. The string serves as a reference for\n# anyone reading or extending the dialect.\nGRAMMAR = r\"\"\"\n// forthlang grammar (informational; the actual parser is hand-rolled).\n//\n// start: form*\n// form:  colon_def | if_form | begin_form | do_form\n//      | variable_decl | constant_decl\n//      | NUM | FLOAT | STRPUSH | STRPRINT | NAME\n// colon_def:    \":\" NAME form* \";\"\n// if_form:      \"if\" form* (\"else\" form*)? \"then\"\n// begin_form:   \"begin\" form* (\"until\" | \"again\")\n// do_form:      \"do\" form* \"loop\"\n// variable_decl: \"variable\" NAME\n// constant_decl: \"constant\" NAME\n//\n// Comments: \"(\" ... \")\"  and  \"\\\\\" /[^\\n]*/\n// String literals:\n//   STRPRINT: /\\.\\\"\\s[^\"]*\\\"/    (e.g. .\" Hello, World!\")\n//   STRPUSH:  /s\\\"\\s[^\"]*\\\"/     (e.g. s\" raw\")\n\"\"\"\n\n\nif __name__ == \"__main__\":\n    import sys\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    import json\n    print(json.dumps(parse(text), indent=2))\n", "codegen.py": "\"\"\"forthlang codegen. Walks the parser's AST and emits runnable Python.\n\nOutput strategy: every Forth word becomes a Python function that mutates\na global `_stack` list. Number/string literals push directly. Calls\nlook up the word in a runtime dictionary. Control structures get\ntranslated to native Python constructs (if/else, while True/break, for).\n\nWord names that aren't valid Python identifiers (e.g. `+`, `<=`, `?`)\nget mangled via `_py_name()` so they can be used as Python `def` names.\nThe runtime maps the canonical Forth names back during dispatch.\n\nThis codegen is COMPLETE - no `...` stubs.\n\"\"\"\nfrom __future__ import annotations\n\n\nPRELUDE = \"\"\"\\\nfrom forthlang.runtime import (\n    _stack, _vars, _consts,\n    push, pop, top,\n    dup, drop, swap, over, rot, nip, tuck,\n    add as _op_add,\n    sub as _op_sub,\n    mul as _op_mul,\n    div as _op_div,\n    mod as _op_mod,\n    eq as _op_eq, ne as _op_ne,\n    lt as _op_lt, gt as _op_gt,\n    le as _op_le, ge as _op_ge,\n    log_and as _op_and, log_or as _op_or, log_not as _op_not,\n    print_top as _print_top,\n    print_str as _print_str,\n    cr as _cr,\n    fetch as _fetch,\n    store as _store,\n    declare_variable as _declare_variable,\n    declare_constant as _declare_constant,\n    pushv,\n    truthy as _toy_truthy,\n    # Boolean / null pushes\n    true, false, nil,\n    # Collection words (lists, dicts, strings)\n    make_list as _make_list,\n    make_dict as _make_dict,\n    make_range as _make_range,\n    list_len as _list_len,\n    list_get as _list_get,\n    list_push as _list_push,\n    list_pop as _list_pop,\n    dict_set as _dict_set,\n    dict_has as _dict_has,\n)\nfrom forthlang.runtime import (\n    forge_nil as _forge_nil,\n    forge_true as _forge_true,\n    forge_false as _forge_false,\n    forge_make_list as _forge_make_list,\n    forge_make_dict as _forge_make_dict,\n    forge_make_range as _forge_make_range,\n    forge_list_get as _forge_list_get,\n    forge_list_push as _forge_list_push,\n    forge_list_pop as _forge_list_pop,\n    forge_list_len as _forge_list_len,\n    forge_dict_set as _forge_dict_set,\n    forge_dict_has as _forge_dict_has,\n)\n\"\"\"\n\n\n# Word names that aren't valid Python identifiers map to mangled aliases.\n# The runtime exports each both ways: the original symbolic name (for\n# user-facing kata test calls) and the mangled form (for codegen `def`).\n_PY_NAME_MAP = {\n    \"+\": \"_op_add\", \"-\": \"_op_sub\", \"*\": \"_op_mul\", \"/\": \"_op_div\",\n    \"mod\": \"_op_mod\",\n    \"=\": \"_op_eq\", \"<>\": \"_op_ne\",\n    \"<\": \"_op_lt\", \">\": \"_op_gt\",\n    \"<=\": \"_op_le\", \">=\": \"_op_ge\",\n    \"and\": \"_op_and\", \"or\": \"_op_or\", \"not\": \"_op_not\",\n    \".\": \"_print_top\",\n    \"cr\": \"_cr\",\n    \"@\": \"_fetch\",\n    \"!\": \"_store\",\n    \"dup\": \"dup\", \"drop\": \"drop\", \"swap\": \"swap\",\n    \"over\": \"over\", \"rot\": \"rot\",\n    \"nip\": \"nip\", \"tuck\": \"tuck\",\n    # Boolean / null literal-pushes (declared as runtime words)\n    \"true\": \"true\", \"false\": \"false\", \"nil\": \"nil\",\n    # Collection words\n    \"list\": \"_make_list\", \"dict\": \"_make_dict\", \"range\": \"_make_range\",\n    \"len\": \"_list_len\", \"get\": \"_list_get\",\n    \"push\": \"_list_push\", \"l_pop\": \"_list_pop\",\n    \"dset\": \"_dict_set\", \"set!\": \"_dict_set\",\n    \"has\": \"_dict_has\",\n    # === FORGE_STACK_CG_SHIM_BEGIN ===\n    'nil':   '_forge_nil',\n    'true':  '_forge_true',\n    'false': '_forge_false',\n    'list':  '_forge_make_list',\n    'dict':  '_forge_make_dict',\n    'range': '_forge_make_range',\n    'get':   '_forge_list_get',\n    'push':  '_forge_list_push',\n    'l_pop': '_forge_list_pop',\n    'len':   '_forge_list_len',\n    'dset':  '_forge_dict_set',\n    'set!':  '_forge_dict_set',\n    'has':   '_forge_dict_has',\n    # === FORGE_STACK_CG_SHIM_END ===\n\n}\n\n\ndef _py_name(name: str) -> str:\n    \"\"\"Translate a Forth word name to a Python identifier.\n\n    Built-in operator names and stack ops have direct mappings (above).\n    User-defined words might contain `-` `?` `!` etc.; we substitute\n    them consistently both at definition and call sites.\n    \"\"\"\n    if name in _PY_NAME_MAP:\n        return _PY_NAME_MAP[name]\n    return (\n        name\n        .replace(\"-\", \"_\")\n        .replace(\"?\", \"_q\")\n        .replace(\"!\", \"_bang\")\n        .replace(\"/\", \"_div\")\n        .replace(\"=\", \"_eq\")\n        .replace(\"<\", \"_lt\")\n        .replace(\">\", \"_gt\")\n    )\n\n\n# ---------------------------------------------------------------------------\n# Code emitter\n# ---------------------------------------------------------------------------\n\nclass CodeGen:\n    \"\"\"Emits Python from a forthlang AST.\n\n    State carried: `indent_level` (Python indent depth), `defined_words`\n    (set of names defined at module scope, for global/local resolution).\n    \"\"\"\n\n    def __init__(self):\n        self.indent_level = 0\n        self.defined_words: set[str] = set()\n        self.declared_vars: set[str] = set()    # `variable` declarations\n\n    def indent(self) -> str:\n        return \"    \" * self.indent_level\n\n    def generate(self, ast: list[dict]) -> str:\n        # First pass: collect top-level word definitions + variable\n        # declarations so nested calls can resolve.\n        for form in ast:\n            k = form.get(\"kind\")\n            if k == \"colon_def\":\n                self.defined_words.add(form[\"name\"])\n            elif k == \"variable_decl\":\n                self.declared_vars.add(form[\"name\"])\n            elif k == \"constant_decl\":\n                # Constants are \"named values\"; we emit a Python helper\n                # that pushes the value when called.\n                self.defined_words.add(form[\"name\"])\n\n        out = [PRELUDE]\n        for form in ast:\n            out.extend(self.emit_form(form, top_level=True))\n        return \"\\n\".join(out) + \"\\n\"\n\n    def emit_form(self, form: dict, *, top_level: bool = False) -> list[str]:\n        \"\"\"Emit Python lines for a single form. Returns a list of lines\n        already prefixed with `self.indent()`.\"\"\"\n        k = form.get(\"kind\")\n        method = getattr(self, f\"emit_{k}\", None)\n        if method is None:\n            return [f\"{self.indent()}# unhandled form: {k}\"]\n        return method(form, top_level=top_level)\n\n    # ---- literals + simple words ----\n\n    def emit_num(self, form: dict, *, top_level: bool) -> list[str]:\n        return [f\"{self.indent()}push({form['value']})\"]\n\n    def emit_float(self, form: dict, *, top_level: bool) -> list[str]:\n        return [f\"{self.indent()}push({form['value']})\"]\n\n    def emit_strpush(self, form: dict, *, top_level: bool) -> list[str]:\n        s = form[\"value\"].replace(\"\\\\\", \"\\\\\\\\\").replace('\"', '\\\\\"')\n        return [f'{self.indent()}push(\"{s}\")']\n\n    def emit_strprint(self, form: dict, *, top_level: bool) -> list[str]:\n        s = form[\"value\"].replace(\"\\\\\", \"\\\\\\\\\").replace('\"', '\\\\\"')\n        return [f'{self.indent()}_print_str(\"{s}\")']\n\n    def emit_name(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"value\"]\n        # Variable name (declared via `variable foo`) resolves to a push\n        # of its address-equivalent (the variable name as a string key).\n        if name in self.declared_vars:\n            return [f'{self.indent()}pushv(\"{name}\")']\n        # Ordinary word call: look up the Python alias.\n        py = _py_name(name)\n        return [f\"{self.indent()}{py}()\"]\n\n    # ---- declarations ----\n\n    def emit_variable_decl(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"name\"]\n        self.declared_vars.add(name)\n        return [f'{self.indent()}_declare_variable(\"{name}\")']\n\n    def emit_constant_decl(self, form: dict, *, top_level: bool) -> list[str]:\n        # `42 constant pi` declares pi as a constant whose value is 42.\n        # The 42 is already on the stack from the preceding `num` form.\n        name = form[\"name\"]\n        self.defined_words.add(name)\n        py = _py_name(name)\n        # Pop the value and define a function that re-pushes it.\n        lines = [\n            f'{self.indent()}_declare_constant(\"{name}\", pop())',\n            f\"{self.indent()}def {py}():\",\n            f'{self.indent()}    push(_consts[\"{name}\"])',\n        ]\n        return lines\n\n    def emit_colon_def(self, form: dict, *, top_level: bool) -> list[str]:\n        name = form[\"name\"]\n        py = _py_name(name)\n        lines = [f\"{self.indent()}def {py}():\"]\n        # Emit body at one extra indent.\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n    # ---- control structures ----\n\n    def emit_if(self, form: dict, *, top_level: bool) -> list[str]:\n        # `if` consumes the top of stack; truthy \u2192 then-body, else else-body.\n        lines = [f\"{self.indent()}if _toy_truthy(pop()):\"]\n        self.indent_level += 1\n        if form[\"then_body\"]:\n            for child in form[\"then_body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        if form[\"else_body\"]:\n            lines.append(f\"{self.indent()}else:\")\n            self.indent_level += 1\n            for child in form[\"else_body\"]:\n                lines.extend(self.emit_form(child))\n            self.indent_level -= 1\n        return lines\n\n    def emit_begin_until(self, form: dict, *, top_level: bool) -> list[str]:\n        # `begin body until`: execute body, then check top of stack.\n        # Top is true \u2192 exit. Top is false \u2192 loop.\n        lines = [f\"{self.indent()}while True:\"]\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        lines.append(f\"{self.indent()}if _toy_truthy(pop()): break\")\n        self.indent_level -= 1\n        return lines\n\n    def emit_begin_again(self, form: dict, *, top_level: bool) -> list[str]:\n        # `begin body again` is an infinite loop. We compile it as\n        # `while True:`. Forth's `leave` would need to be implemented\n        # via raise + try/except; we don't ship `leave` so users should\n        # prefer `begin ... until` instead.\n        lines = [f\"{self.indent()}while True:\"]\n        self.indent_level += 1\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}break  # empty body would spin\")\n        self.indent_level -= 1\n        return lines\n\n    def emit_do_loop(self, form: dict, *, top_level: bool) -> list[str]:\n        # `limit start do body loop`: pop start + limit off stack,\n        # run body for each value of `i` from start to limit-1.\n        # Forth's `i` word fetches the loop counter; we expose it.\n        lines = [\n            f\"{self.indent()}_do_start = pop()\",\n            f\"{self.indent()}_do_limit = pop()\",\n            f\"{self.indent()}for _do_i in range(_do_start, _do_limit):\",\n        ]\n        self.indent_level += 1\n        # Inside the body, `i` (lowercase) pushes the counter.\n        # We handle this by overriding the dispatch: any `name` form\n        # whose value is \"i\" inside a do_loop pushes _do_i. Simplest\n        # implementation: emit a tiny shim before the body.\n        lines.append(f\"{self.indent()}def i(): push(_do_i)\")\n        if form[\"body\"]:\n            for child in form[\"body\"]:\n                lines.extend(self.emit_form(child))\n        else:\n            lines.append(f\"{self.indent()}pass\")\n        self.indent_level -= 1\n        return lines\n\n\n# ---------------------------------------------------------------------------\n# Public entry point\n# ---------------------------------------------------------------------------\n\ndef generate(ast: list[dict]) -> str:\n    \"\"\"Walk the AST, return runnable Python source.\"\"\"\n    cg = CodeGen()\n    return cg.generate(ast)\n\n\nif __name__ == \"__main__\":\n    import sys\n    from .parser import parse\n    text = open(sys.argv[1], \"r\", encoding=\"utf-8\").read()\n    print(generate(parse(text)))\n", "runtime.py": "\"\"\"forthlang runtime. Provides the data stack + every built-in word.\n\nForth words consume / produce stack values. We model the stack as a\nplain Python list with `.append()` / `.pop()`. Every built-in word is\na top-level function; the codegen emits `def square(): dup(); mul()`\nstyle nested defs for user-defined words and they all manipulate the\nsame global `_stack`.\n\nStringification mirrors toylang's: numbers print as ints when whole,\nbooleans as `true`/`false`, lists as `[1, 2, 3]`. Forth dialects\ntraditionally print booleans as `-1`/`0` but that's user-hostile;\nwe use the same readable form as the rest of Forge.\n\"\"\"\nfrom __future__ import annotations\n\nimport builtins as _builtins\nimport sys as _sys\n\n\n# ---------------------------------------------------------------------------\n# Data stack + variable storage\n# ---------------------------------------------------------------------------\n\n_stack: list = []\n_vars: dict = {}    # `variable name` declarations: name -> cell value\n_consts: dict = {}  # `value constant name` declarations: name -> value\n\n\ndef push(value) -> None:\n    _stack.append(value)\n\n\ndef pop():\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `pop`\")\n    return _stack.pop()\n\n\ndef top():\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `top`\")\n    return _stack[-1]\n\n\nclass StackUnderflow(RuntimeError):\n    \"\"\"Raised when a word tries to pop more values than the stack holds.\n    Mirrors Forth's runtime failure mode but with a readable Python\n    traceback the user can debug.\"\"\"\n\n\n# ---------------------------------------------------------------------------\n# Stringification + truthiness\n# ---------------------------------------------------------------------------\n\ndef _toy_str(v) -> str:\n    if v is True:\n        return \"true\"\n    if v is False:\n        return \"false\"\n    if v is None:\n        return \"nil\"\n    if isinstance(v, float):\n        if v.is_integer():\n            return str(int(v))\n        return repr(v)\n    if isinstance(v, list):\n        return \"[\" + \", \".join(_toy_str(x) for x in v) + \"]\"\n    return str(v)\n\n\ndef truthy(v) -> bool:\n    \"\"\"Forge truthiness. nil/None and false/0 are falsy; everything\n    else is truthy. Forth's `0` is falsy by tradition, so we follow.\"\"\"\n    if v is None or v is False:\n        return False\n    if v == 0:\n        return False\n    return True\n\n\n# ---------------------------------------------------------------------------\n# Stack manipulation words\n# ---------------------------------------------------------------------------\n\ndef dup() -> None:\n    \"\"\"( a -- a a )\"\"\"\n    if not _stack:\n        raise StackUnderflow(\"stack underflow on `dup`\")\n    _stack.append(_stack[-1])\n\n\ndef drop() -> None:\n    \"\"\"( a -- )\"\"\"\n    pop()\n\n\ndef swap() -> None:\n    \"\"\"( a b -- b a )\"\"\"\n    b = pop(); a = pop()\n    _stack.append(b); _stack.append(a)\n\n\ndef over() -> None:\n    \"\"\"( a b -- a b a )\"\"\"\n    if len(_stack) < 2:\n        raise StackUnderflow(\"stack underflow on `over`\")\n    _stack.append(_stack[-2])\n\n\ndef rot() -> None:\n    \"\"\"( a b c -- b c a )\"\"\"\n    c = pop(); b = pop(); a = pop()\n    _stack.append(b); _stack.append(c); _stack.append(a)\n\n\ndef nip() -> None:\n    \"\"\"( a b -- b )\"\"\"\n    b = pop(); pop()\n    _stack.append(b)\n\n\ndef tuck() -> None:\n    \"\"\"( a b -- b a b )\"\"\"\n    b = pop(); a = pop()\n    _stack.append(b); _stack.append(a); _stack.append(b)\n\n\n# ---------------------------------------------------------------------------\n# Arithmetic + comparison + logical (postfix; pop two, push result)\n# ---------------------------------------------------------------------------\n\ndef add() -> None:\n    b = pop(); a = pop(); _stack.append(a + b)\n\n\ndef sub() -> None:\n    b = pop(); a = pop(); _stack.append(a - b)\n\n\ndef mul() -> None:\n    b = pop(); a = pop(); _stack.append(a * b)\n\n\ndef div() -> None:\n    b = pop(); a = pop()\n    # Integer division when both ints (Forth tradition).\n    if isinstance(a, int) and isinstance(b, int):\n        _stack.append(a // b)\n    else:\n        _stack.append(a / b)\n\n\ndef mod() -> None:\n    b = pop(); a = pop(); _stack.append(a % b)\n\n\ndef eq() -> None:\n    b = pop(); a = pop(); _stack.append(a == b)\n\n\ndef ne() -> None:\n    b = pop(); a = pop(); _stack.append(a != b)\n\n\ndef lt() -> None:\n    b = pop(); a = pop(); _stack.append(a < b)\n\n\ndef gt() -> None:\n    b = pop(); a = pop(); _stack.append(a > b)\n\n\ndef le() -> None:\n    b = pop(); a = pop(); _stack.append(a <= b)\n\n\ndef ge() -> None:\n    b = pop(); a = pop(); _stack.append(a >= b)\n\n\ndef log_and() -> None:\n    b = pop(); a = pop(); _stack.append(truthy(a) and truthy(b))\n\n\ndef log_or() -> None:\n    b = pop(); a = pop(); _stack.append(truthy(a) or truthy(b))\n\n\ndef log_not() -> None:\n    a = pop(); _stack.append(not truthy(a))\n\n\n# ---------------------------------------------------------------------------\n# Variables + constants (memory)\n# ---------------------------------------------------------------------------\n\ndef declare_variable(name: str) -> None:\n    \"\"\"`variable foo` declares `foo` with initial value 0.\"\"\"\n    _vars[name] = 0\n\n\ndef declare_constant(name: str, value) -> None:\n    _consts[name] = value\n\n\ndef pushv(name: str) -> None:\n    \"\"\"Push the variable's address (its name string) for use with @ / !.\"\"\"\n    _stack.append(name)\n\n\ndef fetch() -> None:\n    \"\"\"`@ ( name -- value )`. Pops a variable name, pushes its value.\"\"\"\n    name = pop()\n    if not isinstance(name, str) or name not in _vars:\n        raise RuntimeError(f\"`@`: not a variable: {name!r}\")\n    _stack.append(_vars[name])\n\n\ndef store() -> None:\n    \"\"\"`! ( value name -- )`. Pops a variable name + value, stores.\"\"\"\n    name = pop()\n    value = pop()\n    if not isinstance(name, str):\n        raise RuntimeError(f\"`!`: not a variable address: {name!r}\")\n    _vars[name] = value\n\n\n# ---------------------------------------------------------------------------\n# Output\n# ---------------------------------------------------------------------------\n\ndef print_top() -> None:\n    \"\"\"`. ( a -- )` Pop and print top of stack with a trailing space.\n    Forth tradition prints a trailing space; we follow but the tests\n    strip surrounding whitespace from `.expected_output.txt` lines.\"\"\"\n    v = pop()\n    _builtins.print(_toy_str(v))\n\n\ndef print_str(s: str) -> None:\n    \"\"\"`.\" text\"` prints the literal text. No trailing newline.\"\"\"\n    _builtins.print(s, end=\"\")\n\n\ndef cr() -> None:\n    \"\"\"`cr` prints a newline.\"\"\"\n    _builtins.print()\n\n\n# ---------------------------------------------------------------------------\n# Boolean / null pushes (Forth-style words, not literals)\n# ---------------------------------------------------------------------------\n\ndef true() -> None:\n    \"\"\"`true` pushes Python True onto the stack.\"\"\"\n    _stack.append(True)\n\n\ndef false() -> None:\n    \"\"\"`false` pushes Python False onto the stack.\"\"\"\n    _stack.append(False)\n\n\ndef nil() -> None:\n    \"\"\"`nil` pushes None onto the stack.\"\"\"\n    _stack.append(None)\n\n\n# ---------------------------------------------------------------------------\n# Collection words (so katas can use lists/dicts even though Forth\n# tradition is \"everything is a number\")\n# ---------------------------------------------------------------------------\n\ndef make_list() -> None:\n    \"\"\"`list ( -- empty-list )` pushes a fresh empty list.\"\"\"\n    _stack.append([])\n\n\ndef make_dict() -> None:\n    \"\"\"`dict ( -- empty-dict )` pushes a fresh empty dict.\"\"\"\n    _stack.append({})\n\n\ndef list_len() -> None:\n    \"\"\"`len ( coll -- n )` pops a list/string/dict, pushes its length.\"\"\"\n    coll = pop()\n    _stack.append(_builtins.len(coll))\n\n\ndef list_get() -> None:\n    \"\"\"`get ( coll k -- v )` indexes into a list/dict/string.\"\"\"\n    k = pop(); coll = pop()\n    if isinstance(coll, _builtins.list):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            _stack.append(coll[k])\n        else:\n            _stack.append(None)\n    elif isinstance(coll, dict):\n        _stack.append(coll.get(k))\n    elif isinstance(coll, str):\n        if isinstance(k, int) and 0 <= k < _builtins.len(coll):\n            _stack.append(coll[k])\n        else:\n            _stack.append(None)\n    else:\n        raise TypeError(f\"get: unsupported {type(coll).__name__}\")\n\n\ndef list_push() -> None:\n    \"\"\"`push ( lst v -- lst )` appends v to lst, leaves lst on stack.\"\"\"\n    v = pop(); lst = pop()\n    lst.append(v)\n    _stack.append(lst)\n\n\ndef list_pop() -> None:\n    \"\"\"`l_pop ( lst -- last )` pops the last element of lst.\n    Named `l_pop` to avoid shadowing the runtime's stack `pop`.\"\"\"\n    lst = pop()\n    _stack.append(lst.pop())\n\n\ndef dict_set() -> None:\n    \"\"\"`dset ( dict k v -- dict )` stores v at key k, leaves dict on stack.\"\"\"\n    v = pop(); k = pop(); d = pop()\n    d[k] = v\n    _stack.append(d)\n\n\ndef dict_has() -> None:\n    \"\"\"`has ( coll k -- bool )` true if coll contains key/element.\"\"\"\n    k = pop(); coll = pop()\n    if isinstance(coll, dict):\n        _stack.append(k in coll)\n    elif isinstance(coll, _builtins.list):\n        _stack.append(isinstance(k, int) and 0 <= k < _builtins.len(coll))\n    elif isinstance(coll, str):\n        _stack.append(k in coll)\n    else:\n        _stack.append(False)\n\n\ndef make_range() -> None:\n    \"\"\"`range ( n -- list )` pushes [0, 1, ..., n-1] as a list.\"\"\"\n    n = pop()\n    _stack.append(_builtins.list(_builtins.range(n)))\n\n\n# ---------------------------------------------------------------------------\n# Aliases the codegen prelude imports\n# ---------------------------------------------------------------------------\n\n# These are also defined above as plain functions; the codegen prelude\n# imports them by name so user `def` shadowing inside a colon-definition\n# works without breaking the runtime's own dispatch.\n\n# === FORGE_STACK_SHIM_BEGIN ===\n# Auto-applied by Forge: canonical stack_classics vocabulary.\n# These mutate the same `_stack` global the existing runtime uses,\n# so values pushed/popped by these helpers interleave correctly\n# with language-specific words. Re-run the generator to refresh.\n\nimport builtins as _forge_b\n\ndef forge_nil():\n    _stack.append(None)\n\ndef forge_true():\n    _stack.append(True)\n\ndef forge_false():\n    _stack.append(False)\n\ndef forge_make_list():\n    _stack.append([])\n\ndef forge_make_dict():\n    _stack.append({})\n\ndef forge_make_range():\n    n = _stack.pop()\n    _stack.append(_forge_b.list(_forge_b.range(n)))\n\ndef forge_list_get():\n    k = _stack.pop(); coll = _stack.pop()\n    if isinstance(coll, _forge_b.dict):\n        _stack.append(coll.get(k))\n    elif isinstance(coll, (_forge_b.list, _forge_b.str)):\n        if isinstance(k, int) and 0 <= k < _forge_b.len(coll):\n            _stack.append(coll[k])\n        else:\n            _stack.append(None)\n    else:\n        _stack.append(None)\n\ndef forge_list_push():\n    v = _stack.pop(); lst = _stack.pop()\n    lst.append(v)\n    _stack.append(lst)\n\ndef forge_list_pop():\n    lst = _stack.pop()\n    _stack.append(lst.pop())\n\ndef forge_list_len():\n    coll = _stack.pop()\n    _stack.append(_forge_b.len(coll))\n\ndef forge_dict_set():\n    v = _stack.pop(); k = _stack.pop(); d = _stack.pop()\n    d[k] = v\n    _stack.append(d)\n\ndef forge_dict_has():\n    k = _stack.pop(); coll = _stack.pop()\n    try: _stack.append(k in coll)\n    except Exception: _stack.append(False)\n\n# === FORGE_STACK_SHIM_END ===", "stdlib.py": "\"\"\"forthlang stdlib re-exports. The codegen prelude imports from\nruntime directly; this file is convenience for tests/tooling that\nwant to inspect the canonical word list.\"\"\"\nfrom .runtime import (\n    push, pop, top,\n    dup, drop, swap, over, rot, nip, tuck,\n    add, sub, mul, div, mod,\n    eq, ne, lt, gt, le, ge,\n    log_and, log_or, log_not,\n    print_top, print_str, cr,\n    declare_variable, declare_constant, pushv, fetch, store,\n    truthy,\n)\n\n# Forth-canonical word names \u2192 runtime functions. Useful for kata\n# checkers and the case-analysis fallback to discover what's available.\nSTDLIB_WORDS = {\n    \"dup\": dup, \"drop\": drop, \"swap\": swap, \"over\": over,\n    \"rot\": rot, \"nip\": nip, \"tuck\": tuck,\n    \"+\": add, \"-\": sub, \"*\": mul, \"/\": div, \"mod\": mod,\n    \"=\": eq, \"<>\": ne, \"<\": lt, \">\": gt, \"<=\": le, \">=\": ge,\n    \"and\": log_and, \"or\": log_or, \"not\": log_not,\n    \".\": print_top, \"cr\": cr,\n    \"@\": fetch, \"!\": store,\n}\n\n__all__ = [\"STDLIB_WORDS\"]\n"}</script>
+  <script id="examples-data" type="application/json">{"hello_world": "\\ Canonical: hello_world\n.\" hello, world\" cr\n", "arithmetic": "\\ Canonical: arithmetic. Postfix evaluation.\n2 3 + .\n10 4 - .\n6 7 * .\n20 4 / .\n17 5 mod .\n1 2 3 * + .\n", "variables": "\\ Canonical: variables. `variable` declares; `name !` stores; `name @` fetches.\nvariable x\n10 x !\nx @ .\n20 x !\nx @ .\n\n\\ Constants: `value constant name` defines; `name` re-pushes the value.\n42 constant answer\nanswer .\n", "conditionals": "\\ Canonical: conditionals.\n7 0 > if .\" positive\" cr else .\" non-positive\" cr then\n\n0 0 = if .\" zero\" cr else\n    0 0 > if .\" positive\" cr else .\" negative\" cr then\nthen\n\n5 100 < if .\" small\" cr then\n", "loops": "\\ Canonical: loops. Sum 1..10 imperatively via begin/until.\nvariable i\nvariable total\n1 i !\n0 total !\n\nbegin\n    total @ i @ + total !       \\ total += i\n    i @ 1 + i !                  \\ i++\n    i @ 10 >                     \\ until i > 10\nuntil\n\ntotal @ .\n", "functions": "\\ Canonical: functions. Definition, call, recursion.\n: add ( a b -- a+b )\n    + ;\n\n: factorial ( n -- n! )\n    dup 1 <= if drop 1 else dup 1 - factorial * then ;\n\n3 4 add .\n5 factorial .\n", "closures": "\\ Canonical: closures. Forth doesn't have lexical closures (no nested\n\\ scopes); the equivalent pattern is a word that captures + mutates\n\\ a module-level variable. Same algorithm, different mechanism.\nvariable counter\n0 counter !\n\n: tick ( -- )\n    counter @ 1 + counter ! ;\n\n: show ( -- )\n    counter @ . ;\n\ntick show\ntick show\ntick show\n", "strings": "\\ Canonical: strings. Inline-print, push string literal, multi-print.\n.\" hello, world\" cr\n.\" forth says: \" .\" stack first\" cr\ns\" pushed string\" .\n"}</script>
+
+  <script>
+    const LANG_NAME = "forthlang";
+    const FILE_EXT = ".fth";
+    const SYNTAX = "stack_based";
+    const COMPILER_FILES = JSON.parse(document.getElementById('compiler-files').textContent);
+    const EXAMPLES = JSON.parse(document.getElementById('examples-data').textContent);
+
+    // Populate examples dropdown
+    const picker = document.getElementById('example-picker');
+    for (const [name, _] of Object.entries(EXAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      picker.append(opt);
+    }
+    picker.addEventListener('change', () => {
+      if (picker.value && EXAMPLES[picker.value]) editor.setValue(EXAMPLES[picker.value]);
+    });
+
+    // CodeMirror editor, pick a sensible mode based on syntax style.
+    // Default hello_world for fallback differs per syntax: c_like uses
+    // `print(...);`, python_like uses `print(...)`, s_expression uses
+    // `(print ...)` - never produce something that won't parse.
+    let _fallbackHello;
+    if (SYNTAX === 'c_like') _fallbackHello = `print("Hello from forthlang!");\n`;
+    else if (SYNTAX === 's_expression') _fallbackHello = `(print "Hello from forthlang!")\n`;
+    else if (SYNTAX === 'stack_based') _fallbackHello = `." Hello from forthlang!" cr\n`;
+    else _fallbackHello = `print("Hello from forthlang!")\n`;
+    const initial = EXAMPLES["hello_world"] || _fallbackHello;
+    let _cmMode;
+    if (SYNTAX === 'python_like') _cmMode = 'python';
+    else if (SYNTAX === 's_expression') _cmMode = 'commonlisp';
+    else if (SYNTAX === 'stack_based') _cmMode = 'forth';
+    else _cmMode = { name: 'clike', keywords: {} };
+    const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+      mode: _cmMode,
+      theme: 'material-darker',
+      lineNumbers: true,
+      matchBrackets: true,
+      indentUnit: SYNTAX === 's_expression' ? 2 : 4,   // Lisp idiom is 2 spaces
+      extraKeys: {
+        'Cmd-Enter': run,
+        'Ctrl-Enter': run,
+      },
+    });
+    editor.setValue(initial);
+
+    // Boot Pyodide and seed it with the embedded compiler files.
+    let pyodide = null;
+    async function boot() {
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/" });
+      await pyodide.loadPackage(['micropip']);
+      // lark may not be in the official pyodide package list; fall back to micropip
+      try {
+        await pyodide.loadPackage(['lark']);
+      } catch (e) {
+        await pyodide.runPythonAsync(`
+          import micropip
+          await micropip.install('lark')
+        `);
+      }
+      // Write the compiler files into Pyodide's virtual filesystem under /<lang>/
+      pyodide.FS.mkdir('/' + LANG_NAME);
+      for (const [path, content] of Object.entries(COMPILER_FILES)) {
+        const parts = path.split('/');
+        for (let i = 1; i < parts.length; i++) {
+          const sub = '/' + LANG_NAME + '/' + parts.slice(0, i).join('/');
+          try { pyodide.FS.mkdir(sub); } catch (_) { /* exists */ }
+        }
+        pyodide.FS.writeFile('/' + LANG_NAME + '/' + path, content);
+      }
+      await pyodide.runPythonAsync(`import sys; sys.path.insert(0, '/')`);
+      const status = document.getElementById('boot-status');
+      status.className = 'status ready';
+      status.innerHTML = '<span class="dot"></span> Ready';
+    }
+
+    async function run() {
+      if (!pyodide) {
+        toast('Still booting Pyodide… try again in a few seconds.', true);
+        return;
+      }
+      const status = document.getElementById('run-status');
+      const output = document.getElementById('output');
+      status.style.display = 'inline-flex';
+      status.className = 'status running';
+      status.innerHTML = '<span class="dot"></span> Running';
+      output.className = 'output';
+      output.textContent = 'Compiling…';
+      const userSrc = editor.getValue();
+      pyodide.FS.writeFile('/program' + FILE_EXT, userSrc);
+      let stage = 'transpile';
+      try {
+        // Transpile. Wrap in try/except so we can return a STRUCTURED
+        // result (stage + error message) rather than a raw JS exception.
+        const transpileResult = await pyodide.runPythonAsync(`
+import sys, importlib, traceback
+for _mod_name in list(sys.modules):
+    if _mod_name.startswith('${LANG_NAME}.') or _mod_name == '${LANG_NAME}':
+        del sys.modules[_mod_name]
+_ok = True
+_err = ''
+try:
+    from ${LANG_NAME}.parser import parse
+    from ${LANG_NAME}.codegen import generate
+    _src = open('/program${FILE_EXT}').read()
+    _tree = parse(_src)
+    _py = generate(_tree)
+    open('/program.out.py', 'w').write(_py)
+except Exception:
+    _ok = False
+    _err = traceback.format_exc()
+(_ok, _err)
+        `);
+        const [transpileOk, transpileErr] = transpileResult.toJs ? transpileResult.toJs() : transpileResult;
+        if (transpileResult.destroy) transpileResult.destroy();
+        if (!transpileOk) {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Transpile failed';
+          output.className = 'output error';
+          output.textContent = transpileErr;
+          return;
+        }
+        stage = 'execute';
+        // Execute and capture stdout. Pyodide's runPythonAsync returns the
+        // value of the last TOP-LEVEL expression. A try/except block is a
+        // statement, so we must hoist the result tuple to the final line.
+        const result = await pyodide.runPythonAsync(`
+import io, contextlib, traceback
+_buf_out = io.StringIO()
+_buf_err = io.StringIO()
+_ok = True
+_tb = ''
+try:
+    with contextlib.redirect_stdout(_buf_out), contextlib.redirect_stderr(_buf_err):
+        _code = compile(open('/program.out.py').read(), '<program>', 'exec')
+        exec(_code, {'__name__': '__main__'})
+except Exception:
+    _ok = False
+    _tb = traceback.format_exc()
+(_buf_out.getvalue(), (_buf_err.getvalue() + ('\\n' + _tb if _tb else '')), _ok)
+        `);
+        if (result === undefined || result === null) {
+          throw new Error("Pyodide returned no result, the embedded script may be malformed.");
+        }
+        const arr = result.toJs ? result.toJs() : result;
+        const [stdout, stderr, ok] = arr;
+        if (result.destroy) result.destroy();      // free the PyProxy
+        if (ok) {
+          status.className = 'status ready';
+          status.innerHTML = '<span class="dot"></span> Done';
+          output.className = 'output success';
+          output.textContent = stdout || '(no output)';
+          if (stderr) output.textContent += '\n--- stderr ---\n' + stderr;
+        } else {
+          status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+          status.innerHTML = '<span class="dot"></span> Runtime error';
+          output.className = 'output error';
+          output.textContent = stdout + '\n' + stderr;
+        }
+      } catch (e) {
+        status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+        status.innerHTML = '<span class="dot"></span> ' + (stage === 'transpile' ? 'Compile error' : 'Runtime error');
+        output.className = 'output error';
+        // Surface as much as Pyodide gives us. e.message is usually the Python
+        // traceback when runPythonAsync raises; e.toString as fallback.
+        let msg = '';
+        if (e && e.message) msg = String(e.message);
+        else if (e && e.toString) msg = e.toString();
+        else msg = String(e);
+        output.textContent = `(stage: ${stage})\n${msg}`;
+      }
+    }
+
+    document.getElementById('run-btn').onclick = run;
+    boot().catch(err => {
+      const status = document.getElementById('boot-status');
+      status.className = 'status'; status.style.background = 'rgba(239,68,68,.12)'; status.style.color = 'var(--bad)';
+      status.innerHTML = '<span class="dot"></span> Boot failed';
+      document.getElementById('output').textContent = 'Pyodide failed to load: ' + err;
+    });
+  </script>
+</body>
+</html>
