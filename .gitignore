@@ -74,4 +74,5 @@ generated/*/generation_events.jsonl
 # Phase 1 batch output staging. The catalog directory is the eventual
 # committed artifact; staging is throwaway.
 catalog_staging/
+catalog_raw/
 batch_output/
