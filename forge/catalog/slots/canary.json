@@ -1,0 +1,26 @@
+[
+  {
+    "slot_id": "canary_stack",
+    "options": {"syntax": "stack_based", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 901,
+    "target_rarity": "common",
+    "notes": "canary: templated stack_based, smallest LLM footprint"
+  },
+  {
+    "slot_id": "canary_lisp",
+    "options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 902,
+    "target_rarity": "common",
+    "notes": "canary: templated s_expression"
+  },
+  {
+    "slot_id": "canary_clike",
+    "options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {"persona": null, "era": null, "theme": null, "phrasebook": null, "feature_bans": []},
+    "seed": 903,
+    "target_rarity": "common",
+    "notes": "canary: c_like with full LLM generation path (heaviest)"
+  }
+]

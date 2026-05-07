@@ -1375,7 +1375,13 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     # The verify call runs every canonical test as a subprocess and adds
     # ~100ms per test. Tests that benchmark generation parallelism pass
     # `verify_after_generation=False` to skip this post-processing cost.
-    if write_summary and own_recorder:
+    # Phase 1.4: write the summary whenever `write_summary` is True,
+    # regardless of who created the recorder. Previously this was
+    # gated on `own_recorder`, which meant a caller passing in a
+    # shared recorder (the subprocess worker, post-fix) didn't get
+    # a summary file. Callers that DON'T want the summary should
+    # pass `write_summary=False`.
+    if write_summary:
         if verify_after_generation:
             try:
                 from .verifier import verify
