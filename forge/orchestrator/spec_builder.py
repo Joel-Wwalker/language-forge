@@ -437,14 +437,22 @@ def build_spec(options: Options, lang_name: str, *,
     eff_opts = apply_bans(feature_bans or [], eff_opts)
 
     syntax = eff_opts.get("syntax")
+    # Deep-copy the family base. `dict(...)` is a SHALLOW copy: nested
+    # dicts (operators, comment_syntax, keywords, ...) still point at
+    # the module-level original. Subsequent `_deep_merge` calls and
+    # keyword-theme overlays would then mutate the shared base, leaking
+    # state across calls. The Phase 1.2 batch runner exposes this by
+    # calling build_spec with themed customization repeatedly. Use
+    # copy.deepcopy so each spec is fully independent.
+    import copy as _copy
     if syntax == "c_like":
-        spec = dict(_C_LIKE_BASE)
+        spec = _copy.deepcopy(_C_LIKE_BASE)
     elif syntax == "s_expression":
-        spec = dict(_S_EXPRESSION_BASE)
+        spec = _copy.deepcopy(_S_EXPRESSION_BASE)
     elif syntax == "stack_based":
-        spec = dict(_STACK_BASED_BASE)
+        spec = _copy.deepcopy(_STACK_BASED_BASE)
     else:
-        spec = dict(_PYTHON_LIKE_BASE)
+        spec = _copy.deepcopy(_PYTHON_LIKE_BASE)
     options = eff_opts  # subsequent code uses the merged effective options
 
     spec = _deep_merge(spec, _typing_overlay(options["typing"], options["syntax"]))
