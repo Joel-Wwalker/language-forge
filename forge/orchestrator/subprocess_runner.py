@@ -108,9 +108,9 @@ class _LazyLLMClient:
         self._provider = provider
         self._log_dir = log_dir
         self._real = None
-        # Telemetry is read frequently by callers (and set by
-        # generate_all via attach()) without triggering instantiation.
-        self.telemetry = None
+        # Internal storage; the `telemetry` property setter forwards
+        # writes through to the real client if/when materialized.
+        self._telemetry = None
 
     @property
     def log_dir(self):
@@ -133,13 +133,30 @@ class _LazyLLMClient:
             return getattr(self._real, "model", "unknown")
         return "lazy:unresolved"
 
+    @property
+    def telemetry(self):
+        return self._telemetry
+
+    @telemetry.setter
+    def telemetry(self, v):
+        """Phase 1.4 fix: propagate telemetry to the real client when
+        already materialized. The previous implementation only
+        forwarded once at materialization time, so a recorder
+        attached AFTER the first call_X invocation never reached
+        the real client. The result was silent telemetry loss
+        (parser took 67s but llm_calls reported 0). Mirroring the
+        log_dir setter pattern keeps both attributes in lockstep."""
+        self._telemetry = v
+        if self._real is not None:
+            self._real.telemetry = v
+
     def _materialize(self):
         if self._real is None:
             from .providers import make_client
             self._real = make_client(self._provider, log_dir=self._log_dir)
             # Forward telemetry that was attached pre-materialization.
-            if self.telemetry is not None:
-                self._real.telemetry = self.telemetry
+            if self._telemetry is not None:
+                self._real.telemetry = self._telemetry
         return self._real
 
     def call_code(self, *a, **kw):
@@ -183,6 +200,24 @@ def _worker_main(slot_path: str) -> int:
         # cases, instead of failing at startup.
         client = _LazyLLMClient(client_provider)
 
+        # Phase 1.4 fix: attach telemetry BEFORE the resolver runs so
+        # resolver-cache hits and resolver LLM calls land in the
+        # summary. The previous flow created the recorder inside
+        # generate_all, after resolve() had already run — so resolver
+        # activity disappeared from telemetry. We create the recorder
+        # here, attach the events file (so a crash mid-resolve still
+        # leaves a survival record), and pass the recorder to
+        # generate_all to reuse rather than create a second one.
+        from forge.orchestrator.telemetry import TelemetryRecorder, attach
+        lang_dir = Path(output_root) / spec["lang_name"]
+        lang_dir.mkdir(parents=True, exist_ok=True)
+        recorder = TelemetryRecorder(lang_name=spec["lang_name"], seed=seed)
+        try:
+            recorder.attach_events_file(lang_dir / "generation_events.jsonl")
+        except Exception:
+            pass  # never fail generation because of telemetry setup
+        attach(client, recorder)
+
         # If the slot says skip_resolver=False, run the resolver first so
         # batch tooling that has only options (not a resolved spec) can
         # still drive this worker. Today's batch path passes resolved
@@ -193,7 +228,8 @@ def _worker_main(slot_path: str) -> int:
 
         from forge.orchestrator.generator import generate_all
         out_dir = generate_all(spec, output_root=output_root,
-                               client=client, seed=seed)
+                               client=client, seed=seed,
+                               telemetry=recorder)
         # Echo the result location on stdout for the parent to parse.
         # The parent ALSO reads files from out_dir directly; this is just
         # an extra signal.

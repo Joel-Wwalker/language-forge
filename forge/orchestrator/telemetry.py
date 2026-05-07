@@ -151,10 +151,21 @@ class TelemetryRecorder:
     def attach_events_file(self, path: str | os.PathLike) -> None:
         """Begin streaming events to `path` (one JSON line per record).
 
-        Truncates any existing file at this path so a re-run from the
-        same lang_dir starts fresh — the old events were for a previous
-        attempt and would confuse aggregators."""
-        self.events_path = Path(path)
+        Idempotent: if already attached to the SAME path, no-op (this
+        preserves events recorded earlier in the run, e.g. resolver-
+        cache hits captured before generate_all attached). If attached
+        to a different path, switches over and truncates the new path.
+
+        Truncates the file on the first attach so a re-run from the
+        same lang_dir starts fresh — old events from a prior attempt
+        would confuse aggregators."""
+        new_path = Path(path)
+        if self.events_path is not None and self.events_path == new_path:
+            # Already streaming here. Don't truncate, don't re-emit
+            # run_started. This is the path generate_all takes when
+            # the worker pre-attached.
+            return
+        self.events_path = new_path
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
         self.events_path.write_text("", encoding="utf-8")
         # First event records the run's metadata so a partial events
