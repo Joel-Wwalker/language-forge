@@ -125,6 +125,7 @@ class TelemetryRecorder:
     kata_pack: Optional[dict] = None
     components: dict = field(default_factory=dict)        # name -> {duration, llm_calls, success}
     cache_hits: int = 0
+    pipeline_path: str = "unknown"                        # "templated" | "llm" | "unknown" (Phase 1.5 Stage F)
     events_path: Optional[Path] = None                    # set by generate_all
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -214,6 +215,25 @@ class TelemetryRecorder:
             self.components[name] = entry
         self._emit_event("component", {"name": name, **entry})
 
+    def set_pipeline_path(self, path: str) -> None:
+        """Phase 1.5 Stage F: record which generation path produced
+        this language. Values:
+          - "templated": _template_from_reference produced the core
+            components (parser, codegen, runtime, stdlib, tests).
+            LLM was called only for the small `gen-creative` step
+            (and the resolver upstream).
+          - "llm": every component was generated via LLM call. The
+            pre-Phase-1.5 path; still available via
+            `template_from_reference=False`.
+          - "unknown" (default): not yet set, or pre-Phase-1.5 code
+            paths.
+
+        Phase 2's quality filter compares output quality across
+        paths; this field is its primary signal."""
+        with self._lock:
+            self.pipeline_path = path
+        self._emit_event("pipeline_path", {"path": path})
+
     def set_canonical_results(self, passed: int, total: int) -> None:
         result = {
             "passed": int(passed),
@@ -279,6 +299,7 @@ class TelemetryRecorder:
                 },
                 "components": dict(self.components),
                 "cache_hits": self.cache_hits,
+                "pipeline_path": self.pipeline_path,
                 "canonical_tests": self.canonical_tests,
                 "kata_pack": self.kata_pack,
                 "errors": [asdict(e) for e in self.errors],
@@ -343,6 +364,7 @@ def events_to_summary(events_path: str | os.PathLike) -> dict:
     canonical = None
     kata = None
     cache_hits = 0
+    pipeline_path = "unknown"
     meta: dict = {}
     malformed_count = 0
 
@@ -382,6 +404,8 @@ def events_to_summary(events_path: str | os.PathLike) -> dict:
         elif kind == "kata":
             kata = {k: ev[k] for k in ("passed", "total", "pass_rate")
                     if k in ev}
+        elif kind == "pipeline_path":
+            pipeline_path = ev.get("path", "unknown")
 
     by_tag: dict[str, dict] = {}
     for c in llm_calls:
@@ -419,6 +443,7 @@ def events_to_summary(events_path: str | os.PathLike) -> dict:
         },
         "components": components,
         "cache_hits": cache_hits,
+        "pipeline_path": pipeline_path,
         "canonical_tests": canonical,
         "kata_pack": kata,
         "errors": errors,

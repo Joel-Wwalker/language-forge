@@ -554,14 +554,17 @@ def _generate_code_component(name: str, spec: dict, lang_dir: Path, client: LLMC
     return target
 
 
-def _generate_readme(spec: dict, lang_dir: Path, client: LLMClient) -> Path:
-    # Templated languages (s_expression / stack_based) get a deterministic
-    # README rendered from the spec instead of an LLM call. Saves 10-30s
-    # of API latency and stays consistent with the hand-written reference
-    # compiler. Only the c_like / python_like / phrasebook languages, which
-    # already vary widely, still go through the LLM for a personality-
-    # driven readme.
-    if reference_compiler_for(spec) is not None:
+def _generate_readme(spec: dict, lang_dir: Path, client: LLMClient, *,
+                     template_from_reference: bool = True) -> Path:
+    """Templated languages (c_like, s_expression, stack_based as of Phase
+    1.5) get a deterministic README rendered from the spec instead of an
+    LLM call. Saves 10-30s of API latency and stays consistent with the
+    hand-written reference compiler.
+
+    `template_from_reference=False` (Phase 1.5 Stage F) forces the LLM
+    path even when a reference exists — useful for languages with
+    hostile constraints the templated renderer can't represent."""
+    if template_from_reference and reference_compiler_for(spec) is not None:
         target = lang_dir / "README.md"
         _write(target, _render_templated_readme(spec))
         return target
@@ -683,9 +686,13 @@ def _render_templated_language_reference(spec: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _generate_language_reference(spec: dict, lang_dir: Path, client: LLMClient) -> Path:
-    """Emit `LANGUAGE.md`: the formal language reference."""
-    if reference_compiler_for(spec) is not None:
+def _generate_language_reference(spec: dict, lang_dir: Path, client: LLMClient, *,
+                                  template_from_reference: bool = True) -> Path:
+    """Emit `LANGUAGE.md`: the formal language reference. Templated
+    when a reference exists for the syntax family (c_like, s_expression,
+    stack_based) unless `template_from_reference=False` (Phase 1.5
+    Stage F)."""
+    if template_from_reference and reference_compiler_for(spec) is not None:
         target = lang_dir / "LANGUAGE.md"
         _write(target, _render_templated_language_reference(spec))
         return target
@@ -1398,7 +1405,8 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
                  telemetry: Optional["TelemetryRecorder"] = None,
                  write_summary: bool = True,
                  verify_after_generation: bool = True,
-                 enrich_creative: bool = True) -> Path:  # type: ignore[name-defined]
+                 enrich_creative: bool = True,
+                 template_from_reference: bool = True) -> Path:  # type: ignore[name-defined]
     """Generate every component for `spec` into `<output_root>/<lang_name>/`.
 
     If `only` is given, only those components are (re)generated.
@@ -1426,6 +1434,18 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
             aggressively by content hash, and folded into the spec
             before component generation runs. Pass False for fully-
             offline batch runs that want zero LLM activity.
+
+    Phase 1.5 Stage F addition:
+      template_from_reference: if True (default), routes the spec
+            through the templated path when a reference compiler
+            exists for its syntax family (toylang for c_like,
+            lisplang for s_expression, forthlang for stack_based).
+            Pass False to force the LLM-driven path — useful for
+            languages with hostile constraints toylang can't
+            represent (e.g. extreme keyword themes that the
+            substitution layer mangles), Phase 5 mythic-tier
+            languages where Layer 4 surprise is desired, or A/B
+            comparisons of templated vs LLM output quality.
     """
     from .telemetry import TelemetryRecorder, attach as _attach_telem
     lang_dir = Path(output_root) / spec["lang_name"]
@@ -1499,8 +1519,14 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     # /stdlib/lexer/tests from scratch. The remaining components (readme,
     # language_reference, typechecker if static) still go through the LLM
     # so the language gets per-spec personality and docs.
-    ref_dir = reference_compiler_for(spec)
-    if ref_dir is not None and not only:
+    # Phase 1.5 Stage F: template_from_reference=False forces the
+    # LLM-driven path even when a reference exists. The flag also
+    # ends up in the telemetry summary as `pipeline_path` so the
+    # quality filter in Phase 2 can compare templated vs LLM output.
+    ref_dir = reference_compiler_for(spec) if template_from_reference else None
+    used_templated_path = ref_dir is not None and not only
+    telemetry.set_pipeline_path("templated" if used_templated_path else "llm")
+    if used_templated_path:
         import time as _t
         _ref_t0 = _t.monotonic()
         fulfilled = _template_from_reference(spec, lang_dir, ref_dir)
@@ -1566,9 +1592,12 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
             if comp == "tests":
                 _generate_tests(spec, lang_dir, client)
             elif comp == "readme":
-                _generate_readme(spec, lang_dir, client)
+                _generate_readme(spec, lang_dir, client,
+                                 template_from_reference=template_from_reference)
             elif comp == "language_reference":
-                _generate_language_reference(spec, lang_dir, client)
+                _generate_language_reference(
+                    spec, lang_dir, client,
+                    template_from_reference=template_from_reference)
             else:
                 _generate_code_component(comp, spec, lang_dir, client)
         except Exception:
