@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, Future
@@ -180,6 +182,98 @@ def _build_spec_for_slot(slot: Slot) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Rate-limit / operational-cascade circuit breaker
+# ---------------------------------------------------------------------------
+#
+# Phase 1.5 bugfix Fix 3 (Bug 1).
+#
+# Gate 2 wedged when the API rate-limited us mid-batch. Every subsequent
+# slot's claude-cli invocation died with `exit 1`, but the runner kept
+# submitting the rest, burning the retry budget for no reason. By the
+# time the batch finished, ~29 slots had failed in a cascade tracing
+# back to a single rate-limit event around slot 14.
+#
+# The fix is operational, not pipeline. After N (default 3) consecutive
+# operational failures of the same class, pause the batch. The user
+# gets a clear "stopped at slot K, here's why" message and can resume
+# with --resume after addressing the underlying issue (wait for rate
+# limit, fix CLI auth, etc.). Build_spec failures (user-input errors)
+# do not count toward the threshold; they're orthogonal to operational
+# health.
+
+_OPERATIONAL_FAILURE_THRESHOLD = 3
+
+
+def _classify_error(error: Optional[str]) -> Optional[str]:
+    """Bucket a SubprocessResult.error into a coarse error class so
+    consecutive same-class failures can be detected.
+
+    Returns:
+      None      -- no error (use this on success).
+      'build_spec' -- input error from _build_spec_for_slot. NOT counted
+                      toward the circuit-breaker threshold.
+      'timeout'    -- subprocess timed out.
+      'rate_limit' -- rate-limit error message.
+      'executor'   -- futures executor crash inside _run_single's belt.
+      'exit_<N>'   -- subprocess exited with code N (claude CLI most
+                      commonly hits this with N=1 on rate-limit).
+      'other'      -- operational failure that didn't match any pattern.
+    """
+    if not error:
+        return None
+    e = str(error).lower()
+    if e.startswith("build_spec"):
+        return "build_spec"
+    if "timeout" in e or "timed out" in e:
+        return "timeout"
+    if "executor crash" in e:
+        return "executor"
+    if ("rate" in e and "limit" in e) or "ratelimit" in e:
+        return "rate_limit"
+    m = re.search(r"exit\s+(-?\d+)", e)
+    if m:
+        return f"exit_{m.group(1)}"
+    return "other"
+
+
+class _CircuitBreaker:
+    """Trips after N consecutive operational failures of the same class.
+
+    Operational failures: timeout, non-zero exit, rate_limit, executor
+    crash, or 'other'. Non-operational failures (build_spec) are skipped
+    — they don't increment the counter and they don't reset it. A slot
+    SUCCESS resets the counter and clears last_class.
+
+    This breaker is consulted from a single thread (the as_completed
+    consumer in BatchRunner.run), so it doesn't need internal locking.
+    If that ever changes, wrap mutations in a Lock."""
+
+    def __init__(self, threshold: int = _OPERATIONAL_FAILURE_THRESHOLD):
+        self.threshold = max(1, int(threshold))
+        self.consecutive = 0
+        self.last_class: Optional[str] = None
+        self.tripped = False
+        self.trip_class: Optional[str] = None
+
+    def record(self, *, success: bool, error_class: Optional[str]) -> None:
+        if success:
+            self.consecutive = 0
+            self.last_class = None
+            return
+        # Failed. Non-operational classes don't move the counter at all.
+        if error_class is None or error_class == "build_spec":
+            return
+        if error_class == self.last_class:
+            self.consecutive += 1
+        else:
+            self.consecutive = 1
+            self.last_class = error_class
+        if self.consecutive >= self.threshold:
+            self.tripped = True
+            self.trip_class = error_class
+
+
+# ---------------------------------------------------------------------------
 # Outcome aggregation
 # ---------------------------------------------------------------------------
 
@@ -195,6 +289,11 @@ class BatchOutcome:
     wall_clock_seconds: float
     state_path: str         # absolute path to state.json
     summary_path: str       # absolute path to batch_summary.json
+    # Phase 1.5 bugfix Fix 3 telemetry. Both default to None when the
+    # breaker didn't trip; populated when it did.
+    circuit_breaker_tripped: bool = False
+    circuit_breaker_class: Optional[str] = None
+    circuit_breaker_message: Optional[str] = None
 
     @property
     def pass_rate(self) -> float:
@@ -237,7 +336,8 @@ class BatchRunner:
                  client_provider: Optional[str] = None,
                  plan_path: Optional[Path] = None,
                  run_smoke: bool = True,
-                 on_progress: Optional[ProgressFn] = None):
+                 on_progress: Optional[ProgressFn] = None,
+                 circuit_breaker_threshold: int = _OPERATIONAL_FAILURE_THRESHOLD):
         self.plan = list(plan)
         self.output_root = Path(output_root).resolve()
         self.concurrency = max(1, int(concurrency))
@@ -246,6 +346,11 @@ class BatchRunner:
         self.plan_path = Path(plan_path) if plan_path else Path("(in-memory)")
         self.run_smoke = bool(run_smoke)
         self.on_progress = on_progress
+        # Phase 1.5 bugfix Fix 3: pause the batch after N consecutive
+        # operational failures of the same class so a single upstream
+        # incident (rate-limit, claude-cli auth) doesn't burn through
+        # the whole plan. Tests can lower this; production keeps default.
+        self.circuit_breaker_threshold = max(1, int(circuit_breaker_threshold))
         self._state: Optional[BatchState] = None
 
     # ---- helpers ----
@@ -437,18 +542,46 @@ class BatchRunner:
 
         results: list[SubprocessResult] = []
         wall_t0 = time.monotonic()
+        breaker = _CircuitBreaker(threshold=self.circuit_breaker_threshold)
+        breaker_message: Optional[str] = None
 
         if total_to_run == 0:
             # Nothing to do (everything already completed, or empty plan).
             pass
         else:
+            # Phase 1.5 bugfix Fix 3: lazy submission. Submitting all
+            # futures up-front meant the executor's worker would grab
+            # the next task BEFORE the main thread had a chance to
+            # process the previous result and check the circuit
+            # breaker — we'd over-shoot the threshold by `concurrency`
+            # slots before cancellation took effect. Submitting only
+            # `concurrency` futures at a time, and submitting the next
+            # one when one finishes (unless the breaker has tripped),
+            # bounds over-shoot to in-flight count.
+            pending_iter = iter(pending)
+            future_to_slot: dict[Future, Slot] = {}
+
+            def _submit_next(pool: ThreadPoolExecutor) -> bool:
+                """Submit the next pending slot to the pool. Returns
+                True if a slot was submitted, False if the iterator
+                is exhausted."""
+                try:
+                    nxt = next(pending_iter)
+                except StopIteration:
+                    return False
+                fut = pool.submit(self._run_single, nxt, state)
+                future_to_slot[fut] = nxt
+                return True
+
             with ThreadPoolExecutor(max_workers=self.concurrency) as pool:
-                future_to_slot: dict[Future, Slot] = {
-                    pool.submit(self._run_single, slot, state): slot
-                    for slot in pending
-                }
-                for fut in as_completed(future_to_slot):
-                    slot = future_to_slot[fut]
+                # Prime the pool with up to `concurrency` futures.
+                for _ in range(self.concurrency):
+                    if not _submit_next(pool):
+                        break
+
+                while future_to_slot:
+                    fut = next(as_completed(future_to_slot))
+                    slot = future_to_slot.pop(fut)
                     try:
                         res = fut.result()
                     except Exception as e:
@@ -465,6 +598,50 @@ class BatchRunner:
                             "status": STATUS_FAILED, "error": res.error,
                         }, self.output_root)
                     results.append(res)
+
+                    # Feed the result into the circuit breaker. A run
+                    # of N same-class operational failures pauses the
+                    # batch — we stop submitting new futures, the
+                    # pool's __exit__ blocks until in-flight ones
+                    # drain, and the loop exits cleanly.
+                    breaker.record(
+                        success=res.success,
+                        error_class=_classify_error(res.error),
+                    )
+                    if breaker.tripped:
+                        # Don't submit any more. In-flight ones will
+                        # complete and be processed by subsequent
+                        # iterations of this while-loop.
+                        breaker_message = (
+                            f"Batch paused after {breaker.threshold} "
+                            f"consecutive operational failures of class "
+                            f"{breaker.trip_class!r}. In-flight slots "
+                            f"will drain; remaining unsubmitted slots "
+                            f"stay pending. Resume with --resume after "
+                            f"the underlying issue is resolved."
+                        )
+                        # Surface the trip both via on_progress (for
+                        # programmatic clients) and stderr (for CLI users).
+                        # Emit only on the first trip transition.
+                        if breaker.consecutive == breaker.threshold:
+                            n_in_flight = len(future_to_slot)
+                            self._emit("__circuit_breaker__",
+                                       "tripped", 0.0,
+                                       error_class=breaker.trip_class,
+                                       in_flight=n_in_flight,
+                                       message=breaker_message)
+                            try:
+                                print(breaker_message, file=sys.stderr,
+                                      flush=True)
+                            except Exception:
+                                pass
+                            # Sentinel: bump consecutive once so we
+                            # don't re-emit the message on every
+                            # subsequent in-flight failure.
+                            breaker.consecutive += 1
+                    else:
+                        # Healthy slot completion: refill the pool.
+                        _submit_next(pool)
 
         wall = time.monotonic() - wall_t0
         completed = sum(1 for s in state.slots.values()
@@ -504,5 +681,8 @@ class BatchRunner:
             wall_clock_seconds=round(wall, 3),
             state_path=str(_state_path(self.output_root)),
             summary_path=str(summary_path),
+            circuit_breaker_tripped=breaker.tripped,
+            circuit_breaker_class=breaker.trip_class,
+            circuit_breaker_message=breaker_message,
         )
         return outcome
