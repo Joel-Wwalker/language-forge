@@ -212,11 +212,18 @@ def _template_from_reference(spec: dict, lang_dir: Path,
 
     # 1. Code components. The role determines which spec-driven
     # substitutions apply on top of the module-name swap.
+    #
+    # Phase 1.5 scope expansion: codegen.py for stack_based now goes
+    # through `file_role="codegen"` so the `_PY_NAME_MAP` dict's
+    # `true`/`false`/`nil` keys get substituted to match the spec's
+    # boolean/null spellings. For other families, codegen has no
+    # such dict, so the role is a no-op (equivalent to
+    # `module_swap_only`).
     file_to_component_role = {
         "parser.py":  ("parser", "parser"),
         "lexer.py":   ("lexer",  "module_swap_only"),
-        "codegen.py": ("codegen","module_swap_only"),
-        "runtime.py": ("runtime","runtime"),
+        "codegen.py": ("codegen", "codegen"),
+        "runtime.py": ("runtime", "runtime"),
         "stdlib.py":  ("stdlib", "module_swap_only"),
     }
     for fname, (comp, role) in file_to_component_role.items():

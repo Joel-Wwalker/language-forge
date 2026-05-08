@@ -1,0 +1,233 @@
+[
+  {
+    "slot_id": "slot_002",
+    "options": {
+      "syntax": "c_like",
+      "typing": "static",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 1002,
+    "target_rarity": "common",
+    "notes": "C-like, static typing",
+    "deferred_reason": "c_like static needs typechecker synthesis \u2014 Phase 5 (LLM-path improvements) territory"
+  },
+  {
+    "slot_id": "slot_020",
+    "options": {
+      "syntax": "c_like",
+      "typing": "static",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 1020,
+    "target_rarity": "common",
+    "notes": "Static c_like, classic Pascal-era flavor",
+    "deferred_reason": "c_like static needs typechecker synthesis \u2014 Phase 5 (LLM-path improvements) territory"
+  },
+  {
+    "slot_id": "slot_021",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2001,
+    "target_rarity": "common",
+    "notes": "Plain python_like baseline",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_022",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "matz",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2002,
+    "target_rarity": "common",
+    "notes": "python_like, Matz persona (Ruby-style happiness)",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_023",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "2010s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2003,
+    "target_rarity": "common",
+    "notes": "python_like, 2010s era",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_024",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2004,
+    "target_rarity": "rare",
+    "notes": "python_like, cozy theme",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_025",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2005,
+    "target_rarity": "rare",
+    "notes": "python_like, Latin theme",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_026",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "corporate",
+      "feature_bans": []
+    },
+    "seed": 2006,
+    "target_rarity": "epic",
+    "notes": "python_like with corporate phrasebook",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_027",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2007,
+    "target_rarity": "rare",
+    "notes": "python_like, Wadler persona (functional flavor)",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_028",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": [
+        "no_inheritance"
+      ]
+    },
+    "seed": 2008,
+    "target_rarity": "rare",
+    "notes": "python_like, no_inheritance ban",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_029",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "matz",
+      "era": "2010s",
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 2009,
+    "target_rarity": "epic",
+    "notes": "python_like persona+era+theme",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  },
+  {
+    "slot_id": "slot_030",
+    "options": {
+      "syntax": "python_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": [],
+      "hostile_constraints": "Function calls use square brackets instead of parentheses."
+    },
+    "seed": 2010,
+    "target_rarity": "epic",
+    "notes": "python_like hostile constraint: square-bracket calls",
+    "deferred_reason": "python_like has no reference compiler \u2014 Phase 5 (Pythonlang reference) territory"
+  }
+]

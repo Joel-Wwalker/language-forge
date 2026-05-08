@@ -230,21 +230,27 @@ def test_to_build_spec_kwargs_includes_nonempty_fields():
 # v1 phase-1 slot file: all 50 slots load cleanly
 # ---------------------------------------------------------------------------
 
-def test_v1_slot_file_loads_50_valid_slots():
+def test_v1_slot_file_loads_38_eligible_slots():
+    """Phase 1.5 scope expansion: v1_phase1.json was pruned from 50 to
+    38 eligible slots. The 12 deferred (10 python_like + 2 c_like
+    static) live in v1_phase1_deferred.json. See
+    tests/test_phase15_slot_plan.py for the partition contract."""
     plan = make_slot_plan(V1_SLOT_FILE)
-    assert len(plan) == 50, (
-        f"v1 slot file should contain 50 slots, found {len(plan)}"
+    assert len(plan) == 38, (
+        f"v1 slot file should contain 38 eligible slots after the "
+        f"Phase 1.5 scope expansion split, found {len(plan)}"
     )
 
 
 def test_v1_slot_file_load_is_under_100ms():
-    """Roadmap acceptance criterion: planner loads 50 slots in <100ms.
-    The validation runs build_spec for each slot which is the
-    dominant cost; this test guards against regression on that path."""
+    """Roadmap acceptance criterion: planner loads the eligible plan
+    in <100ms. The validation runs build_spec for each slot which is
+    the dominant cost; this test guards against regression on that
+    path."""
     t0 = time.monotonic()
     plan = make_slot_plan(V1_SLOT_FILE)
     elapsed_ms = (time.monotonic() - t0) * 1000
-    assert len(plan) == 50
+    assert len(plan) == 38
     assert elapsed_ms < 1000, (
         f"v1 slot load took {elapsed_ms:.0f}ms; spec.md target is <100ms "
         f"but we accept <1000ms here because build_spec is non-trivial. "
@@ -252,22 +258,33 @@ def test_v1_slot_file_load_is_under_100ms():
     )
 
 
-def test_v1_slot_file_covers_all_four_families():
+def test_v1_slot_file_covers_three_eligible_families():
+    """Phase 1.5 scope expansion: python_like is deferred to Phase 5
+    (no reference compiler exists yet). The eligible plan covers the
+    three families the templated path supports."""
     plan = make_slot_plan(V1_SLOT_FILE)
     families = {s.options["syntax"] for s in plan}
-    assert families == {"c_like", "python_like", "s_expression", "stack_based"}
+    assert families == {"c_like", "s_expression", "stack_based"}, (
+        f"eligible v1 plan should cover only the three templated "
+        f"families; found {families}. python_like is deferred."
+    )
 
 
 def test_v1_slot_file_has_distribution_per_roadmap():
-    """Roadmap target: ~20 c_like, ~10 python_like, ~10 s_expression,
-    ~10 stack_based. Allow ±2 slack on each."""
+    """Phase 1.5 post-expansion target: 18 c_like dynamic + 10
+    s_expression + 10 stack_based = 38 eligible. python_like deferred."""
     plan = make_slot_plan(V1_SLOT_FILE)
     counts: dict[str, int] = {}
     for s in plan:
         f = s.options["syntax"]
         counts[f] = counts.get(f, 0) + 1
-    assert 18 <= counts.get("c_like", 0) <= 22
-    assert 8 <= counts.get("python_like", 0) <= 12
+    assert 16 <= counts.get("c_like", 0) <= 20, (
+        f"c_like count {counts.get('c_like', 0)} outside expected 16-20"
+    )
+    assert counts.get("python_like", 0) == 0, (
+        f"python_like is deferred — got {counts.get('python_like', 0)} "
+        f"in eligible plan; should be 0"
+    )
     assert 8 <= counts.get("s_expression", 0) <= 12
     assert 8 <= counts.get("stack_based", 0) <= 12
 
@@ -304,9 +321,11 @@ def test_v1_slot_file_has_unique_seeds():
 def test_v1_slot_file_uses_only_supported_families():
     """Roadmap explicitly says: do not include families the pipeline
     doesn't currently handle (no BASIC, no shell, no ML — those come
-    in Phase 4). Pin that."""
+    in Phase 4). Pin that. Phase 1.5 scope expansion further narrowed
+    the eligible plan to the three families that have hand-written
+    reference compilers (python_like deferred to Phase 5)."""
     plan = make_slot_plan(V1_SLOT_FILE)
-    SUPPORTED = {"c_like", "python_like", "s_expression", "stack_based"}
+    SUPPORTED = {"c_like", "s_expression", "stack_based"}
     seen = {s.options["syntax"] for s in plan}
     forbidden = seen - SUPPORTED
     assert not forbidden, f"v1 slot file uses unsupported families: {forbidden}"

@@ -46,22 +46,119 @@ import re
 from typing import Optional
 
 
-# Canonical keyword roles. Specs use these names internally; the spec's
-# `customization.keyword_overrides` maps each role to a target-language
-# spelling. Identity defaults apply when no override is set.
-KEYWORD_ROLES = (
+# Canonical keyword roles per syntax family.
+#
+# Phase 1.5 scope expansion: previously KEYWORD_ROLES was a single flat
+# tuple of c_like role names ("var", "func", "if", ...). That worked
+# fine for c_like but produced silent no-ops on stack_based: themed
+# stack_based slots had `keyword_overrides = {"if": "ifnay", ...}` but
+# the substitution layer didn't know forthlang's parser also has `then`,
+# `begin`, `until`, `do`, `loop`, `variable`, `constant` as keywords —
+# and forthlang renders null as `nil`, not `null`. The result: only
+# 1/13 katas passed in 4 themed stack_based slots in Gate 2.
+#
+# The fix: per-family role lists. The dispatcher picks the right tuple
+# based on the spec's syntax. This keeps c_like and stack_based
+# overrides from accidentally cross-pollinating (a c_like-themed `var`
+# override doesn't try to rewrite stack_based source, and vice versa).
+#
+# Each tuple lists role NAMES (the keys the spec's keyword_overrides
+# dict uses). The tuple order doesn't matter; the substitution applies
+# in dict-iteration order.
+KEYWORD_ROLES_C_LIKE = (
     "var", "func", "if", "else", "while", "return",
     "true", "false", "null",
 )
 
-# Toylang's defaults — used as the "old" comment markers when applying
-# source-level comment substitution. The reference compiler uses c_like
-# comment syntax; targets may differ.
-_DEFAULT_COMMENT = {"line": "//", "block_open": "/*", "block_close": "*/"}
+# Forth (forthlang) parser keywords that are CLEANLY substitutable.
+# Audited from generated/forthlang/parser.py:_KEYWORDS dict and
+# generated/forthlang/runtime.py:_toy_str.
+#
+# EXCLUDED from substitution (and why):
+#   - `:` `;`   single chars; embedded in tokenizer special-case logic
+#   - `."` `s"` string-literal openers, hardcoded in tokenizer
+#   - `(` `)`   paren comments, hardcoded in tokenizer
+#   - `\\`      line comment, hardcoded in tokenizer
+#   - `dup` / `drop` / `swap` / etc.   stack manipulation primitives.
+#                These are NAME tokens at parse time; their meaning is
+#                in codegen's `_PY_NAME_MAP`. Substituting them would
+#                require codegen rewrites in addition to source rewrites
+#                (out of scope for Phase 1.5; deferred to Phase 5).
+#
+# `nil` is forthlang's spelling for null. The role name MATCHES the
+# canonical word in source — the role-name "nil" is what
+# keyword_overrides uses as the key. (For c_like the equivalent role
+# name is "null" because toylang renders null as `null`.)
+KEYWORD_ROLES_STACK_BASED = (
+    "if", "else", "then",
+    "begin", "until", "again", "while", "repeat",
+    "do", "loop",
+    "variable", "constant",
+    "true", "false", "nil",
+)
+
+# s_expression / lisplang. Only the cross-family roles for now. lisplang
+# has its own keywords (`define`, `lambda`, `cond`, ...) but Phase 1.5
+# Stage A's substitution work targeted c_like, and themed lisplang slots
+# weren't part of the Gate 2 failure set. Keep this here as a placeholder
+# so the per-family dispatch is uniform; when themed s_expression slots
+# need substitution coverage, expand the tuple.
+KEYWORD_ROLES_S_EXPRESSION = (
+    "if", "else", "true", "false", "null",
+)
+
+# Default fallback (for unknown / missing syntax). c_like is the most
+# common family and the safest default — its role names overlap with
+# stack_based and s_expression on `if/else/while/true/false/null` so
+# substitution there is at worst a no-op when the canonical word
+# doesn't appear.
+KEYWORD_ROLES = KEYWORD_ROLES_C_LIKE  # legacy public alias
+
+
+_ROLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
+    "c_like":       KEYWORD_ROLES_C_LIKE,
+    "stack_based":  KEYWORD_ROLES_STACK_BASED,
+    "s_expression": KEYWORD_ROLES_S_EXPRESSION,
+    # python_like deferred: no reference compiler exists yet (Phase 5).
+}
+
+
+def _syntax_family(spec: dict) -> str:
+    """Return the spec's syntax family, defaulting to c_like."""
+    return ((spec.get("options") or {}).get("syntax") or "c_like")
+
+
+def _roles_for_spec(spec: dict) -> tuple[str, ...]:
+    """Return the keyword-role tuple appropriate for this spec's family."""
+    return _ROLES_BY_FAMILY.get(_syntax_family(spec), KEYWORD_ROLES_C_LIKE)
+
+
+# Per-family canonical comment markers — used as the "old" markers when
+# applying source-level comment substitution against a templated test
+# file. The reference compiler's source uses these; targets may differ.
+_DEFAULT_COMMENT_BY_FAMILY: dict[str, dict] = {
+    "c_like":       {"line": "//", "block_open": "/*", "block_close": "*/"},
+    "stack_based":  {"line": "\\", "block_open": "(",  "block_close": ")"},
+    "s_expression": {"line": ";",  "block_open": "#|", "block_close": "|#"},
+}
+
+# Backward-compat — c_like default for code paths that haven't been
+# parameterized by family yet.
+_DEFAULT_COMMENT = _DEFAULT_COMMENT_BY_FAMILY["c_like"]
+
+
+def _default_comment_for_spec(spec: dict) -> dict:
+    """Return the canonical comment markers for this spec's family.
+    Used when substituting source-level comment markers in a kata or
+    test file: we substitute the family's canonical markers to whatever
+    the spec defines."""
+    return _DEFAULT_COMMENT_BY_FAMILY.get(_syntax_family(spec),
+                                          _DEFAULT_COMMENT_BY_FAMILY["c_like"])
 
 
 def keyword_overrides_from_spec(spec: dict) -> dict[str, str]:
-    """Build a {canonical: spelling} mapping for keyword substitution.
+    """Build a {canonical: spelling} mapping for keyword substitution,
+    filtered to the spec's syntax family.
 
     Sources, in priority order:
       1. `spec.customization.keyword_overrides` (already a {canon: spelling}
@@ -69,6 +166,20 @@ def keyword_overrides_from_spec(spec: dict) -> dict[str, str]:
       2. Structured spec fields (`variable_declaration.keyword`,
          `function_definition.keyword`, ...) for cases where overrides
          got embedded structurally instead of via the override dict.
+
+    The result is intersected with the family's `KEYWORD_ROLES_*` tuple,
+    so c_like roles like `var`/`func`/`return` don't leak into a
+    stack_based substitution (where they have no meaning) and
+    stack_based roles like `then`/`begin` don't leak into c_like.
+
+    Phase 1.5 scope-expansion note: stack_based slots produced by the
+    resolver tend to carry c_like-style override keys (`var`, `func`,
+    `null`) because the resolver doesn't know about per-family role
+    sets. These get filtered here. Cross-family roles that DO apply
+    (`if`, `else`, `while`, `true`, `false`) pass through. The `null`
+    role's stack_based equivalent is `nil` — if a stack_based spec
+    has `{"null": "ghost"}` we translate it to `{"nil": "ghost"}` so
+    the substitution actually fires on forthlang's `nil` token.
 
     Falls back to identity for any role not specified."""
     cust = spec.get("customization") or {}
@@ -84,17 +195,43 @@ def keyword_overrides_from_spec(spec: dict) -> dict[str, str]:
     for role, value in structured.items():
         if value and role not in direct:
             direct[role] = value
-    return {role: direct.get(role, role) for role in KEYWORD_ROLES}
+
+    family = _syntax_family(spec)
+    roles = _ROLES_BY_FAMILY.get(family, KEYWORD_ROLES_C_LIKE)
+
+    # Cross-family abstract-role aliases. The spec might carry an
+    # override under a c_like-style role name (`null`) that maps to a
+    # different canonical word in this family (`nil`). Rewrite the key
+    # so substitution fires on the right source token.
+    #
+    # The mapping is one-way (alias_in_spec -> word_in_this_family).
+    # Only applies when the family doesn't already have the alias as
+    # a real role. If the spec's `null` doesn't have a stack_based
+    # equivalent (e.g., role `var` on a stack_based slot), it's
+    # silently dropped — that's the filter's job.
+    _ALIASES_TO_FAMILY = {
+        "stack_based": {"null": "nil"},
+        # c_like uses `null` natively, no alias needed.
+        # s_expression uses `null` in our prompts, no alias needed.
+    }
+    aliases = _ALIASES_TO_FAMILY.get(family, {})
+    for alias_key, family_key in aliases.items():
+        if alias_key in direct and family_key not in direct:
+            direct[family_key] = direct[alias_key]
+
+    return {role: direct.get(role, role) for role in roles}
 
 
 def comment_syntax_from_spec(spec: dict) -> dict:
-    """Return the spec's comment syntax. Defaults to c_like (// + /* */)
-    when fields are absent."""
+    """Return the spec's comment syntax. Defaults to the family's
+    canonical comment markers when fields are absent (c_like uses //,
+    stack_based uses \\, s_expression uses ;)."""
     cs = spec.get("comment_syntax") or {}
+    fam_default = _default_comment_for_spec(spec)
     return {
-        "line": cs.get("line") or "//",
-        "block_open": cs.get("block_open") or "/*",
-        "block_close": cs.get("block_close") or "*/",
+        "line": cs.get("line") or fam_default["line"],
+        "block_open": cs.get("block_open") or fam_default["block_open"],
+        "block_close": cs.get("block_close") or fam_default["block_close"],
     }
 
 
@@ -120,6 +257,51 @@ def substitute_grammar_keywords(grammar: str,
         if new == canon:
             continue
         out = re.sub(rf'"{re.escape(canon)}"', f'"{new}"', out)
+    return out
+
+
+def substitute_handrolled_parser_keywords(parser_src: str,
+                                          overrides: dict[str, str]) -> str:
+    """Substitute keyword spellings inside a HAND-ROLLED parser's
+    `_KEYWORDS` dict (forthlang-style).
+
+    Phase 1.5 scope expansion: forthlang's parser is hand-rolled (it
+    handles context-sensitive Forth tokenization that Lark can't do
+    cleanly). Its keyword set lives in a Python dict literal:
+
+        _KEYWORDS = {
+            ":": "COLON", ";": "SEMI",
+            "if": "IF", "else": "ELSE", "then": "THEN",
+            ...
+        }
+
+    For a themed stack_based language, we want `_KEYWORDS["arrr"]` to
+    resolve to `IF` instead of `_KEYWORDS["if"]`. We do that by
+    rewriting the dict-key strings: `"if":` becomes `"<new>":`.
+
+    The match pattern `"<canon>":` is specific enough to avoid
+    accidental hits on bare identifiers in code or comments. The
+    forthlang parser's tokenization functions reference these keys
+    via dict lookup (`_KEYWORDS[word]`) — they don't hardcode the
+    spelling anywhere else, so substituting just the dict keys is
+    sufficient.
+
+    Caveat: this is forthlang-specific. If another hand-rolled parser
+    appears with a different keyword-table shape, we'd need a parallel
+    substituter for it. For now, only forthlang has this shape."""
+    out = parser_src
+    for canon, new in overrides.items():
+        if new == canon:
+            continue
+        # Match `"canon":` with optional whitespace before the colon.
+        # Quotes anchor on dict-key literals; the trailing `:` ensures
+        # we only hit dict entries, not string literals used as values
+        # or in comments.
+        out = re.sub(
+            rf'"{re.escape(canon)}"\s*:',
+            f'"{new}":',
+            out,
+        )
     return out
 
 
@@ -180,13 +362,19 @@ def substitute_source_comments(source: str,
 
 def substitute_runtime_str_literals(runtime_src: str,
                                     overrides: dict[str, str]) -> str:
-    """In runtime.py's `toy_str`, rendered names for True / False / None
-    are baked in as `return "true"` / `return "false"` / `return "null"`.
+    """In runtime.py's `toy_str` / `_toy_str`, rendered names for
+    True / False / None are baked in as `return "true"` / `return
+    "false"` / `return "null"` (toylang) or `return "nil"` (forthlang).
     Substitute when the spec maps those keywords to new spellings —
     otherwise canonical tests fail (expected_output.txt would say
-    `aye` but toy_str would still emit `true`)."""
+    `aye` but toy_str would still emit `true`).
+
+    We try BOTH `null` and `nil` so this helper works against either
+    the toylang or forthlang runtime shapes; the override key in the
+    spec determines what the new value is."""
     out = runtime_src
-    for canon in ("true", "false", "null"):
+    # `true` / `false` are universal across families.
+    for canon in ("true", "false"):
         new = overrides.get(canon, canon)
         if new == canon:
             continue
@@ -195,6 +383,18 @@ def substitute_runtime_str_literals(runtime_src: str,
             f'return "{new}"',
             out,
         )
+    # Null literal: spec might use `null` (c_like) or `nil` (stack_based).
+    # Prefer the new value from whichever role the spec actually carries.
+    null_new = overrides.get("null") or overrides.get("nil")
+    if null_new and null_new not in ("null", "nil"):
+        # Substitute both possible canonical spellings so the helper
+        # works across reference compilers.
+        for canon in ("null", "nil"):
+            out = re.sub(
+                rf'return\s+"{re.escape(canon)}"',
+                f'return "{null_new}"',
+                out,
+            )
     return out
 
 
@@ -232,8 +432,14 @@ def apply_spec_keyword_substitutions(source: str, spec: dict, *,
     """
     overrides = keyword_overrides_from_spec(spec)
     new_comment = comment_syntax_from_spec(spec)
+    family = _syntax_family(spec)
 
     if file_role == "parser":
+        # Forthlang's parser is hand-rolled with a `_KEYWORDS` dict
+        # literal; toylang and lisplang have a Lark `GRAMMAR = r"""...
+        # """` string. Dispatch by family. Phase 1.5 scope expansion.
+        if family == "stack_based":
+            return substitute_handrolled_parser_keywords(source, overrides)
         m = re.search(r'(GRAMMAR\s*=\s*r?""")(.*?)(""")', source, re.DOTALL)
         if not m:
             return source
@@ -242,22 +448,67 @@ def apply_spec_keyword_substitutions(source: str, spec: dict, *,
         body = substitute_grammar_comments(body, new_comment)
         return source[:m.start()] + head + body + tail + source[m.end():]
 
+    if file_role == "codegen":
+        # Phase 1.5 scope expansion: forthlang's codegen has a
+        # `_PY_NAME_MAP` dict that maps Forth names (`true`, `false`,
+        # `nil`, `dup`, `+`, ...) to the Python identifiers/functions
+        # they should compile into. After source substitution, the
+        # parser emits NAME tokens with the new spellings — but if
+        # codegen still maps `"true"` → `"true"`, then a substituted
+        # source containing `aye` looks up `_PY_NAME_MAP["aye"]`,
+        # falls through, and emits `aye()` — which the runtime
+        # doesn't define. The fix is to rewrite the dict KEYS too,
+        # so `_PY_NAME_MAP["aye"] = "true"` and codegen emits the
+        # correct runtime call.
+        #
+        # Only stack_based has this shape today. c_like / s_expression
+        # codegen don't have a name-map dict in the same way.
+        if family != "stack_based":
+            return source  # module_swap_only equivalent for other families
+        out = source
+        # Only substitute the boolean / null literal entries — these
+        # are the canonical-Forth-names whose Python equivalent is a
+        # runtime function. Stack-manipulation entries (`dup`, `drop`,
+        # etc.) are out of scope for Phase 1.5 substitution.
+        for canon in ("true", "false", "nil"):
+            new = overrides.get(canon, canon)
+            if new == canon:
+                continue
+            # Match `"<canon>":` (dict key) — same shape as the
+            # hand-rolled parser substitution.
+            out = re.sub(
+                rf'"{re.escape(canon)}"\s*:',
+                f'"{new}":',
+                out,
+            )
+        return out
+
     if file_role == "runtime":
         return substitute_runtime_str_literals(source, overrides)
 
     if file_role == "test_source":
         out = substitute_source_keywords(source, overrides)
-        out = substitute_source_comments(out, _DEFAULT_COMMENT, new_comment)
+        # Use the family's canonical comment markers as the "old" markers
+        # so kata source for stack_based has its `\` line-comments
+        # rewritten to whatever the spec defines, not c_like's `//`.
+        family_default = _default_comment_for_spec(spec)
+        out = substitute_source_comments(out, family_default, new_comment)
         return out
 
     if file_role == "expected_output":
-        # Just true/false/null — the only canonical-output tokens that
-        # a spec might rename.
+        # Boolean / null literals in expected stdout. Match against
+        # both `null` and `nil` since the canonical word depends on
+        # the family of the original kata source. The override value
+        # is taken from whichever role the spec carries.
         out = source
-        for canon in ("true", "false", "null"):
+        for canon in ("true", "false"):
             new = overrides.get(canon, canon)
             if new != canon:
                 out = re.sub(rf'\b{re.escape(canon)}\b', new, out)
+        null_new = overrides.get("null") or overrides.get("nil")
+        if null_new and null_new not in ("null", "nil"):
+            for canon in ("null", "nil"):
+                out = re.sub(rf'\b{re.escape(canon)}\b', null_new, out)
         return out
 
     return source  # "module_swap_only" — caller handles separately
@@ -277,6 +528,7 @@ _substitute_grammar_comments = substitute_grammar_comments
 _substitute_source_keywords = substitute_source_keywords
 _substitute_source_comments = substitute_source_comments
 _substitute_runtime_str_literals = substitute_runtime_str_literals
+_substitute_handrolled_parser_keywords = substitute_handrolled_parser_keywords
 
 
 def _apply_template_substitutions(spec: dict, source: str, *,
