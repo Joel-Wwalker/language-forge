@@ -154,8 +154,12 @@ def test_events_jsonl_survives_crash(tmp_path):
     client = _CrashingFakeClient(fail_after=2)
 
     with pytest.raises(RuntimeError, match="synthetic crash"):
+        # enrich_creative=False so the Phase 1.5 Stage D creative
+        # call doesn't interfere with the crash-budget timing —
+        # this test pins crash-survival, not creative behavior.
         generate_all(spec, output_root=tmp_path, client=client,
-                     verify_after_generation=False)
+                     verify_after_generation=False,
+                     enrich_creative=False)
 
     # Events file must exist on disk even though generate_all raised.
     lang_dir = tmp_path / "crash_survival"
