@@ -75,4 +75,18 @@ generated/*/generation_events.jsonl
 # committed artifact; staging is throwaway.
 catalog_staging/
 catalog_raw/
+catalog_raw_*/
 batch_output/
+
+# Conversation-derived reports + ad-hoc instruction docs. Kept locally
+# for reference but not committed to the public repo.
+API_COST_AUDIT.md
+CODEBASE_REVIEW.md
+PIPELINE_DIAGNOSIS.md
+PHASE15_BUGFIX_GATE2_FINDINGS.md
+PHASE15_BUGFIX_REPORT.md
+PHASE15_CHANGE_REVIEW.md
+PHASE15_CLOSEOUT_REPORT.md
+PHASE15_FINAL_REPORT.md
+PHASE15_GATE2_FINDINGS.md
+phase1.5-*.md
