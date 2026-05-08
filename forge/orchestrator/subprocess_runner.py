@@ -222,9 +222,26 @@ def _worker_main(slot_path: str) -> int:
         # batch tooling that has only options (not a resolved spec) can
         # still drive this worker. Today's batch path passes resolved
         # specs, so this is mostly future-proofing.
+        #
+        # Phase 1.5 bugfix Fix 4: pin the input lang_name (= slot_id in
+        # the batch path) across the resolver step. The resolver returns
+        # a creative lang_name from its cache (e.g. 'canary_stack' for a
+        # cache hit on a stack_based slot), and `generate_all` uses
+        # `spec["lang_name"]` as the on-disk directory + Python package
+        # name. If we let the creative name win, the subprocess writes
+        # outputs to <output>/<creative_name>/ but the parent runner
+        # expects <output>/<slot_id>/ — Bug 4's "empty lang_dirs"
+        # symptom. Force lang_name = slot_id, and stash the creative
+        # name as `display_name` for any GUI/curator that wants it.
+        original_lang_name = spec["lang_name"]
         if not skip_resolver:
             from forge.orchestrator.resolver import resolve
-            spec = resolve(spec, client=client)
+            resolved = resolve(spec, client=client)
+            creative_name = resolved.get("lang_name")
+            if creative_name and creative_name != original_lang_name:
+                resolved["display_name"] = creative_name
+            resolved["lang_name"] = original_lang_name
+            spec = resolved
 
         from forge.orchestrator.generator import generate_all
         out_dir = generate_all(spec, output_root=output_root,
