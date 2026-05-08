@@ -593,9 +593,18 @@ def _render_templated_readme(spec: dict) -> str:
         "stack_based":  "Forth-style: postfix evaluation on an implicit data stack.",
     }.get(syntax, "")
 
+    # Phase 1.5 Stage D: persona-flavored prose intro from the
+    # creative-content LLM call. Lives at spec["creative"][
+    # "readme_intro"]. Falls back to nothing if creative content
+    # wasn't generated (e.g. a fully-offline batch run).
+    creative = spec.get("creative") or {}
+    readme_intro = (creative.get("readme_intro") or "").strip()
+
     lines = [f"# {name}\n"]
     if origin:
         lines.append(f"_{origin.strip()}_\n")
+    if readme_intro:
+        lines.append(readme_intro + "\n")
     lines.append(f"A {syntax} language with {typing} typing and {memory} memory.\n")
     if family_blurb:
         lines.append(family_blurb + "\n")
@@ -1388,7 +1397,8 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
                  seed: Optional[int] = None,
                  telemetry: Optional["TelemetryRecorder"] = None,
                  write_summary: bool = True,
-                 verify_after_generation: bool = True) -> Path:  # type: ignore[name-defined]
+                 verify_after_generation: bool = True,
+                 enrich_creative: bool = True) -> Path:  # type: ignore[name-defined]
     """Generate every component for `spec` into `<output_root>/<lang_name>/`.
 
     If `only` is given, only those components are (re)generated.
@@ -1408,6 +1418,14 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
             end. Pass `write_summary=False` to suppress the write (e.g.
             when the caller wants to merge several recorders before
             writing).
+
+    Phase 1.5 Stage D additions:
+      enrich_creative: if True (default), runs the creative-content LLM
+            call (`gen-creative`) to produce a persona-flavored README
+            intro. The call is small (~200 tokens in/out), cached
+            aggressively by content hash, and folded into the spec
+            before component generation runs. Pass False for fully-
+            offline batch runs that want zero LLM activity.
     """
     from .telemetry import TelemetryRecorder, attach as _attach_telem
     lang_dir = Path(output_root) / spec["lang_name"]
@@ -1445,6 +1463,26 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
         client.log_dir = log_dir
     # Attach telemetry; LLMClient picks it up via getattr in `_emit_telemetry`.
     _attach_telem(client, telemetry)
+
+    # Phase 1.5 Stage D: small creative-content LLM call to produce
+    # a persona-flavored README intro. Only fires on full generations
+    # (`only` is None), not on per-component re-runs. Skipped when
+    # `enrich_creative=False` (offline batches). Aggressively cached
+    # by content hash with the same lang_name-insensitive logic as
+    # the resolver, so a 50-slot batch sharing options pays the LLM
+    # cost once.
+    if enrich_creative and not only and not spec.get("creative"):
+        try:
+            from .creative import creative_content
+            creative = creative_content(spec, client=client)
+            if creative:
+                spec = dict(spec)
+                spec["creative"] = creative
+        except Exception as _ce:
+            # Creative content is best-effort. A failure here MUST
+            # NOT break generation — templated renderers handle the
+            # missing-creative case gracefully.
+            telemetry.record_error("creative", str(_ce))
 
     # Persist the spec next to the generated source for verifier discovery.
     (lang_dir / "resolved_spec.json").write_text(

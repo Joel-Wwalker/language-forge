@@ -86,21 +86,48 @@ def test_reference_compiler_for_returns_toylang_on_c_like_spec():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.slow
-def test_templated_c_like_makes_zero_llm_calls(tmp_path):
+def test_templated_c_like_makes_at_most_one_llm_call(tmp_path):
     """Headline result. A c_like dynamic generation through the new
-    templated path should make ZERO LLM calls.
+    templated path should make at most 1 LLM call (Stage D's
+    `gen-creative` for persona-flavored README intro).
 
     Compare to the LLM-driven path which makes 9 (resolver + 5
-    components + tests-bulk + readme + language_reference)."""
+    components + tests-bulk + readme + language_reference). Even
+    with the creative call counted, that's a ~9× reduction."""
+    spec = build_spec(
+        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        "minimal_llm_clike",
+    )
+    client = _CountingFake()
+    generate_all(spec, output_root=tmp_path, client=client,
+                 verify_after_generation=False)
+    assert len(client.calls) <= 1, (
+        f"templated c_like should make ≤1 LLM call (gen-creative); "
+        f"got {len(client.calls)}: {client.calls}"
+    )
+    if client.calls:
+        assert client.calls == ["gen-creative"], (
+            f"the only allowed LLM call on the templated path is "
+            f"gen-creative; got {client.calls}"
+        )
+
+
+@pytest.mark.slow
+def test_templated_c_like_with_skip_creative_makes_zero_llm_calls(tmp_path):
+    """Offline mode: passing `enrich_creative=False` should produce a
+    pure templated generation with literally zero LLM calls. Useful
+    for batch runs that want to skip even the small creative call,
+    or for tests like this one."""
     spec = build_spec(
         {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
         "zero_llm_clike",
     )
     client = _CountingFake()
     generate_all(spec, output_root=tmp_path, client=client,
-                 verify_after_generation=False)
+                 enrich_creative=False, verify_after_generation=False)
     assert client.calls == [], (
-        f"templated c_like should make ZERO LLM calls; got {client.calls}"
+        f"c_like with enrich_creative=False should make zero LLM "
+        f"calls; got {client.calls}"
     )
 
 

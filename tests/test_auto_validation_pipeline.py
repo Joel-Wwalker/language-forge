@@ -47,10 +47,15 @@ class _CountingFakeClient:
     ("s_expression", 3.0),
 ])
 def test_templated_languages_make_zero_llm_calls(syntax, expected_max_seconds, tmp_path):
-    """Templated languages (s_expression, stack_based) must not make any
-    LLM calls during generation. The README, LANGUAGE.md, and tests
-    are all rendered from the spec; the rest is templated from the
-    reference compiler."""
+    """Templated languages (s_expression, stack_based, c_like as of
+    Phase 1.5) make zero core-component LLM calls. README, LANGUAGE.md,
+    and tests are all rendered from the spec; parser/codegen/runtime/
+    stdlib are templated from the reference compiler.
+
+    Phase 1.5 Stage D added a small `gen-creative` call for
+    persona-flavored README intros. Pass `enrich_creative=False` here
+    to opt out — the test pins the zero-LLM contract for the
+    structural pipeline, which is preserved."""
     from forge.orchestrator.spec_builder import build_spec
     from forge.orchestrator.generator import generate_all
 
@@ -66,7 +71,8 @@ def test_templated_languages_make_zero_llm_calls(syntax, expected_max_seconds, t
     # eats the test's 3s budget. Phase 0.4 added the verify step;
     # the test's intent (no LLM, fast generation) is preserved.
     out_dir = generate_all(spec, output_root=tmp_path, client=client,
-                           verify_after_generation=False)
+                           verify_after_generation=False,
+                           enrich_creative=False)
     elapsed = time.monotonic() - t0
 
     assert client.calls == 0, (
