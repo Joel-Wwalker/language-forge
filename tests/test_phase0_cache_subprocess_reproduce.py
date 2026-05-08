@@ -148,6 +148,83 @@ def test_resolver_cache_different_inputs_get_different_keys(tmp_path):
     assert len(files) == 2, "different inputs should produce different cache keys"
 
 
+def test_resolver_cache_lang_name_insensitive(tmp_path):
+    """Phase 1.5 P1: two slots that differ ONLY in lang_name (and the
+    derived file_extension) MUST hit the same cache key. Without this,
+    a 50-slot batch where many slots share options causes 50 cache
+    misses on the resolver — burning ~50× the API budget for no
+    semantic benefit. The resolver prompt explicitly says "Do NOT
+    change lang_name or file_extension"; they're pure pass-throughs.
+    """
+    from forge.orchestrator.spec_builder import build_spec
+    from forge.orchestrator.resolver import resolve
+
+    base_a = build_spec(
+        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        "slot_001",
+    )
+    base_b = build_spec(
+        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        "slot_002",
+    )
+    # Sanity: the only field that differs should be lang_name (and the
+    # derived file_extension). If build_spec starts inserting more
+    # name-derived fields, this test will surface that.
+    diff = {k for k in set(base_a) | set(base_b)
+            if base_a.get(k) != base_b.get(k)}
+    assert diff <= {"lang_name", "file_extension"}, (
+        f"unexpected name-derived field divergence: {diff}; the cache "
+        f"key fix needs to strip these too"
+    )
+
+    class _Client:
+        log_dir = None; model = "m"; telemetry = None
+        def __init__(self): self.json_calls = 0
+        def call_json(self, prompt, schema, *, tag="json", **kw):
+            self.json_calls += 1
+            # Resolver returns the base spec it was given (good enough
+            # for cache-key testing — the validation in resolve() reads
+            # the schema-shape, not specific values).
+            return base_a if "slot_001" in prompt else base_b
+
+    cache_dir = tmp_path / "spec_cache"
+    c = _Client()
+    resolve(base_a, client=c, cache_dir=cache_dir)
+    resolve(base_b, client=c, cache_dir=cache_dir)
+    # Exactly ONE LLM call should have happened: the second resolve
+    # must have hit the cache populated by the first.
+    assert c.json_calls == 1, (
+        f"resolver should have hit cache for slot_002 (same options as "
+        f"slot_001, only lang_name differs); got {c.json_calls} LLM calls"
+    )
+    # And exactly one cache file should exist on disk.
+    files = list(cache_dir.glob("*.json"))
+    assert len(files) == 1, (
+        f"expected 1 cache file (shared by both slots); got {len(files)}"
+    )
+
+
+def test_resolver_cache_key_strip_does_not_affect_distinct_options(tmp_path):
+    """Sanity counterpart: two slots with the SAME lang_name but
+    different options must still produce different cache keys (we
+    didn't accidentally strip too much)."""
+    from forge.orchestrator.spec_builder import build_spec
+    from forge.orchestrator.resolver import _cache_key
+
+    same_name_a = build_spec(
+        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        "shared_name",
+    )
+    same_name_b = build_spec(
+        {"syntax": "python_like", "typing": "static", "memory": "refcount"},
+        "shared_name",
+    )
+    assert _cache_key(same_name_a) != _cache_key(same_name_b), (
+        "two specs with different options must produce different cache "
+        "keys; the strip-fields list is too aggressive"
+    )
+
+
 def test_resolver_cache_corrupt_file_falls_through(tmp_path):
     """A corrupt cache file should be deleted and the LLM re-called,
     not crash the resolver."""

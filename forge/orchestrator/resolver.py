@@ -51,7 +51,15 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "resolver.md"
 #
 # When you bump: leave the old cache dir on disk; old entries will simply
 # stop being matched. Run `clear_resolver_cache()` to free the space.
-RESOLVER_PROMPT_VERSION = 1
+#
+# Bumped to 2 in Phase 1.5 P1 when _cache_key started stripping
+# lang_name / file_extension / lineage. Without the bump, old cache
+# entries (whose key included those fields) would never be matched
+# again anyway, but they'd also never be re-used cross-name even
+# after the new logic activated. Bumping forces a fresh population
+# of the cache under the new key shape so the savings show up
+# immediately on the first batch run.
+RESOLVER_PROMPT_VERSION = 2
 RESOLVER_SCHEMA_VERSION = 1
 
 
@@ -61,19 +69,35 @@ RESOLVER_SCHEMA_VERSION = 1
 _DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[2] / ".forge_cache" / "specs"
 
 
+# Fields stripped from base_spec before hashing for the cache key. These
+# are bookkeeping / pass-through fields that don't affect the resolved
+# spec's content — the resolver prompt explicitly says "Do NOT change
+# lang_name or file_extension" — so caching by them would force
+# 50 cache misses on a 50-slot batch where the slots share options.
+# Phase 1.5 P1 (resolver cache key fix). See PIPELINE_DIAGNOSIS.md §3.2
+# / API_COST_AUDIT.md §W1.
+_CACHE_KEY_IGNORE_FIELDS = ("lang_name", "file_extension", "lineage")
+
+
 def _cache_key(base_spec: dict) -> str:
     """Build a deterministic content hash of everything that affects the
-    resolver's output. We hash the base_spec wholesale (sort_keys,
-    default=str) plus the resolver's prompt + schema version constants
-    so any change to inputs OR resolver logic busts the cache, while
-    reorderings of unrelated fields don't.
+    resolver's output.
 
-    Format: `sha256(base_spec_json + "|" + prompt_version + "|" +
+    Strips fields the resolver doesn't actually use (lang_name,
+    file_extension, lineage) so two slots that differ only in their
+    label hit the same cache entry. Then hashes the remaining spec
+    plus the version constants so any change to inputs OR resolver
+    logic busts the cache, while pure-rename slots and reorderings
+    of unrelated fields don't.
+
+    Format: `sha256(stripped_spec_json + "|" + prompt_version + "|" +
     schema_version)`. The `|` separators prevent ambiguity (e.g. a
     base_spec ending in "1" and prompt_version "10" hashing the same
     as a base_spec ending in "11" and prompt_version "0")."""
+    stripped = {k: v for k, v in base_spec.items()
+                if k not in _CACHE_KEY_IGNORE_FIELDS}
     blob = (
-        json.dumps(base_spec, sort_keys=True, default=str)
+        json.dumps(stripped, sort_keys=True, default=str)
         + "|prompt=" + str(RESOLVER_PROMPT_VERSION)
         + "|schema=" + str(RESOLVER_SCHEMA_VERSION)
     ).encode("utf-8")
