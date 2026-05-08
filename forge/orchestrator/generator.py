@@ -116,18 +116,251 @@ def reference_compiler_for(spec: dict) -> Optional[Path]:
     return ref
 
 
+# ---------------------------------------------------------------------------
+# Stage A (Phase 1.5) — substitution layer for _template_from_reference
+# ---------------------------------------------------------------------------
+#
+# When templating from a reference compiler (toylang for c_like, etc.) we
+# now apply parameterized substitutions to the copied files so the
+# resulting language can have its OWN keyword spellings, comment syntax,
+# and string-literal style — not just be a name-swapped clone.
+#
+# The substitutions are word-boundary regex on text. They're not AST-aware
+# because the reference's source is structured enough (keywords appear as
+# quoted Lark tokens or as bare-word source tokens) that careful regex
+# does the right thing. Anything more invasive — e.g. naming-convention
+# substitution that would rewrite stdlib function names — needs a real
+# AST pass and is deferred to a follow-up stage.
+#
+# Per file-role substitution rules:
+#   - parser.py: keyword overrides applied INSIDE the GRAMMAR triple-
+#     quoted string only (so we don't touch Python code that mentions
+#     keywords as data, e.g. `if "var" in tokens`). Comment-syntax
+#     overrides applied to the LINE_COMMENT and BLOCK_COMMENT terminals.
+#   - tests/<name><ext>: keyword + comment overrides applied as user-
+#     facing source. Word-boundary regex.
+#   - tests/<name>.expected_output.txt: substitute literal true/false/
+#     null since toy_str renders these as whatever the spec says.
+#   - runtime.py: substitute the literal returns in toy_str (the
+#     `return "true"` / `return "false"` / `return "null"` lines).
+#   - codegen.py / lexer.py / stdlib.py: only the existing module-name
+#     swap; their internal Python keywords (`return`, `if`, etc.) are
+#     Python keywords for the host, not target-language keywords.
+
+_KEYWORD_ROLES = (
+    "var", "func", "if", "else", "while", "return",
+    "true", "false", "null",
+)
+
+
+def _keyword_overrides_from_spec(spec: dict) -> dict[str, str]:
+    """Build a {canonical: spelling} mapping for keyword substitution.
+
+    Sources, in priority order:
+      1. spec.customization.keyword_overrides (already a {canon: spelling}
+         dict; produced by themes / phrasebooks via spec_builder).
+      2. Structured spec fields (variable_declaration.keyword,
+         function_definition.keyword, ...) for cases where overrides
+         got embedded structurally instead of via the override dict.
+
+    Falls back to identity for any role not specified."""
+    cust = spec.get("customization") or {}
+    direct = dict(cust.get("keyword_overrides") or {})
+    # Backfill from structured spec fields (cheap correctness — these
+    # are usually consistent with keyword_overrides but not always).
+    structured = {
+        "var":    (spec.get("variable_declaration") or {}).get("keyword"),
+        "func":   (spec.get("function_definition") or {}).get("keyword"),
+        "if":     (spec.get("if_statement") or {}).get("keyword"),
+        "else":   (spec.get("if_statement") or {}).get("else_keyword"),
+        "while":  (spec.get("while_statement") or {}).get("keyword"),
+        "return": (spec.get("return_statement") or {}).get("keyword"),
+    }
+    for role, value in structured.items():
+        if value and role not in direct:
+            direct[role] = value
+    # Identity fallback so the substitution loop can iterate uniformly.
+    return {role: direct.get(role, role) for role in _KEYWORD_ROLES}
+
+
+def _comment_syntax_from_spec(spec: dict) -> dict:
+    """Return the spec's comment syntax. Defaults to c_like (// + /* */)
+    when fields are absent."""
+    cs = spec.get("comment_syntax") or {}
+    return {
+        "line": cs.get("line") or "//",
+        "block_open": cs.get("block_open") or "/*",
+        "block_close": cs.get("block_close") or "*/",
+    }
+
+
+def _substitute_grammar_keywords(grammar: str, overrides: dict[str, str]) -> str:
+    """Substitute keyword spellings inside a Lark grammar string.
+
+    Targets bare quoted-string occurrences like `"var"` or `"func"` —
+    these are the anonymous tokens in toylang's grammar. The
+    `re.escape` on the value prevents any new spelling from being
+    interpreted as regex metachars.
+    """
+    out = grammar
+    for canon, new in overrides.items():
+        if new == canon:
+            continue
+        # Match `"canon"` exactly (with the surrounding quotes); replace
+        # with `"new"`. Quotes are part of the match so we don't touch
+        # bare identifiers named after the keyword.
+        out = re.sub(rf'"{re.escape(canon)}"', f'"{new}"', out)
+    return out
+
+
+def _substitute_grammar_comments(grammar: str, comment: dict) -> str:
+    """Substitute the LINE_COMMENT and BLOCK_COMMENT terminals in a
+    Lark grammar string when the spec uses non-toylang comment syntax.
+    Toylang's defaults are `// ... \\n` line comments and `/* ... */`
+    block comments. If the spec changes either, swap the terminal."""
+    out = grammar
+    new_line = comment["line"]
+    new_open = comment["block_open"]
+    new_close = comment["block_close"]
+    if new_line != "//":
+        # `LINE_COMMENT: "//" /[^\n]*/`
+        out = re.sub(
+            r'LINE_COMMENT:\s*"//"',
+            f'LINE_COMMENT: "{new_line}"',
+            out,
+        )
+    if new_open != "/*" or new_close != "*/":
+        # `BLOCK_COMMENT: "/*" /(.|\\n)*?/ "*/"`
+        out = re.sub(
+            r'BLOCK_COMMENT:\s*"/\*"\s*/\(\.\|\\n\)\*\?/\s*"\*/"',
+            f'BLOCK_COMMENT: "{re.escape(new_open)}" /(.|\\n)*?/ "{re.escape(new_close)}"',
+            out,
+        )
+    return out
+
+
+def _substitute_source_keywords(source: str, overrides: dict[str, str]) -> str:
+    """Word-boundary substitution of keyword spellings in a target-
+    language source file (e.g. tests/variables.toy). Won't touch
+    keywords inside string literals (a future hardening; for now we
+    accept that string-literal collisions are rare in the canonical
+    tests)."""
+    out = source
+    for canon, new in overrides.items():
+        if new == canon:
+            continue
+        out = re.sub(rf'\b{re.escape(canon)}\b', new, out)
+    return out
+
+
+def _substitute_source_comments(source: str,
+                                old: dict, new: dict) -> str:
+    """Replace comment markers in a source file. Skips work when the
+    syntax is unchanged."""
+    out = source
+    if new["line"] != old["line"]:
+        # Line-comment markers: replace at start-of-line or after
+        # whitespace. We use a simple text replace because the markers
+        # are punctuation, not word-bounded — `re.sub(r'\b//\b', ...)`
+        # would not match `//` since neither side is a word char.
+        out = out.replace(old["line"], new["line"])
+    if new["block_open"] != old["block_open"]:
+        out = out.replace(old["block_open"], new["block_open"])
+    if new["block_close"] != old["block_close"]:
+        out = out.replace(old["block_close"], new["block_close"])
+    return out
+
+
+def _substitute_runtime_str_literals(runtime_src: str,
+                                     overrides: dict[str, str]) -> str:
+    """In runtime.py's toy_str (or equivalent), the rendered names for
+    True / False / None are baked in as `return "true"`, `return
+    "false"`, `return "null"`. If the spec maps those keywords to new
+    spellings, the renderer should output the new spellings too —
+    otherwise the canonical conditionals test would fail (the
+    expected_output.txt file we'll have substituted to say `aye` but
+    toy_str would still emit `true`)."""
+    out = runtime_src
+    for canon in ("true", "false", "null"):
+        new = overrides.get(canon, canon)
+        if new == canon:
+            continue
+        # Match `return "canon"` exactly. The .py source uses double
+        # quotes for these literals in toylang's runtime; if a future
+        # reference uses single quotes we'd extend the pattern.
+        out = re.sub(
+            rf'return\s+"{re.escape(canon)}"',
+            f'return "{new}"',
+            out,
+        )
+    return out
+
+
+def _apply_template_substitutions(spec: dict, text: str, *,
+                                  file_role: str) -> str:
+    """Apply the appropriate substitutions for a file's role.
+
+    file_role: "parser" | "runtime" | "test_source" | "expected_output" |
+               "module_swap_only" (codegen / lexer / stdlib / __init__ /
+               compile)."""
+    overrides = _keyword_overrides_from_spec(spec)
+    new_comment = _comment_syntax_from_spec(spec)
+    old_comment = {"line": "//", "block_open": "/*", "block_close": "*/"}
+
+    if file_role == "parser":
+        # Find the GRAMMAR triple-quoted string and substitute inside it.
+        # toylang declares it as `GRAMMAR = r"""..."""`. We match that
+        # form and apply substitutions inside the body.
+        m = re.search(r'(GRAMMAR\s*=\s*r?""")(.*?)(""")', text, re.DOTALL)
+        if not m:
+            return text
+        head, body, tail = m.group(1), m.group(2), m.group(3)
+        body = _substitute_grammar_keywords(body, overrides)
+        body = _substitute_grammar_comments(body, new_comment)
+        return text[:m.start()] + head + body + tail + text[m.end():]
+
+    if file_role == "runtime":
+        return _substitute_runtime_str_literals(text, overrides)
+
+    if file_role == "test_source":
+        out = _substitute_source_keywords(text, overrides)
+        out = _substitute_source_comments(out, old_comment, new_comment)
+        return out
+
+    if file_role == "expected_output":
+        # Word-boundary substitution of true/false/null only. Other
+        # keywords don't appear in canonical expected outputs.
+        out = text
+        for canon in ("true", "false", "null"):
+            new = overrides.get(canon, canon)
+            if new != canon:
+                out = re.sub(rf'\b{re.escape(canon)}\b', new, out)
+        return out
+
+    return text  # module_swap_only — handled by the existing _rewrite
+
+
 def _template_from_reference(spec: dict, lang_dir: Path,
                              ref_dir: Path) -> set[str]:
     """Copy the reference compiler's core files into `lang_dir`, swapping
-    the package name. Returns the set of components that have been
-    fulfilled by the template (so generate_all can skip them).
+    the package name and applying spec-driven substitutions. Returns the
+    set of components that have been fulfilled by the template (so
+    generate_all can skip them).
 
-    Substitutions performed in each .py file:
-      - `from <ref_name>.runtime import` → `from <lang_name>.runtime import`
-      - `from <ref_name>.parser import`  → `from <lang_name>.parser import`
-      - `from <ref_name>.codegen import` → `from <lang_name>.codegen import`
-      - module-level `<ref_name>` references in `compile.py`'s argparse
-        and the prelude's import block.
+    Substitutions performed:
+      Module name swaps (everywhere):
+        - `from <ref_name>.runtime import` → `from <lang_name>.runtime import`
+        - `import <ref_name>.X` → `import <lang_name>.X`
+        - CLI prog name + `-m <ref_name>` doc strings.
+      Spec-driven substitutions (Phase 1.5 Stage A):
+        - parser.py: keyword spellings inside the GRAMMAR string,
+          comment-syntax inside LINE_COMMENT / BLOCK_COMMENT terminals.
+        - runtime.py: literal returns in toy_str (`return "true"` →
+          `return "<spec.true>"`).
+        - tests/<name><ext>: keyword spellings + comment markers in
+          test source so the templated parser accepts them.
+        - tests/<name>.expected_output.txt: true/false/null literals
+          substituted so they match what the templated runtime emits.
 
     File extension in tests is rewritten from the reference's extension
     (`.lsp`) to the spec's `file_extension`.
@@ -158,24 +391,28 @@ def _template_from_reference(spec: dict, lang_dir: Path,
         out = out.replace(f"-m {ref_name}", f"-m {lang_name}")
         return out
 
-    # 1. Code components.
-    file_to_component = {
-        "parser.py": "parser",
-        "lexer.py": "lexer",
-        "codegen.py": "codegen",
-        "runtime.py": "runtime",
-        "stdlib.py": "stdlib",
+    # 1. Code components. The role determines which spec-driven
+    # substitutions apply on top of the module-name swap.
+    file_to_component_role = {
+        "parser.py":  ("parser", "parser"),
+        "lexer.py":   ("lexer",  "module_swap_only"),
+        "codegen.py": ("codegen","module_swap_only"),
+        "runtime.py": ("runtime","runtime"),
+        "stdlib.py":  ("stdlib", "module_swap_only"),
     }
-    for fname, comp in file_to_component.items():
+    for fname, (comp, role) in file_to_component_role.items():
         src_path = ref_dir / fname
         if not src_path.exists():
             continue
         dst_path = lang_dir / fname
         text = src_path.read_text(encoding="utf-8")
-        dst_path.write_text(_rewrite(text), encoding="utf-8")
+        text = _rewrite(text)
+        text = _apply_template_substitutions(spec, text, file_role=role)
+        dst_path.write_text(text, encoding="utf-8")
         fulfilled.add(comp)
 
-    # 2. __init__.py and compile.py
+    # 2. __init__.py and compile.py — module name swap only; no
+    # target-language keywords appear in these.
     for fname in ("__init__.py", "compile.py"):
         src_path = ref_dir / fname
         if not src_path.exists():
@@ -183,27 +420,28 @@ def _template_from_reference(spec: dict, lang_dir: Path,
         text = src_path.read_text(encoding="utf-8")
         (lang_dir / fname).write_text(_rewrite(text), encoding="utf-8")
 
-    # 3. Canonical tests. We copy the reference's tests verbatim, renaming
-    # only the file extension so the verifier finds them. The reference
-    # author has hand-vetted these against the reference compiler, which
-    # the user's language now IS (modulo a name swap).
+    # 3. Canonical tests. Test sources get keyword + comment
+    # substitutions so the templated parser accepts them. Expected-
+    # output files get true/false/null substitutions so they match
+    # what the templated runtime emits.
     if ref_tests.exists():
         dst_tests = lang_dir / "tests"
         dst_tests.mkdir(exist_ok=True)
         for src_file in ref_tests.iterdir():
             if not src_file.is_file():
                 continue
+            text = src_file.read_text(encoding="utf-8")
             if src_file.suffix == ".txt":
-                # `<name>.expected_output.txt` - copy verbatim
-                (dst_tests / src_file.name).write_text(
-                    src_file.read_text(encoding="utf-8"), encoding="utf-8"
-                )
+                # `<name>.expected_output.txt`
+                text = _apply_template_substitutions(
+                    spec, text, file_role="expected_output")
+                (dst_tests / src_file.name).write_text(text, encoding="utf-8")
             elif src_file.suffix == ref_ext:
+                text = _apply_template_substitutions(
+                    spec, text, file_role="test_source")
                 stem = src_file.stem
-                src_text = src_file.read_text(encoding="utf-8")
                 (dst_tests / f"{stem}{target_ext}").write_text(
-                    src_text, encoding="utf-8"
-                )
+                    text, encoding="utf-8")
         fulfilled.add("tests")
 
     return fulfilled
