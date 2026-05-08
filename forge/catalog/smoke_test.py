@@ -151,7 +151,9 @@ def _check_kata_pack(lang_dir: Path, spec: dict
 
     try:
         from forge.orchestrator.kata_packs import get_pack
-        from forge.orchestrator.katas import _batch_validate, _self_validate
+        from forge.orchestrator.katas import (
+            _batch_validate, _self_validate, substitute_kata_for_target,
+        )
     except Exception as e:
         return None, [f"kata: import failed: {type(e).__name__}: {e}"], []
 
@@ -163,6 +165,15 @@ def _check_kata_pack(lang_dir: Path, spec: dict
     if not katas:
         return {"passed": 0, "total": 0, "pass_rate": 0.0,
                 "pack_key": pack_key}, ["kata: pack is empty"], []
+
+    # Phase 1.5 bugfix Fix 2 — Bug 3 root cause: a curated pack is in
+    # canonical c_like (`func`, `if`, `return`, `true`/`false`/`null`).
+    # A themed c_like target (pirate phrasebook with `func → yarrn` etc.)
+    # can't parse this — its grammar expects the themed spellings. We
+    # apply the spec's substitutions at this entry boundary so every
+    # kata's source matches the target's actual dialect by the time it
+    # reaches `_batch_validate` / `_self_validate`.
+    katas = [substitute_kata_for_target(k, spec) for k in katas]
 
     # Try the fast batched path first.
     try:

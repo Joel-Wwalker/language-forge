@@ -23,6 +23,60 @@ from pathlib import Path
 from typing import Optional
 
 from .llm_client import LLMClient
+from .substitution import apply_spec_keyword_substitutions
+
+
+def substitute_kata_for_target(kata: dict, spec: dict) -> dict:
+    """Apply the spec's keyword/comment/literal substitutions to a curated
+    kata's source fields. Returns a NEW kata dict; the original is not
+    mutated.
+
+    Phase 1.5 bugfix Fix 2 — Bug 3 root cause: smoke test loaded the
+    `classics` pack (canonical c_like) and handed it straight to a
+    themed-c_like compiler (e.g. pirate phrasebook with `func → yarrn`).
+    The themed parser refused to parse `func`, every kata failed, and
+    the slot smoked-failed. The fix is to push the canonical kata source
+    through the spec's substitution layer at the entry boundary, so by
+    the time `_batch_validate` / `_self_validate` see the kata's source,
+    it speaks the target's dialect.
+
+    Substitutes (when present on the kata):
+      - reference_solution      (file_role='test_source')
+      - helpers                 (file_role='test_source')
+      - starter_code            (file_role='test_source')
+      - tests[].call            (file_role='test_source')
+      - tests[].expected        (file_role='expected_output')
+
+    Idempotent: a kata already in target dialect (e.g. LLM-translated)
+    is unaffected because canonical tokens won't be present to match.
+    Safe to apply unconditionally."""
+    out = dict(kata)
+    if isinstance(kata.get("reference_solution"), str):
+        out["reference_solution"] = apply_spec_keyword_substitutions(
+            kata["reference_solution"], spec, file_role="test_source")
+    if isinstance(kata.get("helpers"), str) and kata["helpers"]:
+        out["helpers"] = apply_spec_keyword_substitutions(
+            kata["helpers"], spec, file_role="test_source")
+    if isinstance(kata.get("starter_code"), str):
+        out["starter_code"] = apply_spec_keyword_substitutions(
+            kata["starter_code"], spec, file_role="test_source")
+    tests = kata.get("tests")
+    if isinstance(tests, list):
+        new_tests = []
+        for t in tests:
+            if not isinstance(t, dict):
+                new_tests.append(t)
+                continue
+            nt = dict(t)
+            if isinstance(t.get("call"), str):
+                nt["call"] = apply_spec_keyword_substitutions(
+                    t["call"], spec, file_role="test_source")
+            if isinstance(t.get("expected"), str):
+                nt["expected"] = apply_spec_keyword_substitutions(
+                    t["expected"], spec, file_role="expected_output")
+            new_tests.append(nt)
+        out["tests"] = new_tests
+    return out
 
 
 def atomic_write_json(path: Path, data: dict, *, indent: int = 2) -> None:

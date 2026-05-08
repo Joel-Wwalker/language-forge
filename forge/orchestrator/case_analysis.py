@@ -588,6 +588,19 @@ def build_case_analysis_kata(canonical_kata: dict, spec: dict, lang_dir: Path,
     candidate["reference_solution"] = target_src
     candidate["case_analysis_fallback"] = True
 
+    # Phase 1.5 bugfix Fix 2: when the cascade emitter falls through to
+    # canonical c_like (the "Last resort" branch where target_src=clike_src),
+    # the source still uses `func`/`if`/`return`/`true`/`false`/`null`.
+    # On a themed-c_like target this won't parse. Apply the spec's
+    # substitutions to the candidate now so by the time _self_validate
+    # runs, the source speaks the target's dialect. Idempotent for the
+    # mechanical-transpile path which already emitted target dialect.
+    try:
+        from .katas import substitute_kata_for_target
+    except ImportError:
+        from forge.orchestrator.katas import substitute_kata_for_target  # type: ignore
+    candidate = substitute_kata_for_target(candidate, spec)
+
     # Re-derive expected outputs by actually running the function on the
     # target language. This absorbs any print-formatter differences (the
     # candidate's hardcoded returns may print slightly differently in the
