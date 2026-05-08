@@ -119,6 +119,30 @@ def _state_path(output_root: Path) -> Path:
 _state_write_lock = threading.Lock()
 
 
+def _atomic_replace_with_retry(tmp: Path, dst: Path, attempts: int = 3) -> None:
+    """Wrap `os.replace(tmp, dst)` with a small retry loop. Phase 1.5
+    scope-expansion Gate 2: even within `_state_write_lock`, on Windows
+    `os.replace` can throw `PermissionError: Access is denied` when
+    another process briefly holds the source file open (antivirus,
+    OneDrive sync, indexer). The lock prevents in-process races but
+    can't prevent OS-level file-handle contention.
+
+    Each retry sleeps a few ms — typically the contending process
+    releases its handle within one tick. We re-raise the last error
+    if all attempts fail rather than silently corrupting state."""
+    last_err: Optional[Exception] = None
+    for i in range(attempts):
+        try:
+            os.replace(tmp, dst)
+            return
+        except (PermissionError, OSError) as e:
+            last_err = e
+            if i < attempts - 1:
+                time.sleep(0.05 * (i + 1))  # 50ms, 100ms, ...
+    if last_err is not None:
+        raise last_err
+
+
 def _save_state_atomic(state: BatchState, output_root: Path) -> None:
     """Write state.json atomically. Serialized across threads via
     `_state_write_lock` to prevent the Phase 1.5 Gate 2 race.
@@ -133,7 +157,7 @@ def _save_state_atomic(state: BatchState, output_root: Path) -> None:
     tmp = path.with_suffix(".json.tmp")
     with _state_write_lock:
         tmp.write_text(state.to_json(), encoding="utf-8")
-        os.replace(tmp, path)
+        _atomic_replace_with_retry(tmp, path)
 
 
 def _update_slot_and_save(state: BatchState, slot_id: str, entry: dict,
@@ -151,7 +175,7 @@ def _update_slot_and_save(state: BatchState, slot_id: str, entry: dict,
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".json.tmp")
         tmp.write_text(state.to_json(), encoding="utf-8")
-        os.replace(tmp, path)
+        _atomic_replace_with_retry(tmp, path)
 
 
 def _set_slot_status_in_memory(state: BatchState, slot_id: str,
