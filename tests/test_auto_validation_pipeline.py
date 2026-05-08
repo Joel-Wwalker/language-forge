@@ -80,31 +80,66 @@ def test_templated_languages_make_zero_llm_calls(syntax, expected_max_seconds, t
     assert (out_dir / "LANGUAGE.md").exists()
 
 
-def test_c_like_still_uses_llm_for_docs(tmp_path):
-    """Regression safety: the c_like / python_like path still goes through
-    the LLM for personality-driven docs (no hand-written reference).
-    Without this guard a future change might accidentally template c_like
-    docs too.
+def test_python_like_still_uses_llm_for_docs(tmp_path):
+    """Regression safety: python_like still goes through the LLM for
+    personality-driven docs because no python_like reference compiler
+    exists yet (Phase 1.5 instructions explicitly defer it). Without
+    this guard a future change might accidentally template python_like
+    docs without a real reference behind them.
 
-    The full c_like generation pipeline requires the LLM to produce
-    valid test files (FakeClient's `# stub` doesn't satisfy the schema),
+    Note: this test was previously asserted on c_like, which now goes
+    through the templated path (Phase 1.5 Stage B promoted toylang to
+    `REFERENCE_COMPILERS["c_like"]`). When a python_like reference
+    lands and python_like is registered too, this test should be
+    deleted entirely — there'd no longer be any LLM-driven family
+    where the assertion holds.
+
+    The full generation pipeline requires the LLM to produce valid
+    test files (FakeClient's `# stub` doesn't satisfy the schema),
     so we drive only the readme + language_reference components via
     the `only=` parameter and assert those tags appear."""
     from forge.orchestrator.spec_builder import build_spec
     from forge.orchestrator.generator import generate_all
 
     spec = build_spec(
-        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
-        "ctest",
+        {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
+        "pytest_lang",
     )
     client = _CountingFakeClient()
     generate_all(spec, output_root=tmp_path, client=client,
                  only=["readme", "language_reference"])
     assert "gen-readme" in client.tags, (
-        f"c_like must call LLM for readme; got tags: {client.tags}"
+        f"python_like must call LLM for readme; got tags: {client.tags}"
     )
     assert "gen-language-ref" in client.tags, (
-        f"c_like must call LLM for language_reference; got tags: {client.tags}"
+        f"python_like must call LLM for language_reference; got tags: {client.tags}"
+    )
+
+
+def test_c_like_no_longer_uses_llm_for_docs(tmp_path):
+    """Phase 1.5 Stage B/C: c_like is now templated from toylang.
+    All docs (README, LANGUAGE.md) come from the deterministic
+    templated renderers; the LLM is not invoked for them. Pin that
+    contract — accidentally regressing it would re-introduce the
+    cost the structural fix eliminated."""
+    from forge.orchestrator.spec_builder import build_spec
+    from forge.orchestrator.generator import generate_all
+
+    spec = build_spec(
+        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        "no_llm_docs_clike",
+    )
+    client = _CountingFakeClient()
+    generate_all(spec, output_root=tmp_path, client=client,
+                 only=["readme", "language_reference"],
+                 verify_after_generation=False)
+    assert "gen-readme" not in client.tags, (
+        f"c_like should NOT call LLM for readme post-Stage B/C; "
+        f"got tags: {client.tags}"
+    )
+    assert "gen-language-ref" not in client.tags, (
+        f"c_like should NOT call LLM for language_reference post-"
+        f"Stage B/C; got tags: {client.tags}"
     )
 
 

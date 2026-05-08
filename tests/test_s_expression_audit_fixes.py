@@ -174,14 +174,29 @@ def test_repair_can_still_pick_tests_for_templated_languages():
     assert pick == "tests"
 
 
-def test_repair_unaffected_for_c_like_languages():
-    """Regression: c_like languages must still have full repair access
-    to all components. Templating is s_expression-only for now."""
+def test_repair_skips_templated_components_for_c_like_post_phase15():
+    """Phase 1.5 Stage B: c_like is now templated from toylang.
+    Repair should NOT try to LLM-rewrite the templated parser/codegen/
+    runtime/stdlib/lexer — those are hand-written reference files
+    inherited via _template_from_reference. Asking the LLM to "fix"
+    them would regress a known-good baseline.
+
+    This test was originally pinning the OPPOSITE: c_like has full
+    repair access. Phase 1.5 inverted that — c_like is now in the
+    templated set. python_like still has full LLM repair access since
+    it stays on the LLM-driven path."""
     from forge.orchestrator.repair import _pick_component, _is_templated_language
     from forge.orchestrator.verifier import VerificationReport, TestResult
 
-    spec = {"options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"}}
-    assert _is_templated_language(spec) is False
+    # c_like: now templated, parser repair should be skipped.
+    c_spec = {"options": {"syntax": "c_like", "typing": "dynamic",
+                          "memory": "host_gc"}}
+    assert _is_templated_language(c_spec) is True
+
+    # python_like: still LLM-driven, parser repair still active.
+    p_spec = {"options": {"syntax": "python_like", "typing": "dynamic",
+                          "memory": "host_gc"}}
+    assert _is_templated_language(p_spec) is False
 
     fail = TestResult(
         name="hello_world",
@@ -197,9 +212,16 @@ def test_repair_unaffected_for_c_like_languages():
         missing_canonical=[],
         tests=[fail],
     )
-    pick = _pick_component(report, spec)
-    # c_like with a parse error → repair targets parser
-    assert pick == "parser"
+    # python_like with parse error → repair targets parser (LLM path).
+    assert _pick_component(report, p_spec) == "parser"
+    # c_like with parse error → no parser repair (templated baseline).
+    # _pick_component should fall through to alternate-component logic
+    # or return None when the only failing component is templated.
+    c_pick = _pick_component(report, c_spec)
+    assert c_pick != "parser", (
+        f"c_like is templated post-Phase 1.5; parser repair should be "
+        f"skipped to avoid clobbering the toylang reference. Got: {c_pick}"
+    )
 
 
 # ---------- _batch_validate uses _emit_print for s_expression ----------

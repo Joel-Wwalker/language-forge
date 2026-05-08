@@ -202,10 +202,12 @@ def test_template_path_is_fast(tmp_path):
     )
 
 
-def test_c_like_does_not_use_template_path(tmp_path):
-    """Sanity check: only s_expression triggers the template path. c_like
-    languages must still go through the LLM (we don't have a reference
-    for them in this PR)."""
+def test_reference_compiler_routing_post_phase15():
+    """Phase 1.5 Stage B updated this test. Originally pinned that
+    only s_expression triggered the template path; now c_like also
+    does (toylang is registered as the c_like reference). python_like
+    still doesn't have a reference and stays on the LLM-driven path
+    until a python_like reference is hand-written."""
     from forge.orchestrator.generator import reference_compiler_for
     c_spec = {"options": {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
               "lang_name": "ctest"}
@@ -213,7 +215,11 @@ def test_c_like_does_not_use_template_path(tmp_path):
               "lang_name": "ptest"}
     s_spec = {"options": {"syntax": "s_expression", "typing": "dynamic", "memory": "host_gc"},
               "lang_name": "stest"}
-    assert reference_compiler_for(c_spec) is None
+    # Phase 1.5: c_like now templates from toylang.
+    assert reference_compiler_for(c_spec) is not None
+    assert reference_compiler_for(c_spec).name == "toylang"
+    # python_like stays on the LLM path (no reference yet).
     assert reference_compiler_for(p_spec) is None
+    # s_expression unchanged.
     assert reference_compiler_for(s_spec) is not None
     assert reference_compiler_for(s_spec).name == "lisplang"
