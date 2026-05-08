@@ -27,6 +27,7 @@ from typing import Optional
 
 from .katas import (
     KATA_PACK_SCHEMA, _self_validate, _try_fix_reference, _pick_working_sample,
+    substitute_kata_for_target,
 )
 
 
@@ -195,6 +196,12 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
     # right output via if/else). so every kata gets every chance to land,
     # since any turing-complete language should support the full pack.
     def _validate_one(kata: dict) -> tuple[dict, bool, str, int]:
+        # Defense-in-depth substitution (Phase 1.5 bugfix Fix 2): even when
+        # the LLM is told to produce target-dialect output, it occasionally
+        # leaks canonical c_like keywords (`var`, `if`, etc.). Substituting
+        # before validation makes those leaks harmless on themed-c_like
+        # targets. Idempotent on output that's already in target dialect.
+        kata = substitute_kata_for_target(kata, spec)
         ok, reason = _self_validate(kata, lang_dir, spec)
         attempts = 0
         while not ok and attempts < fix_attempts:
