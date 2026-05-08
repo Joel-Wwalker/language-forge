@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, Future
 from dataclasses import dataclass, field, asdict
@@ -96,15 +97,70 @@ def _state_path(output_root: Path) -> Path:
     return output_root / "state.json"
 
 
+# Module-local lock that serializes state.json writes across the
+# runner's ThreadPoolExecutor workers. Phase 1.5 Gate 2 surfaced a
+# real race: with concurrency≥2 every worker wrote to the same
+# `state.json.tmp` path then called `os.replace`. The first
+# worker's `os.replace` succeeded; subsequent workers found the
+# tmp file gone and crashed with FileNotFoundError. The crash
+# halted the batch around slot 47 of 50 in Gate 2.
+#
+# The lock fixes both the crash AND the underlying issue (last
+# writer wins → another writer's progress disappears) by
+# serializing the read-modify-write window.
+#
+# Process-local: this lock only serializes writes from threads
+# inside ONE Python process. The runner's ThreadPoolExecutor is
+# thread-based within a single process, so this is enough today.
+# A future multi-process batch capability (not in Phase 1.5
+# scope) would need `fcntl.flock` or similar.
+_state_write_lock = threading.Lock()
+
+
 def _save_state_atomic(state: BatchState, output_root: Path) -> None:
-    """Write state.json via tmp + os.replace so a partial write
-    can never corrupt a previous state that resume depends on."""
+    """Write state.json atomically. Serialized across threads via
+    `_state_write_lock` to prevent the Phase 1.5 Gate 2 race.
+
+    Within the lock: tmp write + os.replace pattern still applies so
+    a process crash mid-write can't corrupt the existing state.json
+    (the existing file remains intact until os.replace swaps in the
+    new version)."""
     state.last_updated = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     path = _state_path(output_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(state.to_json(), encoding="utf-8")
-    os.replace(tmp, path)
+    with _state_write_lock:
+        tmp.write_text(state.to_json(), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def _update_slot_and_save(state: BatchState, slot_id: str, entry: dict,
+                          output_root: Path) -> None:
+    """Mutate `state.slots[slot_id]` and persist to disk under one
+    lock acquisition. Phase 1.5 Gate 2 fix: workers were doing
+    read-modify-write outside the lock, which let two workers read
+    the same snapshot, each write a different progress, and lose
+    one of the writes. Doing both under the lock means each worker's
+    update fully lands before the next worker reads."""
+    with _state_write_lock:
+        state.slots[slot_id] = entry
+        state.last_updated = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        path = _state_path(output_root)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(state.to_json(), encoding="utf-8")
+        os.replace(tmp, path)
+
+
+def _set_slot_status_in_memory(state: BatchState, slot_id: str,
+                               entry: dict) -> None:
+    """Mutate state.slots in memory ONLY (no disk write). Used for
+    the in-flight RUNNING marker that we deliberately don't persist
+    (a crash mid-run leaves a stale RUNNING that the resume loader
+    re-marks pending). Lock-guarded so concurrent serializers don't
+    see a half-written dict during their iteration."""
+    with _state_write_lock:
+        state.slots[slot_id] = entry
 
 
 # ---------------------------------------------------------------------------
@@ -264,8 +320,11 @@ class BatchRunner:
         are caught and recorded — the batch never aborts on a single
         slot's failure."""
         # Mark running. We don't persist RUNNING because a crash leaves
-        # the marker stuck; instead, in-memory state keeps it.
-        state.slots[slot.slot_id] = {"status": STATUS_RUNNING}
+        # the marker stuck; instead, in-memory state keeps it. The
+        # helper takes the lock briefly so concurrent state.to_json()
+        # iterations from other workers see a consistent dict.
+        _set_slot_status_in_memory(state, slot.slot_id,
+                                    {"status": STATUS_RUNNING})
         self._emit(slot.slot_id, STATUS_RUNNING)
         t0 = time.monotonic()
         try:
@@ -278,12 +337,11 @@ class BatchRunner:
                 success=False, duration_seconds=elapsed,
                 error=error_msg,
             )
-            state.slots[slot.slot_id] = {
+            _update_slot_and_save(state, slot.slot_id, {
                 "status": STATUS_FAILED,
                 "error": error_msg,
                 "duration_seconds": elapsed,
-            }
-            _save_state_atomic(state, self.output_root)
+            }, self.output_root)
             self._emit(slot.slot_id, STATUS_FAILED, elapsed, error=error_msg)
             return res
 
@@ -343,7 +401,8 @@ class BatchRunner:
                                      f"{type(e).__name__}: {e}"],
                     }
 
-            state.slots[slot.slot_id] = entry
+            _update_slot_and_save(state, slot.slot_id, entry,
+                                   self.output_root)
             self._emit(slot.slot_id, STATUS_COMPLETED, elapsed,
                        lang_dir=res.lang_dir,
                        smoke_passed=entry.get("smoke", {}).get("passed"))
@@ -351,18 +410,14 @@ class BatchRunner:
             # Trim stderr for state.json — full text lives on disk in
             # the per-slot output dir if the subprocess wrote it.
             stderr_tail = (res.stderr or "").strip().splitlines()[-5:]
-            state.slots[slot.slot_id] = {
+            _update_slot_and_save(state, slot.slot_id, {
                 "status": STATUS_FAILED,
                 "error": res.error or f"exit {res.returncode}",
                 "stderr_tail": "\n".join(stderr_tail),
                 "duration_seconds": elapsed,
-            }
+            }, self.output_root)
             self._emit(slot.slot_id, STATUS_FAILED, elapsed,
                        error=res.error)
-
-        # Persist after every slot completion so resume can pick up
-        # cleanly even if Ctrl+C lands between two completions.
-        _save_state_atomic(state, self.output_root)
         return res
 
     # ---- main entry ----
@@ -406,10 +461,9 @@ class BatchRunner:
                             success=False, duration_seconds=0.0,
                             error=f"executor crash: {type(e).__name__}: {e}",
                         )
-                        state.slots[slot.slot_id] = {
+                        _update_slot_and_save(state, slot.slot_id, {
                             "status": STATUS_FAILED, "error": res.error,
-                        }
-                        _save_state_atomic(state, self.output_root)
+                        }, self.output_root)
                     results.append(res)
 
         wall = time.monotonic() - wall_t0
