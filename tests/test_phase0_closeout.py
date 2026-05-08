@@ -142,8 +142,12 @@ def test_events_jsonl_survives_crash(tmp_path):
     from forge.orchestrator.spec_builder import build_spec
     from forge.orchestrator.generator import generate_all
 
+    # Phase 1.5: c_like is now templated (0 LLM calls), so the
+    # crashing client never gets called. Switched to python_like which
+    # still routes through the LLM path and triggers the crash after
+    # the configured number of calls.
     spec = build_spec(
-        {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
+        {"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"},
         "crash_survival",
     )
     spec["file_extension"] = ".tst"

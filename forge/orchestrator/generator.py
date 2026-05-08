@@ -36,9 +36,18 @@ WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_COMPILERS = {
     "s_expression": WORKSPACE_ROOT / "generated" / "lisplang",
     "stack_based":  WORKSPACE_ROOT / "generated" / "forthlang",
-    # `c_like` doesn't go through this path because the LLM produces good
-    # c_like grammars from the parser.md examples; toylang stays as the
-    # mechanical-translator reference and curated-test source.
+    # Phase 1.5 Stage B: c_like now templates from toylang. This is the
+    # core of the structural fix — c_like languages no longer pay 9 LLM
+    # calls per generation for parser/codegen/runtime/stdlib/tests; they
+    # template from toylang and apply spec-driven keyword/comment/string
+    # substitutions via _template_from_reference's Stage A layer.
+    # Languages with hostile constraints toylang can't represent should
+    # use the LLM-driven path explicitly via `template_from_reference=
+    # False` (Stage F flag).
+    "c_like":       WORKSPACE_ROOT / "generated" / "toylang",
+    # `python_like` deferred — no hand-written python_like reference
+    # exists yet. When one lands (a hand-written hardcombo-style
+    # reference), add it here.
 }
 
 # Components a reference compiler can supply verbatim (with module-name
@@ -104,10 +113,18 @@ def reference_compiler_for(spec: dict) -> Optional[Path]:
     """Return the path to a hand-written reference compiler if one exists
     for this spec's syntax family, else None.
 
-    Currently only `s_expression` languages template from a reference
-    (lisplang). The reference must have a working `parser.py`, `codegen.py`,
-    `runtime.py`, `stdlib.py`, `lexer.py`, `__init__.py`, `compile.py`, and
-    a `tests/` directory with the canonical 8 tests.
+    As of Phase 1.5 Stage B, three families have references:
+      - c_like        -> toylang
+      - s_expression  -> lisplang
+      - stack_based   -> forthlang
+
+    The reference must have a working `parser.py`, `codegen.py`,
+    `runtime.py`, `stdlib.py`, `lexer.py`, `__init__.py`, `compile.py`,
+    and a `tests/` directory with the canonical 8 tests. The substitution
+    layer in `_template_from_reference` applies spec-driven keyword,
+    comment-syntax, and boolean/null literal overrides on top of the
+    file copies so each templated child can be visibly distinct from
+    the reference.
     """
     syntax = (spec.get("options") or {}).get("syntax")
     ref = REFERENCE_COMPILERS.get(syntax)

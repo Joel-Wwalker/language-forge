@@ -71,7 +71,11 @@ def _fake_for(tag: str) -> str:
 def test_parallel_generator_runs_all_components_with_proper_deps(tmp_path):
     """End-to-end: run generate_all with a fake client. All components run,
     parser comes before its dependents, and at least one wave overlaps."""
-    spec = build_spec({"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"}, "ftest")
+    # Phase 1.5 Stage B: c_like is now templated and makes 0 LLM calls,
+    # so this DAG-parallelism test wouldn't exercise the LLM path on
+    # c_like anymore. Switched to python_like which still routes
+    # through the LLM-driven _generate_code_component path.
+    spec = build_spec({"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"}, "ftest")
     spec["file_extension"] = ".tst"
 
     client = FakeClient(latency_s=0.10)
@@ -107,7 +111,9 @@ def test_parallel_generator_runs_all_components_with_proper_deps(tmp_path):
 def test_parallel_generator_overlaps_independent_components(tmp_path):
     """The lexer, codegen, and tests waves should overlap in time once parser
     is done. Wall time must be noticeably less than fully sequential."""
-    spec = build_spec({"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"}, "ftest2")
+    # Phase 1.5: switched from c_like (now templated, 0 LLM calls) to
+    # python_like so this parallelism timing test still has work to time.
+    spec = build_spec({"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"}, "ftest2")
     spec["file_extension"] = ".tst"
 
     latency = 0.20
@@ -143,7 +149,9 @@ def test_parallel_generator_propagates_failures(tmp_path):
             self._record("end", tag)
             return _fake_for(tag)
 
-    spec = build_spec({"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"}, "ftest3")
+    # Phase 1.5: c_like now templated; switched to python_like so
+    # the synthetic codegen failure can actually be triggered.
+    spec = build_spec({"syntax": "python_like", "typing": "dynamic", "memory": "host_gc"}, "ftest3")
     spec["file_extension"] = ".tst"
     client = FailingClient(latency_s=0.02)
     with pytest.raises(RuntimeError, match="synthetic codegen failure"):
