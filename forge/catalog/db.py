@@ -56,7 +56,12 @@ from .dedup import DedupResult, result_to_dict
 
 # Schema version. Bump when adding columns; the migration helper
 # checks PRAGMA user_version before applying.
-SCHEMA_VERSION = 1
+#
+# Version history:
+#   v1 — Phase 2 initial schema (languages, duplicates, batches).
+#   v2 — Phase 3 adds `tier` (TEXT) and `tags` (TEXT JSON) columns to
+#        languages. Both nullable; pre-existing rows get NULL.
+SCHEMA_VERSION = 2
 
 
 # Status values. Pinned as a constants tuple so callers can validate
@@ -101,6 +106,9 @@ class LanguageRow:
     rejection_reason: Optional[str] = None
     reviewer_notes: Optional[str] = None
     batch_id: Optional[int] = None
+    # Phase 3 additions (schema v2). NULL on pre-Phase-3 rows.
+    tier: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -207,6 +215,22 @@ def _connect(db_path: Path, *, write: bool = False) -> Iterator[sqlite3.Connecti
             _db_write_lock.release()
 
 
+def _apply_v2_migration(conn: sqlite3.Connection) -> None:
+    """Phase 3 schema migration: add tier and tags columns to
+    languages. Both nullable; pre-existing rows get NULL.
+
+    SQLite ALTER TABLE ADD COLUMN is atomic and cheap on small tables.
+    The columns can be added in any order; we add tier first, tags
+    second."""
+    # Check if columns already exist (idempotence on partial-migration).
+    cols = {row[1] for row in conn.execute(
+        "PRAGMA table_info(languages)").fetchall()}
+    if "tier" not in cols:
+        conn.execute("ALTER TABLE languages ADD COLUMN tier TEXT")
+    if "tags" not in cols:
+        conn.execute("ALTER TABLE languages ADD COLUMN tags TEXT")
+
+
 def init_db(db_path: str | Path) -> None:
     """Create the catalog DB if it doesn't exist, or apply migrations
     to bring an existing one up to the current schema version.
@@ -216,12 +240,18 @@ def init_db(db_path: str | Path) -> None:
     with _connect(db_path, write=True) as conn:
         current = conn.execute("PRAGMA user_version").fetchone()[0]
         if current == 0:
+            # Fresh DB — apply v1 schema then any subsequent migrations.
             conn.executescript(_SCHEMA_V1)
+            _apply_v2_migration(conn)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            conn.commit()
+        elif current == 1 and SCHEMA_VERSION >= 2:
+            # Phase 2 → Phase 3 upgrade: add tier and tags columns.
+            _apply_v2_migration(conn)
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             conn.commit()
         elif current < SCHEMA_VERSION:
-            # Future-proofing for schema bumps. No migrations needed
-            # at v1 since v1 IS the initial schema.
+            # A future schema bump landed without a migration here.
             raise RuntimeError(
                 f"DB at {db_path} is at user_version {current}; expected "
                 f"{SCHEMA_VERSION}. Migrations must be added when bumping "
@@ -507,6 +537,23 @@ def _row_to_language(row: sqlite3.Row) -> LanguageRow:
             feature_bans = json.loads(raw_bans)
         except Exception:
             feature_bans = []
+    # tier / tags columns may not be present on schema-v1 rows that
+    # haven't been migrated. Defensively read via dict access.
+    tier = None
+    tags: list[str] = []
+    try:
+        keys = row.keys() if hasattr(row, "keys") else []
+    except Exception:
+        keys = []
+    if "tier" in keys:
+        tier = row["tier"]
+    if "tags" in keys and row["tags"]:
+        try:
+            parsed = json.loads(row["tags"])
+            if isinstance(parsed, list):
+                tags = [str(t) for t in parsed]
+        except Exception:
+            tags = []
     return LanguageRow(
         id=row["id"],
         slot_id=row["slot_id"],
@@ -528,4 +575,176 @@ def _row_to_language(row: sqlite3.Row) -> LanguageRow:
         rejection_reason=row["rejection_reason"],
         reviewer_notes=row["reviewer_notes"],
         batch_id=row["batch_id"],
+        tier=tier,
+        tags=tags,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 write helpers: notes, tier, tags, bulk
+# ---------------------------------------------------------------------------
+
+def update_language_notes(db_path: str | Path, slot_id: str,
+                          reviewer_notes: Optional[str]) -> bool:
+    """Update reviewer_notes on a language row WITHOUT changing status.
+    Used by the curation UI's "save annotations as I'm reading" flow.
+
+    Returns True if a row was updated, False if no such slot_id."""
+    db_path = Path(db_path)
+    init_db(db_path)
+    with _connect(db_path, write=True) as conn:
+        cur = conn.execute(
+            "UPDATE languages SET reviewer_notes = ? WHERE slot_id = ?",
+            (reviewer_notes, slot_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def update_language_rejection_reason(db_path: str | Path, slot_id: str,
+                                     rejection_reason: Optional[str]) -> bool:
+    """Update rejection_reason on a language row WITHOUT changing
+    status. Used when the curator edits the reason on an already-
+    rejected entry."""
+    db_path = Path(db_path)
+    init_db(db_path)
+    with _connect(db_path, write=True) as conn:
+        cur = conn.execute(
+            "UPDATE languages SET rejection_reason = ? WHERE slot_id = ?",
+            (rejection_reason, slot_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def update_language_tier(db_path: str | Path, slot_id: str,
+                         tier: Optional[str]) -> bool:
+    """Set the tier (free-form text; Phase 5 decides the scheme).
+    Pass None to clear. Returns True if a row was updated."""
+    db_path = Path(db_path)
+    init_db(db_path)
+    if tier is not None and not isinstance(tier, str):
+        raise ValueError(f"tier must be a string or None, got {type(tier)}")
+    with _connect(db_path, write=True) as conn:
+        cur = conn.execute(
+            "UPDATE languages SET tier = ? WHERE slot_id = ?",
+            (tier, slot_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def update_language_tags(db_path: str | Path, slot_id: str,
+                         tags: list[str]) -> bool:
+    """Replace the tags array. Pass [] to clear. Each entry must be a
+    non-empty string; duplicates are de-duped by the helper. Returns
+    True if a row was updated."""
+    if not isinstance(tags, list):
+        raise ValueError(f"tags must be a list, got {type(tags)}")
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for t in tags:
+        if not isinstance(t, str):
+            raise ValueError(f"each tag must be a string, got {type(t)}")
+        s = t.strip()
+        if s and s not in seen:
+            cleaned.append(s)
+            seen.add(s)
+    db_path = Path(db_path)
+    init_db(db_path)
+    with _connect(db_path, write=True) as conn:
+        cur = conn.execute(
+            "UPDATE languages SET tags = ? WHERE slot_id = ?",
+            (json.dumps(cleaned), slot_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def list_distinct_tags(db_path: str | Path) -> list[str]:
+    """Return every distinct tag currently used across the catalog,
+    sorted. Used by the UI's tag-autocomplete."""
+    db_path = Path(db_path)
+    if not db_path.exists():
+        return []
+    out: set[str] = set()
+    with _connect(db_path) as conn:
+        # tags column may not exist yet on a v1 DB.
+        try:
+            rows = conn.execute(
+                "SELECT tags FROM languages WHERE tags IS NOT NULL"
+            ).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        for r in rows:
+            try:
+                parsed = json.loads(r["tags"])
+                if isinstance(parsed, list):
+                    out.update(str(t) for t in parsed)
+            except Exception:
+                continue
+    return sorted(out)
+
+
+def add_tag_to_language(db_path: str | Path, slot_id: str,
+                        tag: str) -> bool:
+    """Append a tag to a language's tags array (no-op if already
+    present). Returns True if the row exists (whether or not the tag
+    was already there)."""
+    if not isinstance(tag, str) or not tag.strip():
+        raise ValueError("tag must be a non-empty string")
+    tag = tag.strip()
+    row = get_language(db_path, slot_id)
+    if row is None:
+        return False
+    if tag in row.tags:
+        return True
+    return update_language_tags(db_path, slot_id, list(row.tags) + [tag])
+
+
+def bulk_update_status(db_path: str | Path, slot_ids: list[str],
+                      status: str, *,
+                      reviewer_notes: Optional[str] = None,
+                      rejection_reason: Optional[str] = None) -> int:
+    """Apply a status update to multiple slots in one transaction.
+    Returns the number of rows updated. Validates `status` before
+    touching the DB."""
+    if status not in STATUS_VALUES:
+        raise ValueError(f"status must be one of {STATUS_VALUES}, "
+                         f"got {status!r}")
+    if not isinstance(slot_ids, list) or not slot_ids:
+        return 0
+    db_path = Path(db_path)
+    init_db(db_path)
+    n = 0
+    with _connect(db_path, write=True) as conn:
+        for slot_id in slot_ids:
+            params = {"status": status, "slot_id": slot_id}
+            sets = ["status = :status"]
+            if reviewer_notes is not None:
+                sets.append("reviewer_notes = :reviewer_notes")
+                params["reviewer_notes"] = reviewer_notes
+            if rejection_reason is not None and status == STATUS_REJECTED:
+                sets.append("rejection_reason = :rejection_reason")
+                params["rejection_reason"] = rejection_reason
+            cur = conn.execute(
+                f"UPDATE languages SET {', '.join(sets)} WHERE slot_id = :slot_id",
+                params,
+            )
+            n += cur.rowcount
+        conn.commit()
+    return n
+
+
+def bulk_add_tag(db_path: str | Path, slot_ids: list[str], tag: str) -> int:
+    """Add a tag to multiple slots. Returns the number of rows
+    affected (matching slot_ids that exist)."""
+    if not isinstance(tag, str) or not tag.strip():
+        raise ValueError("tag must be a non-empty string")
+    if not isinstance(slot_ids, list) or not slot_ids:
+        return 0
+    n = 0
+    for slot_id in slot_ids:
+        if add_tag_to_language(db_path, slot_id, tag):
+            n += 1
+    return n

@@ -193,8 +193,29 @@ def _components_for(spec: dict) -> list[str]:
 # Flask app
 # ---------------------------------------------------------------------------
 
-def create_app() -> Flask:
+def create_app(*, catalog_db_path: Optional[Path] = None,
+               catalog_generated_root: Optional[Path] = None) -> Flask:
+    """Build the Flask app.
+
+    Phase 3 additions:
+      catalog_db_path: override the SQLite catalog DB path used by
+        the curation routes (defaults to <workspace>/catalog.db).
+        Tests pass a temp path so they don't touch the real catalog.
+      catalog_generated_root: override the directory the curation UI
+        reads `<slot_id>/slot.json` from when the DB row's
+        customization fields were normalized away by the resolver.
+    """
     app = Flask(__name__, static_folder=str(HERE / "static"), static_url_path="/static")
+
+    # Phase 3: mount catalog browse + curation routes onto the same
+    # Flask app. Kept in a separate module so app.py doesn't keep
+    # growing.
+    from forge.gui.catalog_routes import mount_catalog_routes
+    mount_catalog_routes(
+        app,
+        catalog_db_path=catalog_db_path,
+        generated_root=catalog_generated_root,
+    )
 
     @app.route("/")
     def root():
