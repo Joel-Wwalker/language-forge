@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forge Catalog Curation</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/catalog.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="catalog-body">
+  <header class="catalog-topbar">
+    <div class="brand">
+      <a href="/" class="back-to-forge">← Forge</a>
+      <span class="catalog-title">Catalog Curation</span>
+    </div>
+    <div class="catalog-progress" id="progress-bar">
+      <span class="progress-stat" id="progress-summary">loading…</span>
+    </div>
+  </header>
+
+  <main class="catalog-main">
+
+    <!-- LIST VIEW -->
+    <section class="catalog-list-view" id="list-view">
+      <aside class="catalog-filters" id="filter-sidebar">
+        <h3>Filter</h3>
+
+        <div class="filter-block">
+          <label>Search</label>
+          <input type="text" id="filter-search" placeholder="slot_id, theme, persona…" autocomplete="off">
+        </div>
+
+        <div class="filter-block">
+          <label>Status</label>
+          <div class="filter-checkboxes" id="filter-status">
+            <label><input type="checkbox" value="pending_review" checked> pending</label>
+            <label><input type="checkbox" value="approved"> approved</label>
+            <label><input type="checkbox" value="rejected"> rejected</label>
+          </div>
+        </div>
+
+        <div class="filter-block">
+          <label>Family</label>
+          <div class="filter-checkboxes" id="filter-family"></div>
+        </div>
+
+        <div class="filter-block">
+          <label>Persona</label>
+          <select id="filter-persona"><option value="">— any —</option></select>
+        </div>
+
+        <div class="filter-block">
+          <label>Era</label>
+          <select id="filter-era"><option value="">— any —</option></select>
+        </div>
+
+        <div class="filter-block">
+          <label>Theme</label>
+          <select id="filter-theme"><option value="">— any —</option></select>
+        </div>
+
+        <div class="filter-block">
+          <label>Phrasebook</label>
+          <select id="filter-phrasebook"><option value="">— any —</option></select>
+        </div>
+
+        <div class="filter-block">
+          <label>Distinctiveness ≥ <span id="min-d-display">0.00</span></label>
+          <input type="range" id="filter-min-distinctiveness" min="0" max="1" step="0.05" value="0">
+        </div>
+
+        <div class="filter-block">
+          <label>Sort by</label>
+          <select id="filter-sort-by">
+            <option value="slot_id">slot_id</option>
+            <option value="distinctiveness">distinctiveness</option>
+            <option value="coherence">coherence</option>
+            <option value="completeness">completeness</option>
+          </select>
+          <select id="filter-sort-dir">
+            <option value="asc">asc</option>
+            <option value="desc" selected>desc</option>
+          </select>
+        </div>
+
+        <button class="btn-clear" id="btn-clear-filters">clear filters</button>
+      </aside>
+
+      <div class="catalog-list-pane">
+        <div class="list-header">
+          <span class="list-count" id="list-count">— of —</span>
+          <kbd>↑/↓</kbd> navigate · <kbd>Enter</kbd> open · <kbd>/</kbd> search
+        </div>
+        <div class="catalog-list" id="catalog-list" tabindex="0">
+          <div class="list-empty">loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DETAIL VIEW (hidden initially; revealed by JS) -->
+    <section class="catalog-detail-view" id="detail-view" hidden>
+      <header class="detail-header">
+        <button class="btn-back" id="btn-back">← back to list</button>
+        <span class="detail-slot-id" id="detail-slot-id">slot_???</span>
+        <span class="detail-status-badge" id="detail-status-badge">pending</span>
+        <span class="detail-progress" id="detail-progress"></span>
+      </header>
+
+      <div class="detail-actions">
+        <button class="btn-approve" id="btn-approve" title="A — approve and advance">
+          <kbd>A</kbd> approve
+        </button>
+        <button class="btn-reject" id="btn-reject" title="R — reject and advance">
+          <kbd>R</kbd> reject
+        </button>
+        <button class="btn-pending" id="btn-pending" title="P — mark pending and advance">
+          <kbd>P</kbd> pending
+        </button>
+        <button class="btn-skip" id="btn-skip" title="S — skip without changing status">
+          <kbd>S</kbd> skip
+        </button>
+        <span class="detail-help">
+          <kbd>J</kbd>/<kbd>K</kbd> next/prev · <kbd>Esc</kbd> back · <kbd>N</kbd> save notes
+        </span>
+      </div>
+
+      <div class="detail-rejection-reason" id="rejection-reason-block" hidden>
+        <label>Rejection reason</label>
+        <input type="text" id="rejection-reason" placeholder="one-line reason (visible in list view)">
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-pane detail-pane-spec">
+          <h3>Spec & scores</h3>
+          <div id="detail-summary-block"></div>
+          <h4>Quality report</h4>
+          <div id="detail-quality-block"></div>
+          <h4>Resolved spec</h4>
+          <details>
+            <summary>JSON (click to expand)</summary>
+            <pre class="detail-json" id="detail-spec-json"></pre>
+          </details>
+          <h4>Original slot.json</h4>
+          <details>
+            <summary>JSON (click to expand)</summary>
+            <pre class="detail-json" id="detail-slot-json"></pre>
+          </details>
+          <h4>Files</h4>
+          <ul class="detail-files" id="detail-files"></ul>
+        </div>
+
+        <div class="detail-pane detail-pane-readme">
+          <h3>README.md</h3>
+          <div class="detail-readme" id="detail-readme"></div>
+          <h3>LANGUAGE.md</h3>
+          <div class="detail-language-md" id="detail-language-md"></div>
+        </div>
+
+        <div class="detail-pane detail-pane-notes">
+          <h3>Reviewer notes</h3>
+          <textarea id="reviewer-notes" placeholder="Annotations, observations. Saved with N or on approve/reject."></textarea>
+          <h4>Tier &amp; tags</h4>
+          <div class="tier-tag-block">
+            <label>Tier</label>
+            <input type="text" id="detail-tier" list="tier-suggestions" placeholder="e.g. common, rare, epic">
+            <datalist id="tier-suggestions">
+              <option value="common">
+              <option value="rare">
+              <option value="epic">
+              <option value="mythic">
+              <option value="legendary">
+            </datalist>
+            <label>Tags (comma-separated)</label>
+            <input type="text" id="detail-tags" list="tag-suggestions" placeholder="themed-pirate, baseline, …">
+            <datalist id="tag-suggestions"></datalist>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/static/catalog.js"></script>
+</body>
+</html>
