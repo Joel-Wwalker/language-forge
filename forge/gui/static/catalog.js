@@ -546,7 +546,7 @@ function renderKataPack(data) {
   html += `</ul>`;
   // Phase 3 follow-up Item 2 (Option B): also link to the existing
   // kata workspace for full kata-solving experience.
-  html += `<a class="btn-launch-kata" href="/?lang=${encodeURIComponent(data.slot_id)}&view=kata"
+  html += `<a class="btn-launch-kata" href="/?lang=${encodeURIComponent(data.slot_id)}&view=kata&include_catalog=all"
     target="_blank" rel="noopener">Open in kata workspace ↗</a>`;
   target.innerHTML = html;
 }
@@ -567,11 +567,11 @@ function renderLaunchRepl(data) {
   }
   target.innerHTML = `
     <div class="launch-actions">
-      <a class="btn-launch-repl" href="/?lang=${encodeURIComponent(slotId)}&view=playground"
+      <a class="btn-launch-repl" href="/?lang=${encodeURIComponent(slotId)}&view=playground&include_catalog=all"
          target="_blank" rel="noopener">
         Launch REPL ↗
       </a>
-      <a class="btn-launch-kata" href="/?lang=${encodeURIComponent(slotId)}&view=kata"
+      <a class="btn-launch-kata" href="/?lang=${encodeURIComponent(slotId)}&view=kata&include_catalog=all"
          target="_blank" rel="noopener">
         Open kata workspace ↗
       </a>
