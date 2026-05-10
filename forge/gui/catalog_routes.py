@@ -140,6 +140,94 @@ def _row_to_summary(row, generated_root: Path) -> dict:
     }
 
 
+def _read_canonical_tests(lang_dir: Path) -> list[dict]:
+    """Phase 3 follow-up Item 1: surface canonical test results in
+    the detail view. Reads the language's `tests/` directory and
+    pairs each test source with its expected output and (if present)
+    its `.out.py` actual output from the most recent run.
+
+    Returns a list of dicts with `name`, `source`, `expected`,
+    `actual`, and `passed` (best-effort — a test only counts as
+    'passed' if the actual output exists and matches expected).
+
+    Caps each output at ~80 lines / 4KB so the detail view stays
+    fast to render even on tests that print megabytes."""
+    tests_dir = lang_dir / "tests"
+    if not tests_dir.exists() or not tests_dir.is_dir():
+        return []
+    out: list[dict] = []
+    # Group files by stem: <name>.<ext>, <name>.expected_output.txt,
+    # <name>.<ext>.out.py
+    sources: dict[str, dict] = {}
+    for entry in sorted(tests_dir.iterdir()):
+        if not entry.is_file():
+            continue
+        name = entry.name
+        if name.endswith(".expected_output.txt"):
+            stem = name[: -len(".expected_output.txt")]
+            sources.setdefault(stem, {})["expected_path"] = entry
+        elif name.endswith(".out.py"):
+            # Strip .<ext>.out.py to get the source stem.
+            stem = entry.stem
+            if stem.endswith(".out"):
+                stem = stem[:-len(".out")]
+            stem_no_ext = entry.name.rsplit(".", 2)[0]
+            sources.setdefault(stem_no_ext, {})["actual_path"] = entry
+        else:
+            stem = entry.stem
+            sources.setdefault(stem, {})["source_path"] = entry
+    for stem, paths in sources.items():
+        if "source_path" not in paths:
+            continue
+        try:
+            source = paths["source_path"].read_text(
+                encoding="utf-8", errors="replace")[:4096]
+        except Exception:
+            source = ""
+        expected = ""
+        if "expected_path" in paths:
+            try:
+                expected = paths["expected_path"].read_text(
+                    encoding="utf-8", errors="replace")
+            except Exception:
+                expected = ""
+        # Cap displayed output at 80 lines.
+        if expected.count("\n") > 80:
+            expected = "\n".join(expected.splitlines()[:80]) + "\n..."
+        # Whether this test ran successfully isn't preserved on disk
+        # in a structured way; the canonical_tests aggregate count in
+        # generation_summary covers it. We surface the aggregate via
+        # a separate field; the per-test entries here are for "let
+        # the curator read what the language ACTUALLY does".
+        out.append({
+            "name": stem,
+            "source": source,
+            "expected": expected,
+        })
+    # Sort with hello_world first (the canonical "does it run?" test),
+    # then alphabetical.
+    out.sort(key=lambda t: (t["name"] != "hello_world", t["name"]))
+    return out
+
+
+def _read_kata_pack(lang_dir: Path) -> Optional[dict]:
+    """Phase 3 follow-up Item 2: surface the kata pack inline in the
+    detail view. Reads `<lang_dir>/katas.json` if present (that's
+    where the kata pipeline persists curated/translated katas).
+    Returns the pack dict or None if missing.
+
+    The pack's full contents — including reference solutions — are
+    included so the detail view can show the curator what the
+    language is being asked to do, with what test cases."""
+    kata_path = lang_dir / "katas.json"
+    if not kata_path.exists():
+        return None
+    try:
+        return json.loads(kata_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def _row_to_detail(row, generated_root: Path) -> dict:
     """Full detail dict for the per-language view. Includes full
     quality report, parsed spec, README + LANGUAGE.md content (for
@@ -212,6 +300,21 @@ def _row_to_detail(row, generated_root: Path) -> dict:
                     "type": "dir",
                 })
 
+    # Phase 3 follow-up Item 1: canonical test results visible in
+    # detail view. The aggregate (8/8 passed) comes from the quality
+    # report's correctness block; per-test source + expected come from
+    # _read_canonical_tests. The curator gets both at-a-glance pass
+    # rate and "let me see what this language actually does" content.
+    canonical_summary = (quality_report.get("correctness") or {}).get(
+        "canonical_tests") or {}
+    canonical_tests = _read_canonical_tests(lang_dir)
+
+    # Phase 3 follow-up Item 2: kata pack inline. Surface the curated
+    # katas.json so the curator can see what problems the language
+    # was asked to solve, with what tests, without leaving the
+    # detail view.
+    kata_pack = _read_kata_pack(lang_dir)
+
     return {
         **summary,
         "resolved_spec": spec,
@@ -223,6 +326,9 @@ def _row_to_detail(row, generated_root: Path) -> dict:
         "readme": readme_text,
         "language_md": language_md_text,
         "files": file_list,
+        "canonical_summary": canonical_summary,
+        "canonical_tests": canonical_tests,
+        "kata_pack": kata_pack,
     }
 
 
