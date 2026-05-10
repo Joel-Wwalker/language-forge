@@ -663,6 +663,18 @@ async function decide(status, advanceAfter = true) {
     alert(`error: ${err.error || r.status}`);
     return;
   }
+  // Phase 3 follow-up: visual confirmation BEFORE auto-advance fires.
+  // Without this, the badge stays "pending" until advance loads the
+  // next slot, which makes the user think nothing happened. Update
+  // the badge for the slot we just decided + show a brief toast so
+  // the user can SEE the action took effect.
+  const badge = document.getElementById("detail-status-badge");
+  if (badge) {
+    badge.className = `detail-status-badge ${status}`;
+    badge.textContent = status.replace("_", " ");
+  }
+  showToast(`${slotId}: ${status}`, status);
+
   // Update the in-memory item so the list reflects the change without
   // a refetch.
   const item = STATE.items.find(i => i.slot_id === slotId);
@@ -673,6 +685,31 @@ async function decide(status, advanceAfter = true) {
   }
   await refreshProgress();
   if (advanceAfter) advance(+1);
+}
+
+
+function showToast(message, kind) {
+  /* Phase 3 follow-up: brief 1.2s toast in the bottom-right corner
+     to confirm decisions land. The auto-advance feature was happening
+     so quietly that the validation user thought clicks weren't
+     registering. The toast solves that with zero ambiguity. */
+  let host = document.getElementById("toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toast-host";
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const el = document.createElement("div");
+  el.className = `toast toast-${kind || "info"}`;
+  el.textContent = message;
+  host.appendChild(el);
+  // Trigger CSS animation, then remove.
+  requestAnimationFrame(() => el.classList.add("toast-shown"));
+  setTimeout(() => {
+    el.classList.remove("toast-shown");
+    setTimeout(() => el.remove(), 250);
+  }, 1200);
 }
 
 

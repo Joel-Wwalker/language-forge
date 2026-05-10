@@ -30,6 +30,46 @@ HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parents[1]
 
 
+def _resolve_lang_root(name: str) -> Path:
+    """Resolve a language's on-disk directory.
+
+    Phase 3 follow-up: the catalog UI's "Launch REPL" / "Open kata
+    workspace" buttons open the existing playground/kata routes with
+    the catalog slot's name as the `lang` parameter. Those routes
+    were written assuming everything lives at WORKSPACE/generated/
+    <name>/. Catalog batches write to elsewhere (typically
+    WORKSPACE/catalog_raw_*/<name>/), so the dropdown wouldn't list
+    them and direct accesses would 404.
+
+    This helper resolves a language name to its real directory by
+    checking:
+      1. WORKSPACE/generated/<name>/ — the legacy convention.
+      2. The catalog DB's batches.output_dir/<name>/ — for languages
+         produced by `python -m forge.catalog.batch ... --output X`.
+
+    Returns the legacy path (whether or not it exists) when neither
+    lookup matches, so downstream `path.exists()` checks behave as
+    they always did.
+    """
+    legacy = WORKSPACE / "generated" / name
+    if legacy.exists():
+        return legacy
+    try:
+        from forge.catalog.db import get_language, get_batch
+        catalog_db = WORKSPACE / "catalog.db"
+        if catalog_db.exists():
+            row = get_language(catalog_db, name)
+            if row is not None and row.batch_id is not None:
+                batch = get_batch(catalog_db, row.batch_id)
+                if batch is not None:
+                    candidate = Path(batch.output_dir) / name
+                    if candidate.exists():
+                        return candidate
+    except Exception:
+        pass
+    return legacy
+
+
 # ---------------------------------------------------------------------------
 # Job registry: a job is one in-flight `forge create` run
 # ---------------------------------------------------------------------------
@@ -99,7 +139,7 @@ def _run_job(job: Job) -> None:
         from forge.orchestrator.repair import repair_run
         from forge.orchestrator.verifier import verify
 
-        lang_dir = WORKSPACE / "generated" / job.name
+        lang_dir = _resolve_lang_root(job.name)
         log_dir = lang_dir / ".forge_log"
         client = make_client(job.provider, log_dir=log_dir)
         job.emit("step", label=f"Provider: {type(client).__name__}", status="info")
@@ -235,11 +275,45 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
 
     @app.route("/api/languages")
     def languages():
+        # Phase 3 follow-up: enumerate languages from BOTH the legacy
+        # generated/ directory AND every batch's output_dir recorded
+        # in the catalog DB. The catalog UI's "Launch REPL" button
+        # opens /?lang=<slot_id>, which only worked when slot_id was
+        # in generated/. Now catalog languages also appear so the
+        # playground/kata UI can find them.
         gen = WORKSPACE / "generated"
-        if not gen.exists():
+        catalog_dirs: list[Path] = []
+        try:
+            from forge.catalog import db as _catalog_db
+            catalog_db_path = WORKSPACE / "catalog.db"
+            if catalog_db_path.exists():
+                # Each batch's output_dir + every slot_id in that batch.
+                for row in _catalog_db.list_languages(catalog_db_path):
+                    if row.batch_id is None:
+                        continue
+                    batch = _catalog_db.get_batch(catalog_db_path,
+                                                   row.batch_id)
+                    if batch is None:
+                        continue
+                    candidate = Path(batch.output_dir) / row.slot_id
+                    if candidate.exists() and candidate.is_dir():
+                        # Skip if already exists in generated/ (avoid dupes).
+                        if not (gen / row.slot_id).exists():
+                            catalog_dirs.append(candidate)
+        except Exception:
+            catalog_dirs = []  # never fail this route on catalog read errors
+
+        # Build the iteration list: generated/ entries first, then
+        # catalog batch entries.
+        roots: list[Path] = []
+        if gen.exists():
+            roots.extend(sorted(d for d in gen.iterdir() if d.is_dir()))
+        roots.extend(catalog_dirs)
+
+        if not roots:
             return jsonify({"languages": []})
         out = []
-        for d in sorted(gen.iterdir()):
+        for d in roots:
             if not d.is_dir():
                 continue
             spec = d / "resolved_spec.json"
@@ -399,7 +473,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
     def get_katas(lang):
         """Return the saved kata pack for a language, or 404 if none yet."""
         from forge.orchestrator.katas import load_pack
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         pack = load_pack(lang_dir)
@@ -413,7 +487,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         against the language's compiler. Drops failures."""
         from forge.orchestrator.katas import generate_katas, AllKatasDroppedError
         from forge.orchestrator.providers import make_client
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         spec_path = lang_dir / "resolved_spec.json"
@@ -455,7 +529,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         from forge.orchestrator.kata_packs import get_pack
         from forge.orchestrator.katas import _self_validate
 
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         spec_path = lang_dir / "resolved_spec.json"
@@ -795,7 +869,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
             shows just the first failing test (no spoilers).
         """
         from forge.orchestrator.katas import load_pack, check_solution
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         pack = load_pack(lang_dir)
@@ -901,7 +975,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         from forge.orchestrator.providers import make_client
         from forge.orchestrator.katas import load_pack
 
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         spec = json.loads((lang_dir / "resolved_spec.json").read_text(encoding="utf-8"))
@@ -1035,7 +1109,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
 
         try:
             from forge.orchestrator.providers import make_client
-            log_dir = WORKSPACE / "generated" / name / ".forge_log"
+            log_dir = _resolve_lang_root(name) / ".forge_log"
             client = make_client(provider, log_dir=log_dir)
             picked = client.call_json(prompt, picker_schema, tag="surprise")
         except Exception as e:
@@ -1116,12 +1190,12 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         if strategy not in {"random", "dominant", "union"}:
             return jsonify({"error": "strategy must be random|dominant|union"}), 400
 
-        existing = WORKSPACE / "generated" / child_name
+        existing = _resolve_lang_root(child_name)
         if existing.exists():
             return jsonify({"error": f"`{child_name}` already exists. Pick a new name."}), 400
 
         def _load_parent_meta(name: str) -> Optional[dict]:
-            spec_path = WORKSPACE / "generated" / name / "resolved_spec.json"
+            spec_path = _resolve_lang_root(name) / "resolved_spec.json"
             if not spec_path.exists():
                 return None
             try:
@@ -1291,7 +1365,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         lang = data["lang"]
         source = data["source"]
 
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": f"no such language: {lang}"}), 404
 
@@ -1444,7 +1518,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
              might reject. The truth is what the language has actually
              shipped to disk.
         """
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         spec_path = lang_dir / "resolved_spec.json"
         ext = ".toy"
         if spec_path.exists():
@@ -1479,7 +1553,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         lang = data.get("lang", "")
         if not source or not lang:
             return jsonify({"error": "source and lang required"}), 400
-        spec_path = WORKSPACE / "generated" / lang / "resolved_spec.json"
+        spec_path = _resolve_lang_root(lang) / "resolved_spec.json"
         if not spec_path.exists():
             return jsonify({"error": "no such language"}), 404
         try:
@@ -1503,7 +1577,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
 
     @app.route("/api/spec/<lang>")
     def spec_for(lang):
-        path = WORKSPACE / "generated" / lang / "resolved_spec.json"
+        path = _resolve_lang_root(lang) / "resolved_spec.json"
         if not path.exists():
             return jsonify({"error": "no spec"}), 404
         return jsonify(json.loads(path.read_text(encoding="utf-8")))
@@ -1514,7 +1588,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         Library cards expose this behind a 'Review' link."""
         if not lang.isidentifier():
             return jsonify({"error": "invalid lang"}), 400
-        path = WORKSPACE / "generated" / lang / "REVIEW.md"
+        path = _resolve_lang_root(lang) / "REVIEW.md"
         if not path.exists():
             return jsonify({"error": "no review yet — re-run create or "
                                      "POST /api/review/<lang> to generate"}), 404
@@ -1528,7 +1602,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         from forge.orchestrator.providers import make_client
         if not lang.isidentifier():
             return jsonify({"error": "invalid lang"}), 400
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         spec_path = lang_dir / "resolved_spec.json"
         if not spec_path.exists():
             return jsonify({"error": "no spec for this language"}), 404
@@ -1553,7 +1627,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         from flask import Response
         if not lang.isidentifier():
             return Response("/* invalid lang */", mimetype="text/css", status=400)
-        lang_dir = (WORKSPACE / "generated" / lang).resolve()
+        lang_dir = (_resolve_lang_root(lang)).resolve()
         gen_root = (WORKSPACE / "generated").resolve()
         if not lang_dir.exists() or not lang_dir.is_relative_to(gen_root):
             return Response("/* no such language */", mimetype="text/css", status=404)
@@ -1587,7 +1661,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
 
     @app.route("/api/log/<lang>")
     def log_listing(lang):
-        log_dir = WORKSPACE / "generated" / lang / ".forge_log"
+        log_dir = _resolve_lang_root(lang) / ".forge_log"
         if not log_dir.exists():
             return jsonify({"entries": []})
         entries = []
@@ -1609,7 +1683,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         """
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
-        lang_dir = (WORKSPACE / "generated" / lang).resolve()
+        lang_dir = (_resolve_lang_root(lang)).resolve()
         generated_root = (WORKSPACE / "generated").resolve()
         if not lang_dir.exists() or not lang_dir.is_relative_to(generated_root):
             return jsonify({"error": "no such language"}), 404
@@ -1669,7 +1743,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         # Validate
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
-        lang_dir = (WORKSPACE / "generated" / lang).resolve()
+        lang_dir = (_resolve_lang_root(lang)).resolve()
         generated_root = (WORKSPACE / "generated").resolve()
         if not lang_dir.exists() or not lang_dir.is_relative_to(generated_root):
             return jsonify({"error": "no such language"}), 404
@@ -1707,7 +1781,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         # Refuse path traversal.
         if "/" in filename or "\\" in filename or ".." in filename:
             return jsonify({"error": "invalid filename"}), 400
-        log_dir = WORKSPACE / "generated" / lang / ".forge_log"
+        log_dir = _resolve_lang_root(lang) / ".forge_log"
         path = log_dir / filename
         if not path.exists() or not path.is_file():
             return jsonify({"error": "not found"}), 404
@@ -1716,7 +1790,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
     @app.route("/api/verify/<lang>", methods=["POST"])
     def verify_lang(lang):
         from forge.orchestrator.verifier import verify
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         report = verify(lang_dir)
@@ -1726,7 +1800,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
     def repair_lang(lang):
         from forge.orchestrator.providers import make_client
         from forge.orchestrator.repair import repair_run
-        lang_dir = WORKSPACE / "generated" / lang
+        lang_dir = _resolve_lang_root(lang)
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
         try:
@@ -1745,7 +1819,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
 
-        lang_dir = (WORKSPACE / "generated" / lang).resolve()
+        lang_dir = (_resolve_lang_root(lang)).resolve()
         generated_root = (WORKSPACE / "generated").resolve()
         if not lang_dir.exists():
             return jsonify({"error": "no such language"}), 404
@@ -1756,7 +1830,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         # whose target lives outside the project, and DELETE the link
         # would `rmtree` the target. We want to delete only real
         # directories that live under generated/.
-        original = WORKSPACE / "generated" / lang
+        original = _resolve_lang_root(lang)
         if original.is_symlink():
             return jsonify({"error": "refusing to delete a symlink"}), 400
         if not lang_dir.is_relative_to(generated_root):

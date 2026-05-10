@@ -706,6 +706,48 @@
 }
 .bulk-bar button:hover { background: var(--catalog-panel-hover); }
 
+/* ---------- toast ---------- */
+.toast-host {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--catalog-panel);
+  color: var(--catalog-text);
+  border: 1px solid var(--catalog-border);
+  opacity: 0;
+  transform: translateX(20px);
+  transition: opacity 0.18s, transform 0.18s;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.toast-shown { opacity: 1; transform: translateX(0); }
+.toast-approved {
+  background: rgba(63, 185, 80, 0.95);
+  color: #051006;
+  border-color: var(--catalog-approved);
+}
+.toast-rejected {
+  background: rgba(248, 81, 73, 0.95);
+  color: #1a0606;
+  border-color: var(--catalog-rejected);
+}
+.toast-pending_review {
+  background: rgba(184, 160, 74, 0.95);
+  color: #1a1407;
+  border-color: var(--catalog-pending);
+}
+
 /* ---------- modal ---------- */
 .modal-overlay {
   position: fixed;
