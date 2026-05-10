@@ -4,6 +4,19 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
+
+function _includeCatalogParam() {
+  // Phase 3 follow-up: when the catalog UI deep-links into the
+  // playground via ?include_catalog=all, propagate it to the
+  // /api/languages call so catalog candidates appear in the dropdown.
+  // Default behavior (no query param) keeps Library showing only
+  // generated/ + approved catalog entries.
+  const p = new URLSearchParams(location.search);
+  const inc = p.get('include_catalog');
+  return inc ? '?include_catalog=' + encodeURIComponent(inc) : '';
+}
+
+
 let currentLang = null;
 let providers = { available: { api: false, claude_cli: false }, default: 'api' };
 
@@ -894,7 +907,7 @@ $('#go-playground').addEventListener('click', async () => {
 let LIBRARY_CACHE = [];
 
 async function refreshLibrary() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   LIBRARY_CACHE = languages;
   const list = $('#library-list');
@@ -1414,7 +1427,7 @@ $('#empty-new-btn').addEventListener('click', () => switchView('create'));
 // Playground
 // ============================================================
 async function refreshPlaygroundLanguages() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   const sel = $('#play-lang');
   sel.innerHTML = '';
@@ -1769,7 +1782,7 @@ $('#play-source').addEventListener('keydown', (ev) => {
 // ============================================================
 async function refreshFooter() {
   try {
-    const r = await fetch('/api/languages');
+    const r = await fetch('/api/languages' + _includeCatalogParam());
     const { languages } = await r.json();
     $('#footer-stats').textContent = `${languages.length} language${languages.length === 1 ? '' : 's'} forged`;
   } catch {}
@@ -1799,7 +1812,7 @@ let currentPack = null;          // full pack object for filter rebuilds
 // `currentLang` is already declared earlier in this file (used by other tabs)
 
 async function refreshKataLanguages() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   const sel = $('#kata-lang');
   sel.innerHTML = '';

@@ -491,3 +491,175 @@ def test_lang_dir_exists_flag_in_detail(app_client_with_artifacts):
     data = r.get_json()
     assert "lang_dir_exists" in data
     assert data["lang_dir_exists"] is True
+
+
+# ===========================================================================
+# Phase 3 follow-up round 2 — /api/languages include_catalog parameterization
+# ===========================================================================
+
+def test_api_languages_default_excludes_pending_catalog(tmp_path,
+                                                       monkeypatch):
+    """Default /api/languages behavior: include generated/ +
+    approved-status catalog entries only. Pending/rejected catalog
+    candidates don't appear in the Library."""
+    # Build a temp workspace structure: generated/foolang + a catalog
+    # DB with pending and approved entries.
+    workspace = tmp_path
+    gen = workspace / "generated"
+    gen.mkdir()
+    (gen / "foolang").mkdir()
+    (gen / "foolang" / "resolved_spec.json").write_text(
+        '{"file_extension": ".foo", "options": {"syntax": "c_like"}}',
+        encoding="utf-8",
+    )
+
+    batch_dir = workspace / "batch"
+    batch_dir.mkdir()
+    db = workspace / "catalog.db"
+    a = _make_lang_dir(batch_dir, "slot_pending", include_tests=False,
+                       include_kata_pack=False)
+    b = _make_lang_dir(batch_dir, "slot_approved", include_tests=False,
+                       include_kata_pack=False)
+    insert_batch_result(db, batch_dir, "plan.json",
+        [_make_report("slot_pending", a), _make_report("slot_approved", b)],
+        [DedupResult("slot_pending", str(a), 4.0, fingerprint="fp_p"),
+         DedupResult("slot_approved", str(b), 4.0, fingerprint="fp_a")])
+    # Mark slot_approved as approved.
+    from forge.catalog.db import update_language_status, STATUS_APPROVED
+    update_language_status(db, "slot_approved", STATUS_APPROVED)
+
+    # Patch WORKSPACE so the route reads our temp setup.
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+
+    app = _appmod.create_app(catalog_db_path=db,
+                             catalog_generated_root=workspace)
+    with app.test_client() as client:
+        # Default: 'approved' only catalog
+        r = client.get("/api/languages")
+        names = {l["name"] for l in r.get_json()["languages"]}
+        assert "foolang" in names         # generated/ entry
+        assert "slot_approved" in names   # approved catalog entry
+        assert "slot_pending" not in names  # pending NOT included by default
+
+
+def test_api_languages_include_catalog_all_returns_pending_too(tmp_path,
+                                                                monkeypatch):
+    workspace = tmp_path
+    (workspace / "generated").mkdir()
+    batch_dir = workspace / "batch"; batch_dir.mkdir()
+    db = workspace / "catalog.db"
+    a = _make_lang_dir(batch_dir, "slot_pending", include_tests=False,
+                       include_kata_pack=False)
+    insert_batch_result(db, batch_dir, "plan.json",
+        [_make_report("slot_pending", a)],
+        [DedupResult("slot_pending", str(a), 4.0, fingerprint="fp")])
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    app = _appmod.create_app(catalog_db_path=db,
+                             catalog_generated_root=workspace)
+    with app.test_client() as client:
+        r = client.get("/api/languages?include_catalog=all")
+        names = {l["name"] for l in r.get_json()["languages"]}
+        assert "slot_pending" in names
+
+
+def test_api_languages_include_catalog_none_legacy_behavior(tmp_path,
+                                                             monkeypatch):
+    workspace = tmp_path
+    gen = workspace / "generated"; gen.mkdir()
+    (gen / "foolang").mkdir()
+    (gen / "foolang" / "resolved_spec.json").write_text("{}", encoding="utf-8")
+
+    batch_dir = workspace / "batch"; batch_dir.mkdir()
+    db = workspace / "catalog.db"
+    a = _make_lang_dir(batch_dir, "slot_approved", include_tests=False,
+                       include_kata_pack=False)
+    insert_batch_result(db, batch_dir, "plan.json",
+        [_make_report("slot_approved", a)],
+        [DedupResult("slot_approved", str(a), 4.0, fingerprint="fp")])
+    from forge.catalog.db import update_language_status, STATUS_APPROVED
+    update_language_status(db, "slot_approved", STATUS_APPROVED)
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    app = _appmod.create_app(catalog_db_path=db,
+                             catalog_generated_root=workspace)
+    with app.test_client() as client:
+        r = client.get("/api/languages?include_catalog=none")
+        names = {l["name"] for l in r.get_json()["languages"]}
+        assert "foolang" in names
+        assert "slot_approved" not in names  # catalog excluded
+
+
+def test_api_languages_entries_have_source_and_status_fields(tmp_path,
+                                                              monkeypatch):
+    workspace = tmp_path
+    gen = workspace / "generated"; gen.mkdir()
+    (gen / "foolang").mkdir()
+    (gen / "foolang" / "resolved_spec.json").write_text("{}", encoding="utf-8")
+
+    batch_dir = workspace / "batch"; batch_dir.mkdir()
+    db = workspace / "catalog.db"
+    a = _make_lang_dir(batch_dir, "slot_approved", include_tests=False,
+                       include_kata_pack=False)
+    insert_batch_result(db, batch_dir, "plan.json",
+        [_make_report("slot_approved", a)],
+        [DedupResult("slot_approved", str(a), 4.0, fingerprint="fp")])
+    from forge.catalog.db import update_language_status, STATUS_APPROVED
+    update_language_status(db, "slot_approved", STATUS_APPROVED)
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    app = _appmod.create_app(catalog_db_path=db,
+                             catalog_generated_root=workspace)
+    with app.test_client() as client:
+        r = client.get("/api/languages")
+        langs = {l["name"]: l for l in r.get_json()["languages"]}
+        assert langs["foolang"]["source"] == "generated"
+        assert langs["foolang"]["catalog_status"] == "n/a"
+        assert langs["slot_approved"]["source"] == "catalog"
+        assert langs["slot_approved"]["catalog_status"] == "approved"
+
+
+def test_resolve_lang_root_finds_catalog_languages(tmp_path,
+                                                    monkeypatch):
+    """The _resolve_lang_root helper is the key piece making the
+    25 hardcoded routes work for catalog languages."""
+    workspace = tmp_path
+    (workspace / "generated").mkdir()
+    batch_dir = workspace / "batch"; batch_dir.mkdir()
+    db = workspace / "catalog.db"
+    a = _make_lang_dir(batch_dir, "slot_x", include_tests=False,
+                       include_kata_pack=False)
+    insert_batch_result(db, batch_dir, "plan.json",
+        [_make_report("slot_x", a)],
+        [DedupResult("slot_x", str(a), 4.0, fingerprint="fp")])
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    resolved = _appmod._resolve_lang_root("slot_x")
+    assert resolved.exists()
+    # Should be the catalog batch dir, NOT generated/
+    assert "batch" in str(resolved)
+
+
+def test_resolve_lang_root_falls_back_to_generated(tmp_path, monkeypatch):
+    workspace = tmp_path
+    gen = workspace / "generated"; gen.mkdir()
+    (gen / "foolang").mkdir()
+    (gen / "foolang" / "resolved_spec.json").write_text("{}", encoding="utf-8")
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    resolved = _appmod._resolve_lang_root("foolang")
+    assert resolved == gen / "foolang"
+
+
+def test_resolve_lang_root_returns_legacy_path_for_unknown(tmp_path,
+                                                            monkeypatch):
+    """For an unknown language name, returns the legacy generated/
+    path so downstream `path.exists()` checks can fail cleanly."""
+    workspace = tmp_path
+    (workspace / "generated").mkdir()
+    import forge.gui.app as _appmod
+    monkeypatch.setattr(_appmod, "WORKSPACE", workspace)
+    resolved = _appmod._resolve_lang_root("nonexistent_lang")
+    assert resolved == workspace / "generated" / "nonexistent_lang"
+    assert not resolved.exists()

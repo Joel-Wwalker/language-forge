@@ -281,39 +281,60 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         # opens /?lang=<slot_id>, which only worked when slot_id was
         # in generated/. Now catalog languages also appear so the
         # playground/kata UI can find them.
+        #
+        # `?include_catalog=approved|all|none` (default: 'approved'):
+        #   - 'approved'  → only catalog entries with status=approved
+        #     get listed alongside generated/ ones. The Library
+        #     tab uses this default — approved catalog entries are
+        #     "promoted" to the library.
+        #   - 'all'       → every catalog entry shows up (any status).
+        #     The Catalog UI's deep-link to playground passes this
+        #     so curators can launch a pending candidate in the REPL
+        #     to evaluate it.
+        #   - 'none'      → only generated/ entries. Legacy behavior.
         gen = WORKSPACE / "generated"
-        catalog_dirs: list[Path] = []
-        try:
-            from forge.catalog import db as _catalog_db
-            catalog_db_path = WORKSPACE / "catalog.db"
-            if catalog_db_path.exists():
-                # Each batch's output_dir + every slot_id in that batch.
-                for row in _catalog_db.list_languages(catalog_db_path):
-                    if row.batch_id is None:
-                        continue
-                    batch = _catalog_db.get_batch(catalog_db_path,
-                                                   row.batch_id)
-                    if batch is None:
-                        continue
-                    candidate = Path(batch.output_dir) / row.slot_id
-                    if candidate.exists() and candidate.is_dir():
-                        # Skip if already exists in generated/ (avoid dupes).
-                        if not (gen / row.slot_id).exists():
-                            catalog_dirs.append(candidate)
-        except Exception:
-            catalog_dirs = []  # never fail this route on catalog read errors
+        include_catalog = request.args.get("include_catalog", "approved")
+        if include_catalog not in ("approved", "all", "none"):
+            include_catalog = "approved"
 
-        # Build the iteration list: generated/ entries first, then
-        # catalog batch entries.
-        roots: list[Path] = []
+        catalog_dirs_with_status: list[tuple[Path, str]] = []
+        if include_catalog != "none":
+            try:
+                from forge.catalog import db as _catalog_db
+                catalog_db_path = WORKSPACE / "catalog.db"
+                if catalog_db_path.exists():
+                    for row in _catalog_db.list_languages(catalog_db_path):
+                        if row.batch_id is None:
+                            continue
+                        if include_catalog == "approved" and row.status != _catalog_db.STATUS_APPROVED:
+                            continue
+                        batch = _catalog_db.get_batch(catalog_db_path,
+                                                       row.batch_id)
+                        if batch is None:
+                            continue
+                        candidate = Path(batch.output_dir) / row.slot_id
+                        if candidate.exists() and candidate.is_dir():
+                            if not (gen / row.slot_id).exists():
+                                catalog_dirs_with_status.append(
+                                    (candidate, row.status))
+            except Exception:
+                catalog_dirs_with_status = []  # never fail on catalog read errors
+
+        # Build iteration list: generated/ first, then catalog entries.
+        # We track each entry's source ('generated' vs 'catalog') so
+        # the frontend can label / filter by it if needed.
+        roots: list[tuple[Path, str, str]] = []
         if gen.exists():
-            roots.extend(sorted(d for d in gen.iterdir() if d.is_dir()))
-        roots.extend(catalog_dirs)
+            for d in sorted(gen.iterdir()):
+                if d.is_dir():
+                    roots.append((d, "generated", "n/a"))
+        for cd, st in catalog_dirs_with_status:
+            roots.append((cd, "catalog", st))
 
         if not roots:
             return jsonify({"languages": []})
         out = []
-        for d in roots:
+        for d, _source, _catalog_status in roots:
             if not d.is_dir():
                 continue
             spec = d / "resolved_spec.json"
@@ -367,6 +388,9 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
                 "persona": persona,
                 "era": era,
                 "keyword_theme": keyword_theme,
+                # Phase 3 follow-up: source provenance + curation status.
+                "source": _source,            # 'generated' | 'catalog'
+                "catalog_status": _catalog_status,  # 'pending_review' | 'approved' | 'rejected' | 'n/a'
             })
         return jsonify({"languages": out})
 
@@ -1385,7 +1409,18 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         src_path.write_text(source, encoding="utf-8")
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = str(WORKSPACE / "generated") + os.pathsep + env.get("PYTHONPATH", "")
+        # Phase 3 follow-up: also include the lang_dir's parent for
+        # catalog batch languages (e.g., catalog_raw_gate2_v2/), so
+        # `from <slot_id>.parser import parse` works whether the
+        # language lives in generated/ or in a catalog batch dir.
+        _lang_parent = str(lang_dir.parent.resolve())
+        _gen_path = str(WORKSPACE / "generated")
+        _python_path_parts = [_lang_parent]
+        if _lang_parent != _gen_path:
+            _python_path_parts.append(_gen_path)
+        if env.get("PYTHONPATH"):
+            _python_path_parts.append(env["PYTHONPATH"])
+        env["PYTHONPATH"] = os.pathsep.join(_python_path_parts)
 
         try:
             compile_proc = subprocess.run(
@@ -1475,7 +1510,18 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
                 run_src = source
 
             env = os.environ.copy()
-            env["PYTHONPATH"] = str(WORKSPACE / "generated") + os.pathsep + env.get("PYTHONPATH", "")
+            # Phase 3 follow-up: also include the lang_dir's parent for catalog
+            # batch languages (e.g., catalog_raw_gate2_v2/), so
+            # `from <slot_id>.parser import parse` works whether the
+            # language lives in generated/ or in a catalog batch dir.
+            _lang_parent = str(lang_dir.parent.resolve())
+            _gen_path = str(WORKSPACE / "generated")
+            _python_path_parts = [_lang_parent]
+            if _lang_parent != _gen_path:
+                _python_path_parts.append(_gen_path)
+            if env.get("PYTHONPATH"):
+                _python_path_parts.append(env["PYTHONPATH"])
+            env["PYTHONPATH"] = os.pathsep.join(_python_path_parts)
             try:
                 cp = subprocess.run(
                     [sys.executable, str(d / "compile.py"), str(src_path)],
