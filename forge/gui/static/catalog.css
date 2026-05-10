@@ -462,6 +462,17 @@
   max-height: 50vh;
   overflow-y: auto;
 }
+.readme-source-tag {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  color: var(--catalog-pending);
+  background: rgba(184, 160, 74, 0.08);
+  border: 1px solid rgba(184, 160, 74, 0.2);
+  padding: 4px 8px;
+  border-radius: 3px;
+  margin-bottom: 8px;
+  display: inline-block;
+}
 
 .detail-pane-notes textarea {
   width: 100%;

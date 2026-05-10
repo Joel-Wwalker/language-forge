@@ -402,9 +402,27 @@ function renderDetail(data) {
       `<li><span>${escHtml(f.name)}</span><span class="file-meta">${escHtml(meta)}</span></li>`);
   }
 
-  // README + LANGUAGE.md
-  document.getElementById("detail-readme").textContent =
-    data.readme || "(README.md missing)";
+  // README + LANGUAGE.md. Phase 3 follow-up: when on-disk README
+  // is missing, the backend serves the spec's creative.readme_intro
+  // + origin_story as a fallback. Tag the rendering so the curator
+  // knows what they're reading.
+  const readmeEl = document.getElementById("detail-readme");
+  if (data.readme_source === "db_spec") {
+    readmeEl.innerHTML =
+      '<div class="readme-source-tag">📦 recovered from DB (on-disk README missing)</div>';
+    const pre = document.createElement("pre");
+    pre.style.margin = "0";
+    pre.style.background = "transparent";
+    pre.style.border = "none";
+    pre.style.padding = "0";
+    pre.style.whiteSpace = "pre-wrap";
+    pre.textContent = data.readme || "";
+    readmeEl.appendChild(pre);
+  } else if (data.readme_source === "missing" || !data.readme) {
+    readmeEl.innerHTML = '<div class="muted">(README.md missing on disk and not in spec)</div>';
+  } else {
+    readmeEl.textContent = data.readme;
+  }
   document.getElementById("detail-language-md").textContent =
     data.language_md || "(LANGUAGE.md missing)";
 
