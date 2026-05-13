@@ -6,3 +6,87 @@ concurrency: 4, timeout/slot: 600s, resume: False
 [16:34:14] START   slot_003
 [16:34:14] START   slot_004
 [16:34:14] START   slot_005
+[16:34:19] OK      slot_001 (3.9s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_001
+[16:34:19] START   slot_006
+[16:34:19] OK      slot_004 (4.1s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_004
+[16:34:19] START   slot_007
+[16:34:22] OK      slot_007 (2.6s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_007
+[16:34:22] START   slot_008
+[16:35:06] OK      slot_008 (44.0s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_008
+[16:35:06] START   slot_009
+[16:35:18] OK      slot_006 (58.9s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_006
+[16:35:18] START   slot_010
+[16:35:33] OK      slot_005 (78.7s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_005
+[16:35:33] START   slot_011
+[16:35:47] OK      slot_003 (92.6s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_003
+[16:35:47] START   slot_012
+[16:36:18] OK      slot_010 (59.2s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_010
+[16:36:18] START   slot_013
+[16:36:21] OK      slot_009 (74.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_009
+[16:36:21] START   slot_014
+[16:36:31] OK      slot_011 (56.4s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_011
+[16:36:31] START   slot_015
+[16:36:34] OK      slot_015 (2.2s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_015
+[16:36:34] START   slot_016
+[16:36:53] OK      slot_012 (65.6s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_012
+[16:36:53] START   slot_017
+[16:37:22] OK      slot_014 (60.7s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_014
+[16:37:22] START   slot_018
+[16:37:32] OK      slot_013 (74.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_013
+[16:37:32] START   slot_019
+[16:37:36] OK      slot_016 (61.9s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_016
+[16:37:36] START   slot_031
+[16:37:55] OK      slot_017 (61.4s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_017
+[16:37:55] START   slot_032
+[16:37:57] OK      slot_032 (2.5s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_032
+[16:37:57] START   slot_033
+[16:38:14] OK      slot_019 (41.8s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_019
+[16:38:14] START   slot_034
+[16:38:44] OK      slot_018 (82.1s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_018
+[16:38:44] START   slot_035
+[16:38:55] OK      slot_031 (79.1s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_031
+[16:38:55] START   slot_036
+[16:38:57] OK      slot_033 (59.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_033
+[16:38:57] START   slot_037
+[16:39:22] OK      slot_034 (67.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_034
+[16:39:22] START   slot_038
+[16:39:59] OK      slot_037 (62.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_037
+[16:39:59] START   slot_039
+[16:40:02] OK      slot_038 (40.1s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_038
+[16:40:02] START   slot_040
+[16:40:03] OK      slot_036 (67.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_036
+[16:40:03] START   slot_041
+[16:40:15] OK      slot_035 (90.7s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_035
+[16:40:15] START   slot_042
+[16:40:58] OK      slot_039 (58.7s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_039
+[16:40:58] START   slot_043
+[16:41:01] OK      slot_041 (57.1s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_041
+[16:41:01] START   slot_044
+[16:41:10] OK      slot_040 (67.4s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_040
+[16:41:10] START   slot_045
+[16:41:15] OK      slot_042 (58.5s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_042
+[16:41:15] START   slot_046
+[16:42:04] OK      slot_044 (60.8s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_044
+[16:42:04] START   slot_047
+[16:42:09] OK      slot_046 (52.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_046
+[16:42:09] START   slot_048
+[16:42:18] OK      slot_045 (66.8s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_045
+[16:42:18] START   slot_049
+[16:42:31] OK      slot_043 (91.7s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_043
+[16:42:31] START   slot_050
+[16:42:46] OK      slot_047 (40.8s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_047
+[16:43:16] OK      slot_048 (65.3s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_048
+[16:43:16] OK      slot_050 (43.5s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_050
+[16:43:20] OK      slot_049 (60.0s) -> C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\slot_049
+
+============================================================
+BATCH COMPLETE
+  total slots:        38
+  completed:          38
+  failed:             0
+  skipped (resumed):  0
+  pass rate:          100.0%
+  smoke passed:       37 / 38  (97.4%)
+  wall clock:         545.3s
+  state:              C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\state.json
+  summary:            C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation\batch_summary.json
