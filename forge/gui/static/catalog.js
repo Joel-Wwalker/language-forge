@@ -683,6 +683,15 @@ async function decide(status, advanceAfter = true) {
     item.reviewer_notes = reviewerNotes;
     if (status === "rejected") item.rejection_reason = rejectionReason;
   }
+  // Friction-fix (May 2026): if the user had checked this slot's bulk
+  // checkbox before deciding via the detail view, drop it from the
+  // bulkSelection set + re-render the bulk bar. Otherwise the "N
+  // selected" counter stays inflated by the slots we've already
+  // resolved individually.
+  if (STATE.bulkSelection.has(slotId)) {
+    STATE.bulkSelection.delete(slotId);
+    renderBulkBar();
+  }
   await refreshProgress();
 
   // Friction-fix (May 2026): after a decision, refetch the list so the
@@ -914,6 +923,7 @@ async function bulkAction(status) {
     return;
   }
   STATE.bulkSelection.clear();
+  renderBulkBar();  // hide the bar immediately; refreshList won't redraw it
   await refreshProgress();
   await refreshList();
 }
