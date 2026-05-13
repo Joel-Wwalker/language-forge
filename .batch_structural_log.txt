@@ -1,0 +1,8 @@
+loaded 38 slot(s) from forge\catalog\slots\v1_phase1.json
+output_root: C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_structural_v1
+concurrency: 4, timeout/slot: 600s, resume: False
+
+[19:54:01] START   slot_001
+[19:54:01] START   slot_003
+[19:54:01] START   slot_004
+[19:54:01] START   slot_005

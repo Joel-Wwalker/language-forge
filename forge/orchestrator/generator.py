@@ -273,6 +273,184 @@ def _template_from_reference(spec: dict, lang_dir: Path,
     return fulfilled
 
 
+def _overlay_idiomatic_content(spec: dict, lang_dir: Path,
+                               idioms: dict, *, telemetry=None) -> None:
+    """Apply themed canonical-test bodies + themed examples on top of
+    the reference templates that `_template_from_reference` already
+    wrote.
+
+    Per-body validation: for each themed canonical test, write to a
+    scratch file, compile via the language's compile.py, run the
+    resulting .out.py, compare stdout to the existing
+    `tests/<name>.expected_output.txt`. On match, overwrite the
+    reference test source with the themed body. On any mismatch,
+    parse failure, or runtime error, leave the reference template
+    intact — themed content is best-effort and a broken test is
+    worse than a generic one.
+
+    Examples: write each themed body to examples/<name><ext>,
+    parse-check only via compile.py (no stdout comparison since
+    examples aren't required to print anything specific). Drop
+    examples that fail to parse.
+
+    Records per-body validation results in telemetry under
+    `idioms_overlay`.
+
+    Failure of THIS function MUST NOT break generation — callers
+    catch exceptions.
+    """
+    import subprocess
+    import sys
+    import tempfile
+
+    ext = spec["file_extension"]
+    tests_dir = lang_dir / "tests"
+    examples_dir = lang_dir / "examples"
+    compile_py = lang_dir / "compile.py"
+    if not compile_py.exists():
+        # No compiler on disk — nothing we can validate against. Bail.
+        return
+
+    # Track per-body results so the README renderer can surface
+    # which themed bodies actually landed (vs reverted to reference).
+    accepted_tests: list[str] = []
+    rejected_tests: list[str] = []
+    accepted_examples: list[str] = []
+    rejected_examples: list[str] = []
+
+    def _compile_and_run(src_path: Path) -> tuple[bool, str]:
+        """Returns (success, stdout). success means compile + run both
+        finished cleanly. We don't need exit-0 — the runtime can panic
+        and we'd still want to compare what got printed."""
+        try:
+            cp = subprocess.run(
+                [sys.executable, str(compile_py), str(src_path)],
+                capture_output=True, text=True, timeout=20,
+                cwd=str(lang_dir),
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False, ""
+        if cp.returncode != 0:
+            return False, ""
+        out_py = src_path.with_suffix(src_path.suffix + ".out.py")
+        if not out_py.exists():
+            return False, ""
+        # The compiled .out.py emits `from <lang_name>.runtime import ...`,
+        # so the parent dir of lang_dir needs to be on PYTHONPATH for
+        # imports to resolve.
+        import os as _os
+        env = _os.environ.copy()
+        parent = str(lang_dir.parent.resolve())
+        env["PYTHONPATH"] = parent + _os.pathsep + env.get("PYTHONPATH", "")
+        try:
+            rp = subprocess.run(
+                [sys.executable, str(out_py)],
+                capture_output=True, text=True, timeout=20,
+                cwd=str(lang_dir), env=env,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return False, ""
+        return True, rp.stdout
+
+    # 1. Overlay themed canonical test bodies.
+    bodies = idioms.get("canonical_test_bodies") or {}
+    if isinstance(bodies, dict):
+        # Scratch dir lives under lang_dir so the compiled .out.py
+        # can import from <lang_name>.runtime via the standard path
+        # resolution. tempfile.gettempdir() would be cleaner but
+        # putting it on a different drive breaks the runtime import.
+        scratch_dir = lang_dir / "_idioms_scratch"
+        scratch_dir.mkdir(exist_ok=True)
+        try:
+            for name in bodies:
+                body = bodies[name]
+                if not isinstance(body, str) or not body.strip():
+                    continue
+                # Read the expected_output that _template_from_reference
+                # already wrote. If it's missing, we can't validate.
+                exp_path = tests_dir / f"{name}.expected_output.txt"
+                ref_src_path = tests_dir / f"{name}{ext}"
+                if not exp_path.exists() or not ref_src_path.exists():
+                    rejected_tests.append(name)
+                    continue
+                expected = exp_path.read_text(encoding="utf-8")
+
+                scratch_src = scratch_dir / f"{name}{ext}"
+                scratch_src.write_text(body, encoding="utf-8")
+                ok, stdout = _compile_and_run(scratch_src)
+                # Be lenient with trailing newlines — the reference
+                # tests use rstrip on both sides, so do the same here.
+                if ok and stdout.rstrip("\n") == expected.rstrip("\n"):
+                    # Themed body produces the same output. Overwrite
+                    # the reference source with it.
+                    ref_src_path.write_text(body, encoding="utf-8")
+                    accepted_tests.append(name)
+                else:
+                    rejected_tests.append(name)
+        finally:
+            # Clean up the scratch dir. Don't fail generation if
+            # cleanup hits a permission error (Windows file locks).
+            try:
+                import shutil
+                shutil.rmtree(scratch_dir, ignore_errors=True)
+            except Exception:
+                pass
+
+    # 2. Write themed examples. Parse-check only (no output diff).
+    examples = idioms.get("examples") or []
+    if isinstance(examples, list) and examples:
+        examples_dir.mkdir(exist_ok=True)
+        for entry in examples:
+            if not isinstance(entry, dict):
+                continue
+            name = entry.get("name")
+            body = entry.get("body")
+            if not isinstance(name, str) or not name.isidentifier():
+                continue
+            if not isinstance(body, str) or not body.strip():
+                continue
+            example_path = examples_dir / f"{name}{ext}"
+            example_path.write_text(body, encoding="utf-8")
+            # Parse-check via compile.py. If compilation fails, drop
+            # the file. We don't run the .out.py — examples often hit
+            # runtime edge cases that aren't worth penalizing.
+            try:
+                cp = subprocess.run(
+                    [sys.executable, str(compile_py), str(example_path)],
+                    capture_output=True, text=True, timeout=20,
+                    cwd=str(lang_dir),
+                )
+                if cp.returncode == 0:
+                    accepted_examples.append(name)
+                else:
+                    rejected_examples.append(name)
+                    example_path.unlink(missing_ok=True)
+                    out_py = example_path.with_suffix(example_path.suffix + ".out.py")
+                    out_py.unlink(missing_ok=True)
+            except (subprocess.TimeoutExpired, OSError):
+                rejected_examples.append(name)
+                example_path.unlink(missing_ok=True)
+
+    # Record what happened so the README renderer can enumerate the
+    # examples that survived, and so telemetry shows acceptance rates.
+    spec_meta = spec.get("idioms") or {}
+    spec_meta["overlay_result"] = {
+        "tests_accepted": accepted_tests,
+        "tests_rejected": rejected_tests,
+        "examples_accepted": accepted_examples,
+        "examples_rejected": rejected_examples,
+    }
+    # spec was already persisted to resolved_spec.json before this
+    # ran; re-persist so downstream consumers see the overlay_result.
+    try:
+        spec_path = lang_dir / "resolved_spec.json"
+        if spec_path.exists():
+            spec_path.write_text(
+                json.dumps(spec, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
 def _interp(template: str, spec: dict, **extras) -> str:
     out = template.replace("{{SPEC}}", json.dumps(spec, indent=2))
     for k, v in extras.items():
@@ -461,9 +639,33 @@ def _render_templated_readme(spec: dict) -> str:
         lines.append("## A common mistake\n")
         lines.append(common_mistake + "\n")
     lines.append("## Examples\n")
-    lines.append(f"See `examples/` and `tests/` for working programs.")
-    lines.append(f"Each canonical test (`hello_world{ext}`, `arithmetic{ext}`, ...) is")
-    lines.append(f"verified end-to-end.")
+    # Structural variance: enumerate themed examples from spec.idioms
+    # if the idioms LLM call produced any and they survived parse-check.
+    # Falls back to the generic "see examples/ and tests/" paragraph
+    # when no themed examples landed.
+    idioms_meta = spec.get("idioms") or {}
+    overlay = idioms_meta.get("overlay_result") or {}
+    accepted_example_names = set(overlay.get("examples_accepted") or [])
+    themed_examples = [
+        e for e in (idioms_meta.get("examples") or [])
+        if isinstance(e, dict)
+        and e.get("name") in accepted_example_names
+    ]
+    if themed_examples:
+        for entry in themed_examples:
+            ex_name = entry.get("name", "")
+            ex_desc = (entry.get("description") or "").strip()
+            lines.append(f"### `{ex_name}{ext}`\n")
+            if ex_desc:
+                lines.append(ex_desc + "\n")
+        lines.append(
+            f"See `examples/` for the full source. Each canonical test "
+            f"(`hello_world{ext}`, `arithmetic{ext}`, ...) under `tests/` "
+            f"is verified end-to-end.")
+    else:
+        lines.append(f"See `examples/` and `tests/` for working programs.")
+        lines.append(f"Each canonical test (`hello_world{ext}`, `arithmetic{ext}`, ...) is")
+        lines.append(f"verified end-to-end.")
     return "\n".join(lines) + "\n"
 
 
@@ -1344,6 +1546,33 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
             # missing-creative case gracefully.
             telemetry.record_error("creative", str(_ce))
 
+    # Structural variance: themed canonical-test bodies + themed
+    # examples. Same discipline as creative - best-effort, falls back
+    # to reference templates on any failure, aggressively cached. The
+    # actual validation of test bodies (compile + run + diff expected
+    # output) happens later in _overlay_idiomatic_content, after the
+    # parser/codegen/runtime have been written to lang_dir.
+    #
+    # Skipped when the templated path isn't going to run for this spec
+    # (no reference compiler available, or template_from_reference=False).
+    # The idioms overlay only modifies files that _template_from_reference
+    # wrote, so firing the LLM call on a python_like (LLM-driven) spec
+    # would burn a call with no place to apply the output.
+    will_use_template = (
+        template_from_reference
+        and reference_compiler_for(spec) is not None
+        and not only
+    )
+    if enrich_creative and will_use_template and not spec.get("idioms"):
+        try:
+            from .idioms import idiomatic_content
+            idioms = idiomatic_content(spec, client=client)
+            if idioms:
+                spec = dict(spec)
+                spec["idioms"] = idioms
+        except Exception as _ie:
+            telemetry.record_error("idioms", str(_ie))
+
     # Persist the spec next to the generated source for verifier discovery.
     (lang_dir / "resolved_spec.json").write_text(
         json.dumps(spec, indent=2), encoding="utf-8"
@@ -1385,6 +1614,22 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
                 except Exception:
                     pass
         components = [c for c in components if c not in fulfilled]
+
+        # Structural variance overlay: if the idioms LLM call produced
+        # themed bodies, overlay them on top of the reference templates.
+        # Each themed body is validated by compiling + running it and
+        # comparing stdout to the existing expected_output.txt. Mismatches
+        # silently revert to the reference template (which is already
+        # on disk). Themed examples are parse-checked and written to
+        # examples/. Best-effort: any exception here MUST NOT break
+        # generation.
+        idioms_meta: dict = spec.get("idioms") or {}
+        if idioms_meta:
+            try:
+                _overlay_idiomatic_content(spec, lang_dir, idioms_meta,
+                                           telemetry=telemetry)
+            except Exception as _ioe:
+                telemetry.record_error("idioms_overlay", str(_ioe))
 
     def _emit(component, status):
         if on_progress:
