@@ -907,7 +907,20 @@ $('#go-playground').addEventListener('click', async () => {
 let LIBRARY_CACHE = [];
 
 async function refreshLibrary() {
-  const r = await fetch('/api/languages' + _includeCatalogParam());
+  // Friction-fix (May 2026): the Library is now a strictly curated
+  // surface — only catalog rows with status=approved show up. The
+  // user explicitly asked that unapproved test runs, reference
+  // templates (toylang/lisplang/forthlang/stacky), and old ad-hoc
+  // generated/ entries not clutter their library view.
+  //
+  // Deep-link callers (the catalog UI's "Launch REPL") still pass
+  // ?include_catalog=all in the URL to override this and see pending
+  // candidates. The override wins via _includeCatalogParam().
+  const urlParams = new URLSearchParams(location.search);
+  const param = urlParams.get('include_catalog')
+    ? _includeCatalogParam()
+    : '?include_catalog=approved_only';
+  const r = await fetch('/api/languages' + param);
   const { languages } = await r.json();
   LIBRARY_CACHE = languages;
   const list = $('#library-list');
