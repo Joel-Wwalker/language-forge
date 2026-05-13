@@ -30,6 +30,62 @@ HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parents[1]
 
 
+def _safe_lang_roots() -> list[Path]:
+    """Return the list of directories that the playground/REPL/download
+    endpoints are allowed to serve languages from.
+
+    Always includes WORKSPACE/generated/. Catalog-batch output dirs are
+    added per-row from the catalog DB so approved/library languages can
+    serve their REPL HTML and zips through the same endpoints as the
+    legacy generated/ ones.
+
+    Friction-fix (May 2026): the Browser button on Library cards was
+    returning {"error": "no such language"} for approved catalog
+    languages because the old check `lang_dir.is_relative_to(generated)`
+    rejected anything outside WORKSPACE/generated/. Catalog batches live
+    in catalog_raw_*/, so they failed the sandbox check even though
+    _resolve_lang_root() had found them correctly.
+    """
+    roots: list[Path] = [(WORKSPACE / "generated").resolve()]
+    try:
+        import sqlite3
+        catalog_db = WORKSPACE / "catalog.db"
+        if catalog_db.exists():
+            con = sqlite3.connect(str(catalog_db))
+            try:
+                cur = con.execute("SELECT DISTINCT output_dir FROM batches")
+                for (output_dir,) in cur.fetchall():
+                    if not output_dir:
+                        continue
+                    try:
+                        p = Path(output_dir).resolve()
+                    except OSError:
+                        continue
+                    if p not in roots:
+                        roots.append(p)
+            finally:
+                con.close()
+    except Exception:
+        pass
+    return roots
+
+
+def _is_safe_lang_dir(lang_dir: Path) -> bool:
+    """Path-traversal guard: lang_dir must live under one of the safe
+    roots. Used by /api/standalone/<lang> and /api/download/<lang>."""
+    try:
+        resolved = lang_dir.resolve()
+    except OSError:
+        return False
+    for root in _safe_lang_roots():
+        try:
+            if resolved.is_relative_to(root):
+                return True
+        except (ValueError, OSError):
+            continue
+    return False
+
+
 def _resolve_lang_root(name: str) -> Path:
     """Resolve a language's on-disk directory.
 
@@ -1732,8 +1788,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
         lang_dir = (_resolve_lang_root(lang)).resolve()
-        generated_root = (WORKSPACE / "generated").resolve()
-        if not lang_dir.exists() or not lang_dir.is_relative_to(generated_root):
+        if not lang_dir.exists() or not _is_safe_lang_dir(lang_dir):
             return jsonify({"error": "no such language"}), 404
 
         repl_path = lang_dir / "repl.html"
@@ -1792,8 +1847,7 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         if not lang.isidentifier():
             return jsonify({"error": "invalid language name"}), 400
         lang_dir = (_resolve_lang_root(lang)).resolve()
-        generated_root = (WORKSPACE / "generated").resolve()
-        if not lang_dir.exists() or not lang_dir.is_relative_to(generated_root):
+        if not lang_dir.exists() or not _is_safe_lang_dir(lang_dir):
             return jsonify({"error": "no such language"}), 404
 
         excluded_dirs = {".forge_log", "_playground", "__pycache__"}
