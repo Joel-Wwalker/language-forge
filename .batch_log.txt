@@ -1,0 +1,8 @@
+loaded 38 slot(s) from forge\catalog\slots\v1_phase1.json
+output_root: C:\Users\theag\OneDrive\Desktop\newAgent\workspace\catalog_raw_variance_validation
+concurrency: 4, timeout/slot: 600s, resume: False
+
+[16:34:14] START   slot_001
+[16:34:14] START   slot_003
+[16:34:14] START   slot_004
+[16:34:14] START   slot_005
