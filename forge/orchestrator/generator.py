@@ -405,12 +405,17 @@ def _render_templated_readme(spec: dict) -> str:
         "stack_based":  "Forth-style: postfix evaluation on an implicit data stack.",
     }.get(syntax, "")
 
-    # Phase 1.5 Stage D: persona-flavored prose intro from the
-    # creative-content LLM call. Lives at spec["creative"][
-    # "readme_intro"]. Falls back to nothing if creative content
-    # wasn't generated (e.g. a fully-offline batch run).
+    # Phase 1.5 Stage D + variance-improvement: persona-flavored prose
+    # from the creative-content LLM call. Six possible fields, each
+    # inlined at a specific position. Falls back to nothing if creative
+    # content wasn't generated (e.g. a fully-offline batch run).
     creative = spec.get("creative") or {}
     readme_intro = (creative.get("readme_intro") or "").strip()
+    design_philosophy = (creative.get("design_philosophy") or "").strip()
+    what_its_good_at = (creative.get("what_its_good_at") or "").strip()
+    what_its_bad_at = (creative.get("what_its_bad_at") or "").strip()
+    example_commentary = (creative.get("example_commentary") or "").strip()
+    common_mistake = (creative.get("common_mistake") or "").strip()
 
     lines = [f"# {name}\n"]
     if origin:
@@ -426,11 +431,29 @@ def _render_templated_readme(spec: dict) -> str:
     if var_ex:  lines.append(var_ex)
     if print_ex: lines.append(print_ex)
     lines.append("```\n")
+    # Variance-improvement: design philosophy lives after the spec
+    # summary, no heading needed — just inlined paragraph.
+    if example_commentary:
+        lines.append(example_commentary + "\n")
+    if design_philosophy:
+        lines.append(design_philosophy + "\n")
     lines.append("## Run\n")
     lines.append(f"```bash")
     lines.append(f"python -m {name}.compile path/to/program{ext}")
     lines.append(f"python path/to/program{ext}.out.py")
     lines.append("```\n")
+    # Variance-improvement: the three "this language..." sections.
+    # Headings are deliberately plain (not persona-flavored) so the
+    # README stays skimmable. The voice is in the content.
+    if what_its_good_at:
+        lines.append("## What this language is good at\n")
+        lines.append(what_its_good_at + "\n")
+    if what_its_bad_at:
+        lines.append("## What this language is not good at\n")
+        lines.append(what_its_bad_at + "\n")
+    if common_mistake:
+        lines.append("## A common mistake\n")
+        lines.append(common_mistake + "\n")
     lines.append("## Examples\n")
     lines.append(f"See `examples/` and `tests/` for working programs.")
     lines.append(f"Each canonical test (`hello_world{ext}`, `arithmetic{ext}`, ...) is")

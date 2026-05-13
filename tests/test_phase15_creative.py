@@ -34,26 +34,52 @@ from forge.orchestrator.generator import (
 WORKSPACE = Path(__file__).resolve().parents[1]
 
 
+# A 100-word readme_intro that passes the variance-improvement word-
+# count floor (the minimum is 40 words for readme_intro / 2 = 20-ish).
+# Tests that don't care about specific content reuse this.
+_DEFAULT_README_INTRO = (
+    "This is a stub readme_intro produced by the test client. It "
+    "exists only to give the renderer something concrete to inline. "
+    "The variance-improvement validation requires that readme_intro "
+    "be at least 40 words long after stripping whitespace, so this "
+    "sentence keeps padding the count to make sure it lands inside "
+    "the loose validation window the creative module enforces against "
+    "real LLM outputs. None of this content is meant to be "
+    "evocative. Tests assert on shape, not voice."
+)
+
+
 class _StubCreativeClient:
-    """Returns a canned plain-text response for `gen-creative`. Records
-    every call so tests can pin call counts."""
+    """Returns a canned JSON response for `gen-creative`. Records every
+    call so tests can pin call counts.
+
+    Variance-improvement: the call surface is now `call_json` against
+    a 6-field schema. By default this client returns just `readme_intro`
+    (the only required field) — tests that need more fields pass them
+    via `extra_fields`.
+    """
     log_dir = None
     model = "stub-creative"
     telemetry = None
 
-    def __init__(self, response: str = "A small language with bigger ambitions."):
+    def __init__(self, response: str = _DEFAULT_README_INTRO,
+                 extra_fields: dict | None = None):
         self.calls: list[str] = []
         self.response = response
+        self.extra_fields = extra_fields or {}
 
-    def call_code(self, prompt, *, tag="code", **kw):
+    def call_json(self, prompt, schema, *, tag="json", **kw):
         from forge.orchestrator.llm_client import _emit_telemetry
         _emit_telemetry(self, tag, time.monotonic() - 0.01,
                         100, 50, 1, True, None)
         self.calls.append(tag)
-        return self.response
+        result = {"readme_intro": self.response}
+        result.update(self.extra_fields)
+        return result
 
-    def call_json(self, *a, **kw):
-        return {}
+    def call_code(self, *a, **kw):
+        # Legacy method; kept for compatibility with other code paths.
+        return self.response
 
     def call_chat(self, *a, **kw):
         return ""
@@ -64,13 +90,18 @@ class _StubCreativeClient:
 # ---------------------------------------------------------------------------
 
 def test_creative_content_returns_readme_intro(tmp_path):
+    """Variance-improvement: the result still has `readme_intro` (the
+    required field). Additional fields may or may not be present
+    depending on what the LLM returned; here the stub only returns
+    readme_intro, so the dict has exactly that key."""
     spec = build_spec(
         {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
         "creative_test",
     )
-    client = _StubCreativeClient(response="Forged in 1986. Compiles fast.")
+    client = _StubCreativeClient()
     result = creative_content(spec, client=client, cache_dir=tmp_path / "cc")
-    assert result == {"readme_intro": "Forged in 1986. Compiles fast."}
+    assert "readme_intro" in result
+    assert result["readme_intro"] == _DEFAULT_README_INTRO
     assert client.calls == ["gen-creative"]
 
 
@@ -81,7 +112,7 @@ def test_creative_content_caches_by_content_hash(tmp_path):
         "cache_test",
     )
     cache_dir = tmp_path / "cc"
-    client = _StubCreativeClient(response="Cached prose.")
+    client = _StubCreativeClient()  # default response passes validation
     r1 = creative_content(spec, client=client, cache_dir=cache_dir)
     r2 = creative_content(spec, client=client, cache_dir=cache_dir)
     assert r1 == r2
@@ -147,9 +178,10 @@ def test_creative_content_swallows_llm_failures(tmp_path):
     class _FailingClient:
         log_dir = None; model = "fail"; telemetry = None
         calls: list = []
+        def call_json(self, *a, **kw):
+            raise RuntimeError("synthetic LLM failure")
         def call_code(self, *a, **kw):
             raise RuntimeError("synthetic LLM failure")
-        def call_json(self, *a, **kw): return {}
         def call_chat(self, *a, **kw): return ""
 
     spec = build_spec(
@@ -178,18 +210,22 @@ def test_clear_creative_cache(tmp_path):
     assert len(list(cache_dir.glob("*.json"))) == 0
 
 
-def test_creative_strips_accidental_fences(tmp_path):
-    """If the LLM wraps its output in ```fences```, peel them. The
-    prompt explicitly forbids fences but model behavior varies."""
+def test_creative_drops_too_short_readme_intro(tmp_path):
+    """Variance-improvement: the loose-validation pass drops fields
+    that are pathologically short (less than half the lower bound).
+    For readme_intro the lower bound is 80, so anything under ~40
+    words gets dropped — and since readme_intro is required, the
+    whole creative block returns {} when its headline is missing."""
     spec = build_spec(
         {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
-        "fence_test",
+        "short_intro_test",
     )
-    client = _StubCreativeClient(
-        response="```\nA short intro paragraph.\n```")
+    client = _StubCreativeClient(response="Tiny.")
     result = creative_content(spec, client=client, cache_dir=tmp_path / "cc")
-    assert "```" not in result["readme_intro"]
-    assert "A short intro paragraph." in result["readme_intro"]
+    assert result == {}, (
+        f"a 1-word readme_intro should fail validation and trigger "
+        f"the empty-creative fallback; got {result}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -242,7 +278,8 @@ def test_generate_all_calls_creative_once_for_clike(tmp_path, fresh_creative_cac
         {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
         "wiring_test",
     )
-    client = _StubCreativeClient(response="Wired in.")
+    # Stub returns default 100-word readme_intro (validation passes).
+    client = _StubCreativeClient()
     generate_all(spec, output_root=tmp_path, client=client,
                  verify_after_generation=False)
     assert client.calls == ["gen-creative"], (
@@ -250,7 +287,7 @@ def test_generate_all_calls_creative_once_for_clike(tmp_path, fresh_creative_cac
     )
     # The README should contain the creative intro.
     readme = (tmp_path / "wiring_test" / "README.md").read_text(encoding="utf-8")
-    assert "Wired in." in readme
+    assert "stub readme_intro produced by the test client" in readme
 
 
 @pytest.mark.slow
@@ -302,10 +339,10 @@ def test_generate_all_persists_creative_in_resolved_spec(tmp_path, fresh_creativ
         {"syntax": "c_like", "typing": "dynamic", "memory": "host_gc"},
         "persist_test",
     )
-    client = _StubCreativeClient(response="Persisted prose.")
+    client = _StubCreativeClient()  # default 100-word intro
     generate_all(spec, output_root=tmp_path, client=client,
                  verify_after_generation=False)
     saved = json.loads(
         (tmp_path / "persist_test" / "resolved_spec.json").read_text(encoding="utf-8")
     )
-    assert saved.get("creative", {}).get("readme_intro") == "Persisted prose."
+    assert saved.get("creative", {}).get("readme_intro") == _DEFAULT_README_INTRO
