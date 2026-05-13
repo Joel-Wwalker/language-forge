@@ -422,7 +422,13 @@ def _render_templated_readme(spec: dict) -> str:
         lines.append(f"_{origin.strip()}_\n")
     if readme_intro:
         lines.append(readme_intro + "\n")
-    lines.append(f"A {syntax} language with {typing} typing and {memory} memory.\n")
+    # Wrap technical identifiers in backticks so markdown renderers
+    # don't italicize on the underscores (e.g. `s_expression`, `host_gc`).
+    # Some renderers — including the standalone REPL's marked.js setup —
+    # treat the first `_` as italic-open and the next as italic-close,
+    # which broke this line into mid-sentence italics. Inline code is
+    # always literal.
+    lines.append(f"A `{syntax}` language with `{typing}` typing and `{memory}` memory.\n")
     if family_blurb:
         lines.append(family_blurb + "\n")
     lines.append("## At a glance\n")
@@ -473,9 +479,11 @@ def _render_templated_language_reference(spec: dict) -> str:
     ops = spec.get("operators") or {}
 
     lines = [f"# {name} language reference\n"]
-    lines.append(f"Family: **{syntax}**.")
-    lines.append(f"Typing: **{spec['options']['typing']}**.")
-    lines.append(f"Memory: **{spec['options']['memory']}**.\n")
+    # Identifiers in backticks (not bold) so renderers don't italicize
+    # the underscores in `s_expression` / `host_gc` etc.
+    lines.append(f"Family: `{syntax}`.")
+    lines.append(f"Typing: `{spec['options']['typing']}`.")
+    lines.append(f"Memory: `{spec['options']['memory']}`.\n")
 
     lines.append("## Lexical syntax\n")
     if cs.get("line"):

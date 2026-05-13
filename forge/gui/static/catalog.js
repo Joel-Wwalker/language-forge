@@ -684,7 +684,30 @@ async function decide(status, advanceAfter = true) {
     if (status === "rejected") item.rejection_reason = rejectionReason;
   }
   await refreshProgress();
-  if (advanceAfter) advance(+1);
+
+  // Friction-fix (May 2026): after a decision, refetch the list so the
+  // sidebar reflects the new status. If the user has a status filter
+  // active (e.g. pending_review only), the just-decided item drops out
+  // of the list — which is the whole point. Without this refetch the
+  // stale row keeps the old "pending review" badge until the user
+  // changes filters, making them think the action didn't land.
+  if (advanceAfter) {
+    const oldIdx = STATE.detailIndex;
+    await refreshList();
+    // If the decided item dropped out of the filtered list, the next
+    // candidate now sits at the SAME index we were on (the list shifted
+    // up by one). If it's still in the list (filter includes the new
+    // status), advance one step forward to move past it.
+    const stillPresent = STATE.items.some(i => i.slot_id === slotId);
+    const targetIdx = stillPresent ? oldIdx + 1 : oldIdx;
+    if (targetIdx >= 0 && targetIdx < STATE.items.length) {
+      STATE.detailIndex = targetIdx;
+      STATE.selectedIndex = targetIdx;
+      openDetail(STATE.items[targetIdx].slot_id, /*pushState=*/true);
+    } else {
+      backToList();
+    }
+  }
 }
 
 

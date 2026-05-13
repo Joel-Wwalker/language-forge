@@ -1845,6 +1845,35 @@ async function loadKataPack(lang) {
     detailEmpty.style.display = '';
     detail.hidden = true;
     currentKata = null;
+    // Friction-fix (May 2026): if the user got here via a deep-link
+    // from the catalog UI (URL has ?lang=<slot_id>), the empty kata
+    // pane reads as "doesn't show anything." Catalog batches don't
+    // ship a katas.json — the templated pipeline only generates them
+    // on demand. So auto-trigger the first curated pack load instead
+    // of asking the user to click two more buttons. The same auto-load
+    // does NOT fire for legacy generated/ languages, since those users
+    // are already familiar with the manual Load Pack flow.
+    const params = new URLSearchParams(location.search);
+    const deepLinked = params.get('lang') === lang;
+    const autoLoadBtn = $('#kata-load-pack');
+    if (deepLinked && autoLoadBtn) {
+      list.innerHTML = '<p class="muted" style="font-size:12px;padding:12px">Auto-loading the default kata pack for this language… (first time only; cached after this).</p>';
+      // Wait up to 3s for refreshKataPacks to populate the pack-pick
+      // dropdown (it's fetched in parallel with refreshKataLanguages
+      // when the katas view opens). Then click Load Pack.
+      const packPick = $('#kata-pack-pick');
+      const start = Date.now();
+      const waitForPack = () => {
+        if (packPick && packPick.value) {
+          autoLoadBtn.click();
+          return;
+        }
+        if (Date.now() - start > 3000) return;  // give up; user can click manually
+        setTimeout(waitForPack, 100);
+      };
+      waitForPack();
+      return;
+    }
     list.innerHTML = '<p class="muted" style="font-size:12px;padding:12px">No problem pack loaded yet. Click <strong>📚 Load pack</strong> above to fetch the LeetCode classics for this language.</p>';
     return;
   }
