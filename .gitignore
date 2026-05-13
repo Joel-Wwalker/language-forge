@@ -88,6 +88,31 @@ catalog*.db-journal
 
 # Conversation-derived reports + ad-hoc instruction docs. Kept locally
 # for reference but not committed to the public repo.
+# Catch-all patterns first so future findings docs are auto-ignored.
+*-instructions.md
+*-findings.md
+*-followup.md
+*_REPORT.md
+*_REVIEW.md
+*_FINDINGS.md
+*_AUDIT.md
+*_DIAGNOSIS.md
+*_NOTES.md
+*_OVERVIEW.md
+PROJECT_REPORT.md
+PROJECT_OVERVIEW.md
+PHASE*.md
+phase*.md
+variance-*.md
+verification_*/
+catalog.db.backup*
+
+# Raw LLM prompt + response logs (forge writes these per-call under
+# .forge_log/ inside generated lang dirs; never commit them).
+**/.forge_log/
+
+# Specific historical files (kept for clarity; the patterns above
+# also cover them).
 API_COST_AUDIT.md
 CODEBASE_REVIEW.md
 PIPELINE_DIAGNOSIS.md
@@ -103,8 +128,3 @@ PHASE3_REVIEW.md
 PHASE3_VALIDATION_NOTES.md
 PHASE3_FOLLOWUP_REVIEW.md
 PHASE3_FOLLOWUP_FINDINGS.md
-PROJECT_OVERVIEW.md
-catalog.db.backup*
-phase1.5-*.md
-phase2-*.md
-phase3-*.md
