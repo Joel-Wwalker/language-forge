@@ -4,6 +4,19 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
+
+function _includeCatalogParam() {
+  // Phase 3 follow-up: when the catalog UI deep-links into the
+  // playground via ?include_catalog=all, propagate it to the
+  // /api/languages call so catalog candidates appear in the dropdown.
+  // Default behavior (no query param) keeps Library showing only
+  // generated/ + approved catalog entries.
+  const p = new URLSearchParams(location.search);
+  const inc = p.get('include_catalog');
+  return inc ? '?include_catalog=' + encodeURIComponent(inc) : '';
+}
+
+
 let currentLang = null;
 let providers = { available: { api: false, claude_cli: false }, default: 'api' };
 
@@ -894,7 +907,7 @@ $('#go-playground').addEventListener('click', async () => {
 let LIBRARY_CACHE = [];
 
 async function refreshLibrary() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   LIBRARY_CACHE = languages;
   const list = $('#library-list');
@@ -1414,7 +1427,7 @@ $('#empty-new-btn').addEventListener('click', () => switchView('create'));
 // Playground
 // ============================================================
 async function refreshPlaygroundLanguages() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   const sel = $('#play-lang');
   sel.innerHTML = '';
@@ -1769,7 +1782,7 @@ $('#play-source').addEventListener('keydown', (ev) => {
 // ============================================================
 async function refreshFooter() {
   try {
-    const r = await fetch('/api/languages');
+    const r = await fetch('/api/languages' + _includeCatalogParam());
     const { languages } = await r.json();
     $('#footer-stats').textContent = `${languages.length} language${languages.length === 1 ? '' : 's'} forged`;
   } catch {}
@@ -1799,7 +1812,7 @@ let currentPack = null;          // full pack object for filter rebuilds
 // `currentLang` is already declared earlier in this file (used by other tabs)
 
 async function refreshKataLanguages() {
-  const r = await fetch('/api/languages');
+  const r = await fetch('/api/languages' + _includeCatalogParam());
   const { languages } = await r.json();
   const sel = $('#kata-lang');
   sel.innerHTML = '';
@@ -2792,3 +2805,66 @@ $('#surprise-form')?.addEventListener('submit', async (ev) => {
     submit.disabled = false;
   }
 });
+
+
+// ---------------------------------------------------------------------------
+// Phase 3 follow-up Item 5: ?lang=<slot_id>&view=playground|kata deep-link.
+// The catalog curation UI's "Launch REPL" / "Open kata workspace" buttons
+// open this page with those query params; we read them on boot and
+// auto-select the language + switch to the right view. No deep-link =
+// the GUI boots into its default "Create" view as before.
+// ---------------------------------------------------------------------------
+
+(function handleDeepLink() {
+  const params = new URLSearchParams(location.search);
+  const lang = params.get('lang');
+  const view = params.get('view');
+  if (!lang) return;
+
+  // Defer slightly so the rest of the app's DOMContentLoaded
+  // initialization runs first (the language list + tab switching
+  // both depend on bootstrap state being in place).
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(async () => {
+      try {
+        if (view === 'kata' || view === 'katas') {
+          // Switch to the kata workspace tab and select the language.
+          // The tab's data-view is 'katas' (plural); accept either spelling.
+          if (typeof switchView === 'function') switchView('katas');
+          const sel = document.querySelector('#kata-lang');
+          if (sel) {
+            // Wait for the dropdown to be populated by the existing
+            // bootstrap (refreshKataLanguages or similar populates it
+            // asynchronously after /api/languages resolves).
+            await waitForOption(sel, lang, 5000);
+            sel.value = lang;
+            sel.dispatchEvent(new Event('change'));
+          }
+        } else {
+          // Default: open in playground.
+          if (typeof openInPlayground === 'function') {
+            await openInPlayground(lang);
+          }
+        }
+      } catch (e) {
+        console.warn('deep-link auto-open failed:', e);
+      }
+    }, 200);
+  });
+})();
+
+
+function waitForOption(selectEl, value, timeoutMs) {
+  /* Resolve when the given <option value> appears under the select
+     (or after timeoutMs). Used by the deep-link handler since the
+     language dropdown is populated async. */
+  return new Promise(resolve => {
+    const start = Date.now();
+    function check() {
+      if ([...selectEl.options].some(o => o.value === value)) return resolve();
+      if (Date.now() - start > timeoutMs) return resolve();
+      setTimeout(check, 100);
+    }
+    check();
+  });
+}

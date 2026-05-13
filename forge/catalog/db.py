@@ -748,3 +748,100 @@ def bulk_add_tag(db_path: str | Path, slot_ids: list[str], tag: str) -> int:
         if add_tag_to_language(db_path, slot_id, tag):
             n += 1
     return n
+
+
+def backfill_customization_from_plan(
+    db_path: str | Path,
+    plan_path: str | Path,
+    *,
+    overwrite: bool = False,
+) -> dict:
+    """Phase 3 follow-up Item 3: rehydrate `theme`/`phrasebook`/
+    `persona`/`era` columns on language rows from the original slot
+    plan when the resolver normalized them away and `slot.json`
+    wasn't preserved.
+
+    The Phase 1.5 resolver consumes `theme` and `phrasebook` into
+    concrete `keyword_overrides` + creative content, leaving the
+    DB columns NULL even when the original plan slot had them set.
+    The catalog runner SHOULD copy `slot.json` next to each
+    generated language to preserve the original input — but the
+    Phase 1.5 batch produced `catalog_raw_gate2_v2/` without those
+    files (a runner bug to harden in Phase 4).
+
+    This function fills the gap by reading the plan file directly
+    and updating each row whose customization columns are NULL
+    (default) or all rows (when `overwrite=True`).
+
+    Returns a dict {`updated`, `skipped_already_set`,
+    `skipped_no_match`} for reporting.
+
+    Args:
+      db_path: catalog DB
+      plan_path: path to the slot plan JSON (typically
+        `forge/catalog/slots/v1_phase1.json`)
+      overwrite: if True, even non-NULL columns get updated from
+        the plan. Default False — only fills NULL columns.
+    """
+    db_path = Path(db_path)
+    plan_path = Path(plan_path)
+    if not plan_path.exists():
+        raise FileNotFoundError(f"plan not found: {plan_path}")
+    init_db(db_path)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan_by_id: dict[str, dict] = {s["slot_id"]: s for s in plan
+                                    if isinstance(s, dict)
+                                    and "slot_id" in s}
+
+    updated = 0
+    skipped_already_set = 0
+    skipped_no_match = 0
+
+    with _connect(db_path, write=True) as conn:
+        rows = conn.execute(
+            "SELECT slot_id, persona, era, theme, phrasebook "
+            "FROM languages"
+        ).fetchall()
+        for r in rows:
+            slot = plan_by_id.get(r["slot_id"])
+            if slot is None:
+                skipped_no_match += 1
+                continue
+            cust = slot.get("customization") or {}
+            new_persona = cust.get("persona")
+            new_era = cust.get("era")
+            new_theme = cust.get("theme")
+            new_phrasebook = cust.get("phrasebook")
+
+            sets = []
+            params: dict = {"slot_id": r["slot_id"]}
+            if new_persona and (overwrite or r["persona"] is None):
+                sets.append("persona = :persona")
+                params["persona"] = new_persona
+            if new_era and (overwrite or r["era"] is None):
+                sets.append("era = :era")
+                params["era"] = new_era
+            if new_theme and (overwrite or r["theme"] is None):
+                sets.append("theme = :theme")
+                params["theme"] = new_theme
+            if new_phrasebook and (overwrite or r["phrasebook"] is None):
+                sets.append("phrasebook = :phrasebook")
+                params["phrasebook"] = new_phrasebook
+
+            if sets:
+                conn.execute(
+                    f"UPDATE languages SET {', '.join(sets)} "
+                    f"WHERE slot_id = :slot_id",
+                    params,
+                )
+                updated += 1
+            else:
+                skipped_already_set += 1
+        conn.commit()
+
+    return {
+        "updated": updated,
+        "skipped_already_set": skipped_already_set,
+        "skipped_no_match": skipped_no_match,
+        "plan_slots": len(plan_by_id),
+    }

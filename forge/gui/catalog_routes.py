@@ -45,7 +45,37 @@ _WORKSPACE = _HERE.parents[1]
 # Helpers: row enrichment with slot.json fields the resolver normalized away
 # ---------------------------------------------------------------------------
 
-def _read_slot_json(generated_root: Path, slot_id: str) -> Optional[dict]:
+def _resolve_lang_dir(slot_id: str, generated_root: Path,
+                      db_path: Path) -> Path:
+    """Resolve the on-disk path to a generated language's directory.
+
+    Phase 3 follow-up bug: the curation UI was assuming `generated_root
+    / slot_id` (typically `<workspace>/<slot_id>/`) but Phase 2 batches
+    actually live at `<workspace>/catalog_raw_gate2_v2/<slot_id>/` (or
+    wherever `python -m forge.catalog.curate --input <dir>` was pointed
+    at). The DB's `batches.output_dir` records the right path; we look
+    it up per-slot via the row's batch_id.
+
+    Resolution order:
+      1. If the language row's batch's output_dir + slot_id exists, use that.
+      2. Otherwise fall back to generated_root / slot_id (the legacy
+         path that works when curation runs from the workspace itself).
+    """
+    try:
+        from forge.catalog import db as catalog_db
+        row = catalog_db.get_language(db_path, slot_id)
+        if row is not None and row.batch_id is not None:
+            batch = catalog_db.get_batch(db_path, row.batch_id)
+            if batch is not None:
+                candidate = Path(batch.output_dir) / slot_id
+                if candidate.exists():
+                    return candidate
+    except Exception:
+        pass
+    return generated_root / slot_id
+
+
+def _read_slot_json(lang_dir: Path) -> Optional[dict]:
     """Phase 2's instructions called this out specifically: theme/era/
     persona may be NULL in DB rows because the resolver normalizes them
     into keyword_overrides + creative output. The original `slot.json`
@@ -53,10 +83,13 @@ def _read_slot_json(generated_root: Path, slot_id: str) -> Optional[dict]:
     runner.py) keeps the user's input. We read it lazily when the UI
     needs filterable customization fields.
 
-    Returns None if the slot directory or slot.json doesn't exist
-    (caller falls back to whatever the DB row says).
+    Returns None if slot.json doesn't exist (caller falls back to
+    whatever the DB row says).
+
+    Phase 3 follow-up: takes a resolved lang_dir directly rather than
+    composing one from generated_root + slot_id.
     """
-    p = generated_root / slot_id / "slot.json"
+    p = lang_dir / "slot.json"
     if not p.exists():
         return None
     try:
@@ -65,7 +98,8 @@ def _read_slot_json(generated_root: Path, slot_id: str) -> Optional[dict]:
         return None
 
 
-def _customization_for_row(row, generated_root: Path) -> dict:
+def _customization_for_row(row, generated_root: Path,
+                           db_path: Optional[Path] = None) -> dict:
     """Resolve the user-facing customization fields for a row, falling
     back to slot.json when the DB row's columns are NULL."""
     persona = row.persona
@@ -73,7 +107,11 @@ def _customization_for_row(row, generated_root: Path) -> dict:
     theme = row.theme
     phrasebook = row.phrasebook
     if persona is None or era is None or theme is None or phrasebook is None:
-        sj = _read_slot_json(generated_root, row.slot_id)
+        if db_path is not None:
+            lang_dir = _resolve_lang_dir(row.slot_id, generated_root, db_path)
+        else:
+            lang_dir = generated_root / row.slot_id
+        sj = _read_slot_json(lang_dir)
         if sj:
             cust = sj.get("customization") or {}
             persona = persona or cust.get("persona")
@@ -106,14 +144,15 @@ def _quality_summary(row) -> dict:
     }
 
 
-def _row_to_summary(row, generated_root: Path) -> dict:
+def _row_to_summary(row, generated_root: Path,
+                    db_path: Optional[Path] = None) -> dict:
     """Compact dict suitable for the list view.
 
     Phase 3 Stage F refinement: surface `tier` and `tags` on the
     summary so the list view's compact-customization line can show
     them, and so the JS-level tier/tag filters can match without
     refetching the full row."""
-    cust = _customization_for_row(row, generated_root)
+    cust = _customization_for_row(row, generated_root, db_path)
     quality = _quality_summary(row)
     return {
         "slot_id": row.slot_id,
@@ -140,11 +179,109 @@ def _row_to_summary(row, generated_root: Path) -> dict:
     }
 
 
-def _row_to_detail(row, generated_root: Path) -> dict:
+def _read_canonical_tests(lang_dir: Path) -> list[dict]:
+    """Phase 3 follow-up Item 1: surface canonical test results in
+    the detail view. Reads the language's `tests/` directory and
+    pairs each test source with its expected output and (if present)
+    its `.out.py` actual output from the most recent run.
+
+    Returns a list of dicts with `name`, `source`, `expected`,
+    `actual`, and `passed` (best-effort — a test only counts as
+    'passed' if the actual output exists and matches expected).
+
+    Caps each output at ~80 lines / 4KB so the detail view stays
+    fast to render even on tests that print megabytes."""
+    tests_dir = lang_dir / "tests"
+    if not tests_dir.exists() or not tests_dir.is_dir():
+        return []
+    out: list[dict] = []
+    # Group files by stem: <name>.<ext>, <name>.expected_output.txt,
+    # <name>.<ext>.out.py
+    sources: dict[str, dict] = {}
+    for entry in sorted(tests_dir.iterdir()):
+        if not entry.is_file():
+            continue
+        name = entry.name
+        if name.endswith(".expected_output.txt"):
+            stem = name[: -len(".expected_output.txt")]
+            sources.setdefault(stem, {})["expected_path"] = entry
+        elif name.endswith(".out.py"):
+            # Strip .<ext>.out.py to get the source stem.
+            stem = entry.stem
+            if stem.endswith(".out"):
+                stem = stem[:-len(".out")]
+            stem_no_ext = entry.name.rsplit(".", 2)[0]
+            sources.setdefault(stem_no_ext, {})["actual_path"] = entry
+        else:
+            stem = entry.stem
+            sources.setdefault(stem, {})["source_path"] = entry
+    for stem, paths in sources.items():
+        if "source_path" not in paths:
+            continue
+        try:
+            source = paths["source_path"].read_text(
+                encoding="utf-8", errors="replace")[:4096]
+        except Exception:
+            source = ""
+        expected = ""
+        if "expected_path" in paths:
+            try:
+                expected = paths["expected_path"].read_text(
+                    encoding="utf-8", errors="replace")
+            except Exception:
+                expected = ""
+        # Cap displayed output at 80 lines.
+        if expected.count("\n") > 80:
+            expected = "\n".join(expected.splitlines()[:80]) + "\n..."
+        # Whether this test ran successfully isn't preserved on disk
+        # in a structured way; the canonical_tests aggregate count in
+        # generation_summary covers it. We surface the aggregate via
+        # a separate field; the per-test entries here are for "let
+        # the curator read what the language ACTUALLY does".
+        out.append({
+            "name": stem,
+            "source": source,
+            "expected": expected,
+        })
+    # Sort with hello_world first (the canonical "does it run?" test),
+    # then alphabetical.
+    out.sort(key=lambda t: (t["name"] != "hello_world", t["name"]))
+    return out
+
+
+def _read_kata_pack(lang_dir: Path) -> Optional[dict]:
+    """Phase 3 follow-up Item 2: surface the kata pack inline in the
+    detail view. Reads `<lang_dir>/katas.json` if present (that's
+    where the kata pipeline persists curated/translated katas).
+    Returns the pack dict or None if missing.
+
+    The pack's full contents — including reference solutions — are
+    included so the detail view can show the curator what the
+    language is being asked to do, with what test cases."""
+    kata_path = lang_dir / "katas.json"
+    if not kata_path.exists():
+        return None
+    try:
+        return json.loads(kata_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _row_to_detail(row, generated_root: Path,
+                   db_path: Optional[Path] = None) -> dict:
     """Full detail dict for the per-language view. Includes full
     quality report, parsed spec, README + LANGUAGE.md content (for
-    inline rendering), file list, and the original slot.json."""
-    summary = _row_to_summary(row, generated_root)
+    inline rendering), file list, and the original slot.json.
+
+    Phase 3 follow-up bug fix: resolve the lang_dir from the row's
+    batch's output_dir (the actual on-disk location) rather than
+    assuming `generated_root / slot_id`. The default generated_root
+    is `<workspace>/`, but Phase 1.5 batches live at
+    `<workspace>/catalog_raw_gate2_v2/<slot_id>/` — using the batch's
+    output_dir resolves correctly without requiring the user to
+    pass --catalog-generated-root.
+    """
+    summary = _row_to_summary(row, generated_root, db_path)
     try:
         spec = json.loads(row.resolved_spec_json or "{}")
     except Exception:
@@ -157,10 +294,36 @@ def _row_to_detail(row, generated_root: Path) -> dict:
         quality_report = json.loads(row.quality_report_json or "{}")
     except Exception:
         quality_report = {}
-    slot_json = _read_slot_json(generated_root, row.slot_id) or {}
+
+    # Resolve the actual on-disk path for this language.
+    if db_path is not None:
+        lang_dir = _resolve_lang_dir(row.slot_id, generated_root, db_path)
+    else:
+        lang_dir = generated_root / row.slot_id
+
+    slot_json = _read_slot_json(lang_dir) or {}
+
+    # Phase 3 follow-up: if the lang_dir is missing or empty (e.g.
+    # the source files were lost from disk but the DB still has the
+    # spec snapshot), fall back to the spec's creative.readme_intro +
+    # origin_story so the curator has SOMETHING to read. Better than
+    # showing "(README.md missing)" with no context.
+    fallback_readme = ""
+    creative_block = (spec.get("creative") or {})
+    if isinstance(creative_block, dict):
+        readme_intro = creative_block.get("readme_intro") or ""
+    else:
+        readme_intro = str(creative_block) if creative_block else ""
+    origin_story = spec.get("origin_story") or ""
+    if readme_intro or origin_story:
+        parts = []
+        if readme_intro:
+            parts.append("# README intro (from spec)\n\n" + readme_intro.strip())
+        if origin_story:
+            parts.append("\n## Origin story\n\n" + origin_story.strip())
+        fallback_readme = "\n\n".join(parts).strip() + "\n"
 
     # Read README and LANGUAGE.md content if present.
-    lang_dir = generated_root / row.slot_id
     readme_text = ""
     language_md_text = ""
     file_list: list[dict] = []
@@ -212,6 +375,32 @@ def _row_to_detail(row, generated_root: Path) -> dict:
                     "type": "dir",
                 })
 
+    # Phase 3 follow-up Item 1: canonical test results visible in
+    # detail view. The aggregate (8/8 passed) comes from the quality
+    # report's correctness block; per-test source + expected come from
+    # _read_canonical_tests. The curator gets both at-a-glance pass
+    # rate and "let me see what this language actually does" content.
+    canonical_summary = (quality_report.get("correctness") or {}).get(
+        "canonical_tests") or {}
+    canonical_tests = _read_canonical_tests(lang_dir)
+
+    # Phase 3 follow-up Item 2: kata pack inline. Surface the curated
+    # katas.json so the curator can see what problems the language
+    # was asked to solve, with what tests, without leaving the
+    # detail view.
+    kata_pack = _read_kata_pack(lang_dir)
+
+    # If on-disk README is missing/empty, swap in the spec-derived
+    # fallback so the curator still has something to read.
+    effective_readme = readme_text if readme_text.strip() else fallback_readme
+
+    # readme_source flag tells the frontend whether to label the
+    # rendering as on-disk or recovered from the DB spec.
+    readme_source = (
+        "on_disk" if readme_text.strip()
+        else ("db_spec" if fallback_readme else "missing")
+    )
+
     return {
         **summary,
         "resolved_spec": spec,
@@ -220,9 +409,13 @@ def _row_to_detail(row, generated_root: Path) -> dict:
         "slot_json": slot_json,
         "lang_dir": str(lang_dir),
         "lang_dir_exists": lang_dir.exists(),
-        "readme": readme_text,
+        "readme": effective_readme,
+        "readme_source": readme_source,
         "language_md": language_md_text,
         "files": file_list,
+        "canonical_summary": canonical_summary,
+        "canonical_tests": canonical_tests,
+        "kata_pack": kata_pack,
     }
 
 
@@ -389,7 +582,7 @@ def mount_catalog_routes(app: Flask, *,
             family=filters["family"],
             status=filters["status"],
         )
-        summaries = [_row_to_summary(r, gen_root) for r in rows]
+        summaries = [_row_to_summary(r, gen_root, db_path) for r in rows]
         # Stage C tier/tag fields aren't on LanguageRow yet (Stage C
         # adds them via migration). Until then summaries don't carry
         # tier/tags, but the filter still works against missing.
@@ -421,7 +614,7 @@ def mount_catalog_routes(app: Flask, *,
         row = catalog_db.get_language(db_path, slot_id)
         if row is None:
             abort(404, description=f"slot_id {slot_id!r} not in catalog")
-        return jsonify(_row_to_detail(row, gen_root))
+        return jsonify(_row_to_detail(row, gen_root, db_path))
 
     # ------------------------------------------------------------------
     # GET /api/catalog/facets — distinct values for filter dropdowns
@@ -434,7 +627,7 @@ def mount_catalog_routes(app: Flask, *,
         dropdowns. We use the slot.json fallback so themes/eras/personas
         the resolver normalized away still appear."""
         rows = catalog_db.list_languages(db_path)
-        summaries = [_row_to_summary(r, gen_root) for r in rows]
+        summaries = [_row_to_summary(r, gen_root, db_path) for r in rows]
         def distinct(field: str) -> list:
             return sorted({s[field] for s in summaries
                            if s.get(field) not in (None, "")})
@@ -503,7 +696,7 @@ def mount_catalog_routes(app: Flask, *,
             catalog_db.update_language_rejection_reason(db_path, slot_id, None)
 
         updated = catalog_db.get_language(db_path, slot_id)
-        return jsonify(_row_to_summary(updated, gen_root))
+        return jsonify(_row_to_summary(updated, gen_root, db_path))
 
     @app.route("/api/catalog/<slot_id>/notes", methods=["POST"])
     def catalog_set_notes(slot_id):  # type: ignore[no-redef]

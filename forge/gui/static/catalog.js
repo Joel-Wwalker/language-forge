@@ -216,7 +216,14 @@ function renderList(data) {
       e.stopPropagation();
       toggleBulkSelection(item.slot_id, e.target.checked);
     });
-    row.addEventListener("click", () => openDetailByIndex(idx));
+    // Phase 3 follow-up Item 4: a click on a row syncs the keyboard
+    // cursor (STATE.selectedIndex) so subsequent J/K navigation
+    // continues from where the click landed, not from the previous
+    // arrow-key cursor position.
+    row.addEventListener("click", () => {
+      STATE.selectedIndex = idx;
+      openDetailByIndex(idx);
+    });
     list.appendChild(row);
   });
   // Scroll selected row into view.
@@ -395,11 +402,36 @@ function renderDetail(data) {
       `<li><span>${escHtml(f.name)}</span><span class="file-meta">${escHtml(meta)}</span></li>`);
   }
 
-  // README + LANGUAGE.md
-  document.getElementById("detail-readme").textContent =
-    data.readme || "(README.md missing)";
+  // README + LANGUAGE.md. Phase 3 follow-up: when on-disk README
+  // is missing, the backend serves the spec's creative.readme_intro
+  // + origin_story as a fallback. Tag the rendering so the curator
+  // knows what they're reading.
+  const readmeEl = document.getElementById("detail-readme");
+  if (data.readme_source === "db_spec") {
+    readmeEl.innerHTML =
+      '<div class="readme-source-tag">📦 recovered from DB (on-disk README missing)</div>';
+    const pre = document.createElement("pre");
+    pre.style.margin = "0";
+    pre.style.background = "transparent";
+    pre.style.border = "none";
+    pre.style.padding = "0";
+    pre.style.whiteSpace = "pre-wrap";
+    pre.textContent = data.readme || "";
+    readmeEl.appendChild(pre);
+  } else if (data.readme_source === "missing" || !data.readme) {
+    readmeEl.innerHTML = '<div class="muted">(README.md missing on disk and not in spec)</div>';
+  } else {
+    readmeEl.textContent = data.readme;
+  }
   document.getElementById("detail-language-md").textContent =
     data.language_md || "(LANGUAGE.md missing)";
+
+  // Phase 3 follow-up Item 1: canonical test results.
+  renderCanonicalTests(data);
+  // Phase 3 follow-up Item 2: kata pack inline.
+  renderKataPack(data);
+  // Phase 3 follow-up Item 5: launch-REPL button.
+  renderLaunchRepl(data);
 
   // Notes + tier + tags
   document.getElementById("reviewer-notes").value = data.reviewer_notes || "";
@@ -413,6 +445,165 @@ function renderDetail(data) {
   const rrInput = document.getElementById("rejection-reason");
   rrInput.value = data.rejection_reason || "";
   rrBlock.hidden = data.status !== "rejected";
+}
+
+
+// ---------------------------------------------------------------------------
+// Phase 3 follow-up: render functions for canonical tests, kata pack,
+// and launch-REPL button (Items 1, 2, 5)
+// ---------------------------------------------------------------------------
+
+function renderCanonicalTests(data) {
+  // Insert / update a "Canonical tests" section in the spec pane.
+  // The aggregate count comes from data.canonical_summary; the
+  // per-test source/expected come from data.canonical_tests.
+  const target = ensureSection("canonical-tests-block",
+                               document.querySelector(".detail-pane-spec"),
+                               "Canonical tests");
+  const summary = data.canonical_summary || {};
+  const passed = summary.passed != null ? summary.passed : "?";
+  const total = summary.total != null ? summary.total : "?";
+  const tests = data.canonical_tests || [];
+
+  let html = `<div class="canonical-summary">`;
+  if (typeof passed === "number" && typeof total === "number") {
+    const cls = passed === total ? "pass-all" : "pass-partial";
+    html += `<span class="canonical-rate ${cls}">${passed} / ${total} passed</span>`;
+  } else {
+    html += `<span class="canonical-rate">scoring unavailable</span>`;
+  }
+  html += `</div>`;
+
+  if (tests.length === 0) {
+    html += `<div class="muted">no canonical tests on disk</div>`;
+  } else {
+    html += `<ul class="canonical-test-list">`;
+    for (const t of tests.slice(0, 10)) {
+      html += `<li class="canonical-test">
+        <details>
+          <summary><span class="test-name">${escHtml(t.name)}</span></summary>
+          ${t.source ? `<div class="test-block-label">source</div>
+            <pre class="test-block">${escHtml(t.source)}</pre>` : ""}
+          ${t.expected ? `<div class="test-block-label">expected output</div>
+            <pre class="test-block">${escHtml(t.expected)}</pre>` : ""}
+        </details>
+      </li>`;
+    }
+    if (tests.length > 10) {
+      html += `<li class="muted">… and ${tests.length - 10} more</li>`;
+    }
+    html += `</ul>`;
+  }
+  target.innerHTML = html;
+}
+
+
+function renderKataPack(data) {
+  // Insert a "Kata pack" section in the spec pane showing each
+  // kata's id/title/difficulty + sample test calls.
+  const target = ensureSection("kata-pack-block",
+                               document.querySelector(".detail-pane-spec"),
+                               "Kata pack");
+  const pack = data.kata_pack;
+
+  if (!pack || !pack.katas || pack.katas.length === 0) {
+    target.innerHTML = `<div class="muted">no kata pack on disk
+      (run <code>load-pack</code> in the kata workspace to generate one)
+    </div>`;
+    return;
+  }
+
+  let html = `<div class="kata-pack-summary">
+    <span class="kata-count">${pack.katas.length} katas</span>
+    ${pack.dropped && pack.dropped.length
+      ? `<span class="muted"> · ${pack.dropped.length} dropped</span>`
+      : ""}
+  </div>`;
+  html += `<ul class="kata-list">`;
+  for (const k of pack.katas.slice(0, 12)) {
+    const tests = (k.tests || []).slice(0, 2);
+    html += `<li class="kata-card">
+      <details>
+        <summary>
+          <span class="kata-id">${escHtml(k.id)}</span>
+          <span class="kata-title">${escHtml(k.title || "")}</span>
+          <span class="kata-diff kata-diff-${escAttr(k.difficulty || "easy")}">${escHtml(k.difficulty || "")}</span>
+        </summary>
+        ${k.problem
+          ? `<div class="kata-problem">${escHtml(k.problem.slice(0, 280))}${k.problem.length > 280 ? "…" : ""}</div>`
+          : ""}
+        ${tests.length > 0 ? `<div class="kata-tests">
+          <div class="kata-tests-label">sample tests</div>
+          ${tests.map(t => `<div class="kata-test">
+            <code>${escHtml(t.call)}</code>
+            <span class="muted"> -> </span>
+            <code>${escHtml(t.expected)}</code>
+          </div>`).join("")}
+        </div>` : ""}
+      </details>
+    </li>`;
+  }
+  html += `</ul>`;
+  // Phase 3 follow-up Item 2 (Option B): also link to the existing
+  // kata workspace for full kata-solving experience.
+  html += `<a class="btn-launch-kata" href="/?lang=${encodeURIComponent(data.slot_id)}&view=kata&include_catalog=all"
+    target="_blank" rel="noopener">Open in kata workspace ↗</a>`;
+  target.innerHTML = html;
+}
+
+
+function renderLaunchRepl(data) {
+  // Insert a "Try it" block at the top of the spec pane with a
+  // "Launch REPL" button. Phase 3 follow-up Item 5.
+  const target = ensureSection("launch-repl-block",
+                               document.querySelector(".detail-pane-spec"),
+                               "Try the language",
+                               /*prepend=*/true);
+  const slotId = data.slot_id;
+  if (!data.lang_dir_exists) {
+    target.innerHTML = `<div class="muted">language directory not on disk;
+      can't launch REPL for this candidate</div>`;
+    return;
+  }
+  target.innerHTML = `
+    <div class="launch-actions">
+      <a class="btn-launch-repl" href="/?lang=${encodeURIComponent(slotId)}&view=playground&include_catalog=all"
+         target="_blank" rel="noopener">
+        Launch REPL ↗
+      </a>
+      <a class="btn-launch-kata" href="/?lang=${encodeURIComponent(slotId)}&view=kata&include_catalog=all"
+         target="_blank" rel="noopener">
+        Open kata workspace ↗
+      </a>
+    </div>
+    <div class="muted launch-help">
+      Opens the existing Forge playground in a new tab so you don't
+      lose your place in the catalog.
+    </div>
+  `;
+}
+
+
+function ensureSection(blockId, parentEl, label, prepend = false) {
+  /* Idempotently inject a labeled section into the spec pane.
+     Returns the inner content div for renderers to populate. */
+  let section = document.getElementById(blockId);
+  if (section) {
+    return section.querySelector(".section-content") || section;
+  }
+  section = document.createElement("div");
+  section.className = "detail-section";
+  section.id = `wrap-${blockId}`;
+  section.innerHTML = `
+    <h4>${escHtml(label)}</h4>
+    <div id="${blockId}" class="section-content"></div>
+  `;
+  if (prepend && parentEl.firstChild) {
+    parentEl.insertBefore(section, parentEl.firstChild);
+  } else {
+    parentEl.appendChild(section);
+  }
+  return section.querySelector(".section-content");
 }
 
 
@@ -472,6 +663,18 @@ async function decide(status, advanceAfter = true) {
     alert(`error: ${err.error || r.status}`);
     return;
   }
+  // Phase 3 follow-up: visual confirmation BEFORE auto-advance fires.
+  // Without this, the badge stays "pending" until advance loads the
+  // next slot, which makes the user think nothing happened. Update
+  // the badge for the slot we just decided + show a brief toast so
+  // the user can SEE the action took effect.
+  const badge = document.getElementById("detail-status-badge");
+  if (badge) {
+    badge.className = `detail-status-badge ${status}`;
+    badge.textContent = status.replace("_", " ");
+  }
+  showToast(`${slotId}: ${status}`, status);
+
   // Update the in-memory item so the list reflects the change without
   // a refetch.
   const item = STATE.items.find(i => i.slot_id === slotId);
@@ -482,6 +685,31 @@ async function decide(status, advanceAfter = true) {
   }
   await refreshProgress();
   if (advanceAfter) advance(+1);
+}
+
+
+function showToast(message, kind) {
+  /* Phase 3 follow-up: brief 1.2s toast in the bottom-right corner
+     to confirm decisions land. The auto-advance feature was happening
+     so quietly that the validation user thought clicks weren't
+     registering. The toast solves that with zero ambiguity. */
+  let host = document.getElementById("toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toast-host";
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const el = document.createElement("div");
+  el.className = `toast toast-${kind || "info"}`;
+  el.textContent = message;
+  host.appendChild(el);
+  // Trigger CSS animation, then remove.
+  requestAnimationFrame(() => el.classList.add("toast-shown"));
+  setTimeout(() => {
+    el.classList.remove("toast-shown");
+    setTimeout(() => el.remove(), 250);
+  }, 1200);
 }
 
 
