@@ -338,19 +338,22 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         # in generated/. Now catalog languages also appear so the
         # playground/kata UI can find them.
         #
-        # `?include_catalog=approved|all|none` (default: 'approved'):
-        #   - 'approved'  → only catalog entries with status=approved
-        #     get listed alongside generated/ ones. The Library
-        #     tab uses this default — approved catalog entries are
-        #     "promoted" to the library.
-        #   - 'all'       → every catalog entry shows up (any status).
-        #     The Catalog UI's deep-link to playground passes this
-        #     so curators can launch a pending candidate in the REPL
-        #     to evaluate it.
-        #   - 'none'      → only generated/ entries. Legacy behavior.
+        # `?include_catalog=approved|approved_only|all|none` (default: 'approved'):
+        #   - 'approved'      → catalog entries with status=approved
+        #     listed alongside ALL generated/ entries. Legacy default.
+        #   - 'approved_only' → ONLY catalog entries with status=approved.
+        #     Generated/ entries are excluded entirely. The Library tab
+        #     uses this so the library is a strictly curated surface —
+        #     unapproved test runs and reference
+        #     templates not clutter their library view.
+        #   - 'all'           → every catalog entry (any status) plus
+        #     all generated/ entries. The Catalog UI deep-links to the
+        #     playground with this so curators can launch a pending
+        #     candidate in the REPL to evaluate it.
+        #   - 'none'          → only generated/ entries. Legacy behavior.
         gen = WORKSPACE / "generated"
         include_catalog = request.args.get("include_catalog", "approved")
-        if include_catalog not in ("approved", "all", "none"):
+        if include_catalog not in ("approved", "approved_only", "all", "none"):
             include_catalog = "approved"
 
         catalog_dirs_with_status: list[tuple[Path, str]] = []
@@ -362,7 +365,8 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
                     for row in _catalog_db.list_languages(catalog_db_path):
                         if row.batch_id is None:
                             continue
-                        if include_catalog == "approved" and row.status != _catalog_db.STATUS_APPROVED:
+                        if include_catalog in ("approved", "approved_only") \
+                                and row.status != _catalog_db.STATUS_APPROVED:
                             continue
                         batch = _catalog_db.get_batch(catalog_db_path,
                                                        row.batch_id)
@@ -377,10 +381,11 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
                 catalog_dirs_with_status = []  # never fail on catalog read errors
 
         # Build iteration list: generated/ first, then catalog entries.
-        # We track each entry's source ('generated' vs 'catalog') so
-        # the frontend can label / filter by it if needed.
+        # `approved_only` mode skips generated/ entirely — the user wants
+        # the Library to be the curated set, not "everything on disk".
+        include_generated = include_catalog != "approved_only"
         roots: list[tuple[Path, str, str]] = []
-        if gen.exists():
+        if include_generated and gen.exists():
             for d in sorted(gen.iterdir()):
                 if d.is_dir():
                     roots.append((d, "generated", "n/a"))
