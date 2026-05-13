@@ -1510,11 +1510,13 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
                 run_src = source
 
             env = os.environ.copy()
-            # Phase 3 follow-up: also include the lang_dir's parent for catalog
-            # batch languages (e.g., catalog_raw_gate2_v2/), so
+            # Phase 3 follow-up: also include the lang_dir's parent for
+            # catalog batch languages (e.g., catalog_raw_gate2_v2/), so
             # `from <slot_id>.parser import parse` works whether the
             # language lives in generated/ or in a catalog batch dir.
-            _lang_parent = str(lang_dir.parent.resolve())
+            # Note: this is the run-all loop where `d` is the current
+            # language's directory, not `lang_dir`.
+            _lang_parent = str(d.parent.resolve())
             _gen_path = str(WORKSPACE / "generated")
             _python_path_parts = [_lang_parent]
             if _lang_parent != _gen_path:
