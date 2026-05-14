@@ -99,6 +99,8 @@ catalog*.db-journal
 *_DIAGNOSIS.md
 *_NOTES.md
 *_OVERVIEW.md
+*_DESIGN.md
+*_CLOSEOUT.md
 PROJECT_REPORT.md
 PROJECT_OVERVIEW.md
 PHASE*.md
