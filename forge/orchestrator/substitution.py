@@ -107,6 +107,31 @@ KEYWORD_ROLES_S_EXPRESSION = (
     "if", "else", "true", "false", "null",
 )
 
+# mllang ML-family keywords. Audited from generated/mllang/parser.py's
+# GRAMMAR + the reserved-keyword negative-lookahead in NAME's regex.
+# These all appear as anonymous string literals in the grammar
+# (e.g. `"let"`, `"rec"`, `"match"`, ...) which Lark's keyword-resolution
+# treats as terminals outranking NAME. Substitution rewrites these in
+# both the parser source AND the test sources, so a themed mllang with
+# `let -> define` re-spells the grammar AND the canonical test bodies.
+#
+# EXCLUDED from substitution (and why):
+#   - `::`       cons operator; a multi-char operator, not a word.
+#                Substituting would require rewriting parser operator
+#                tables, not just the GRAMMAR string.
+#   - `->`       function-arrow operator; same reason as `::`.
+#   - `;;`       top-level terminator; a literal in the grammar but
+#                substituting it would require concurrent rewrites in
+#                every test source's terminator. Deferred for v1.
+#   - `=`, `|`, `^`, `+.`, `-.`, `*.`, `/.`   operators, not words.
+KEYWORD_ROLES_ML_LIKE = (
+    "let", "rec", "in",
+    "if", "then", "else",
+    "match", "with", "type", "of", "fun",
+    "mod", "not",
+    "true", "false",
+)
+
 # Default fallback (for unknown / missing syntax). c_like is the most
 # common family and the safest default — its role names overlap with
 # stack_based and s_expression on `if/else/while/true/false/null` so
@@ -119,6 +144,7 @@ _ROLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
     "c_like":       KEYWORD_ROLES_C_LIKE,
     "stack_based":  KEYWORD_ROLES_STACK_BASED,
     "s_expression": KEYWORD_ROLES_S_EXPRESSION,
+    "ml_like":      KEYWORD_ROLES_ML_LIKE,
     # python_like deferred: no reference compiler exists yet (Phase 5).
 }
 
