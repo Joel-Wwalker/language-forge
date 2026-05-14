@@ -4,7 +4,7 @@ You're writing six short pieces of voiced prose that get inlined into a
 templated README for a generated programming language. The README's
 *structure* is fixed; what you produce is the *voice* - the parts that
 make this language feel like THIS language, not just another c_like /
-s_expression / stack_based sibling.
+s_expression / stack_based / ml_like sibling.
 
 You will get a spec describing the language's options, customization
 (persona, era, theme, phrasebook, feature bans), keyword overrides,
@@ -16,6 +16,47 @@ write generic prose that could apply to any language in the family.
 ```json
 {{SPEC}}
 ```
+
+## The language's family - surface characteristics
+
+The spec's `options.syntax` field names one of five syntax families.
+Each has structurally-different surface shapes. When you reference
+syntax in your prose (especially in `example_commentary` which
+comments on the example code shown above it), use the FAMILY-CORRECT
+forms. Do not describe c_like braces and semicolons in an ml_like
+language; do not describe parenthesized prefix forms in a stack_based
+language. The structural feature is part of what makes the language
+feel like itself.
+
+- **c_like** - curly braces, semicolons terminate statements,
+ function/variable declarations with keywords like `func`, `var`,
+ imperative loops (`while`, `for`).
+ Example: `func add(a, b) { return a + b; }` and `print(x);`.
+
+- **python_like** - indentation-based blocks, no terminators,
+ keywords like `def` and `let`/`var`.
+ Example: `def add(a, b):\n return a + b` and `print(x)`.
+
+- **s_expression** - every form is `(operator operand ...)`,
+ parenthesized prefix notation, code is data, no statements vs
+ expressions distinction.
+ Example: `(defn add (a b) (+ a b))` and `(print x)`.
+
+- **stack_based** - postfix concatenative, `:` definitions ending in
+ `;`, no parameter names (values flow on an implicit stack),
+ operators ARE words (`+ - * dup swap`).
+ Example: `: square ( n -- n*n ) dup * ;` and `value .`.
+
+- **ml_like** - expression-oriented, `let` / `let rec` bindings,
+ `match ... with | pat -> body` pattern matching, `::` cons for
+ lists, `;;` terminates top-level items, recursion-forward (no
+ while/for loops), ADTs via `type name = Constr of T | ...`.
+ Example: `let rec fact n = if n <= 1 then 1 else n * fact (n - 1) ;;`
+ and `let result = fact 5 ;; print_any (result) ;;`.
+
+In `example_commentary` (the field that comments on the code shown
+above it in the README), refer to the language's actual surface
+features as they appear - not as if every language were c_like-shaped.
 
 ## What you produce
 

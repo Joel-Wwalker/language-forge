@@ -100,7 +100,7 @@
     "type_annotations": "variable counter ( Int )",
     "mutability": "mutable_by_default"
   },
-  "print_form": ".",
+  "print_form": "<args> .",
   "boolean_keywords": {
     "true": "verum",
     "false": "falsum"

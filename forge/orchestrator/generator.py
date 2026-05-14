@@ -595,22 +595,137 @@ def _generate_readme(spec: dict, lang_dir: Path, client: LLMClient, *,
     return target
 
 
+# ---------------------------------------------------------------------------
+# Structural-variance-channel Seam 1: per-family "At a glance" snippet.
+#
+# Each family's renderer produces a multi-line code block introducing the
+# family's idiomatic shape. The fields it reads from spec are:
+#   - function_definition.syntax_example
+#   - variable_declaration.syntax_example
+#   - print_form (a template with <args> placeholder, since the
+#     structural-variance-channel Seam 4 migration)
+#
+# The renderer's structure (line ordering, what to show first, whether to
+# include a pattern-match / stack-effect / let-in example) is per-family
+# rather than the fixed (func, var, print) c_like-shaped concatenation.
+# ---------------------------------------------------------------------------
+
+def _apply_print_template(spec: dict, args: str) -> str:
+    """Substitute <args> in spec.print_form, with c_like fallback for
+    legacy print_form values that don't contain the placeholder."""
+    template = spec.get("print_form") or "print(<args>)"
+    if "<args>" in template:
+        return template.replace("<args>", args)
+    return f"print({args})"
+
+
+def _at_a_glance_snippet(spec: dict) -> str:
+    """Dispatch to the per-family renderer. Returns the multi-line body
+    of the "At a glance" code block (no surrounding triple-backticks)."""
+    syntax = spec["options"]["syntax"]
+    renderer = _AT_A_GLANCE_RENDERERS.get(syntax, _at_a_glance_c_like)
+    return renderer(spec)
+
+
+def _at_a_glance_c_like(spec: dict) -> str:
+    """c_like: function definition + variable declaration + print call.
+    Three lines, matches the established convention."""
+    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
+    var_ex = (spec.get("variable_declaration") or {}).get("syntax_example", "")
+    print_ex = _apply_print_template(spec, "x")
+    parts = [p for p in (func_ex, var_ex, print_ex) if p]
+    return "\n".join(parts)
+
+
+def _at_a_glance_python_like(spec: dict) -> str:
+    """python_like: same shape as c_like but no statement terminators."""
+    return _at_a_glance_c_like(spec)
+
+
+def _at_a_glance_s_expression(spec: dict) -> str:
+    """s_expression: top-level def + function def + print call.
+    Lisp idiom shows function definition with its parameter list and a
+    body that's itself a parenthesized form."""
+    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
+    var_ex = (spec.get("variable_declaration") or {}).get("syntax_example", "")
+    print_ex = _apply_print_template(spec, "x")
+    parts = [p for p in (func_ex, var_ex, print_ex) if p]
+    return "\n".join(parts)
+
+
+def _at_a_glance_stack_based(spec: dict) -> str:
+    """stack_based: colon definition + variable declaration + a value
+    pushed to the stack and printed. The Forth convention shows a word
+    definition AND interactive use, since stack languages read
+    differently when you can see the stack effect."""
+    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
+    var_ex = (spec.get("variable_declaration") or {}).get("syntax_example", "")
+    # Stack-based "print" pushes a value and pops via `.`. Show that with
+    # a literal so the reader sees the postfix shape.
+    print_ex = _apply_print_template(spec, "42")
+    parts = [p for p in (func_ex, var_ex, print_ex) if p]
+    return "\n".join(parts)
+
+
+def _at_a_glance_ml_like(spec: dict) -> str:
+    """ml_like: expression-oriented intro showing let-binding, let rec
+    for recursion, and pattern-matching on a list. This is the
+    structurally-distinctive shape that the c_like 3-line concatenation
+    couldn't represent."""
+    var_ex = (spec.get("variable_declaration") or {}).get("syntax_example", "")
+    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
+    # Use the print template with a value expression that's typical for
+    # ml_like - a function application via juxtaposition.
+    print_ex = _apply_print_template(spec, "result")
+    # ml_like's distinctive feature is pattern matching. Include a
+    # pattern-match-on-list example to make the family's shape visible
+    # in 1-2 lines that no other family would produce.
+    pattern_match_ex = (
+        "let rec sum lst = match lst with\n"
+        "  | [] -> 0\n"
+        "  | h :: t -> h + sum t\n"
+        ";;"
+    )
+    parts = []
+    if var_ex:
+        parts.append(var_ex)
+    if func_ex:
+        parts.append(func_ex)
+    parts.append(pattern_match_ex)
+    parts.append(f"let result = sum [1; 2; 3] ;;")
+    parts.append(print_ex)
+    return "\n".join(parts)
+
+
+_AT_A_GLANCE_RENDERERS = {
+    "c_like":       _at_a_glance_c_like,
+    "python_like":  _at_a_glance_python_like,
+    "s_expression": _at_a_glance_s_expression,
+    "stack_based":  _at_a_glance_stack_based,
+    "ml_like":      _at_a_glance_ml_like,
+}
+
+
 def _render_templated_readme(spec: dict) -> str:
     """Deterministic README for templated languages. We know the surface
     syntax + semantics exactly (they came from a hand-written reference)
-    so a parameterized template is more accurate than an LLM call."""
+    so a parameterized template is more accurate than an LLM call.
+
+    Structural-variance-channel Seam 1: the "At a glance" code block is
+    now rendered per-family via `_at_a_glance_snippet` so each family
+    shows its own idiomatic introduction (pattern matching for ml_like,
+    parens for s_expression, postfix for stack_based) instead of the
+    fixed (func, var, print) 3-line c_like-shaped concatenation."""
     name = spec["lang_name"]
     syntax = spec["options"]["syntax"]
     typing = spec["options"]["typing"]
     memory = spec["options"]["memory"]
     ext = spec["file_extension"]
     origin = spec.get("origin_story") or ""
-    func_ex = (spec.get("function_definition") or {}).get("syntax_example", "")
-    var_ex  = (spec.get("variable_declaration") or {}).get("syntax_example", "")
-    print_ex = spec.get("print_form", "")
     family_blurb = {
         "s_expression": "Lisp-style: every form is `(operator operand ...)`. Code is data.",
         "stack_based":  "Forth-style: postfix evaluation on an implicit data stack.",
+        "ml_like":      "OCaml-flavored: expression-oriented, pattern matching, recursion-forward. `let` binds; `let rec` for recursion; `match ... with | pat -> body`.",
     }.get(syntax, "")
 
     # Phase 1.5 Stage D + variance-improvement: persona-flavored prose
@@ -641,9 +756,7 @@ def _render_templated_readme(spec: dict) -> str:
         lines.append(family_blurb + "\n")
     lines.append("## At a glance\n")
     lines.append("```")
-    if func_ex: lines.append(func_ex)
-    if var_ex:  lines.append(var_ex)
-    if print_ex: lines.append(print_ex)
+    lines.append(_at_a_glance_snippet(spec))
     lines.append("```\n")
     # Variance-improvement: design philosophy lives after the spec
     # summary, no heading needed — just inlined paragraph.

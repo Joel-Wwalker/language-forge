@@ -163,7 +163,10 @@ def test_check_solution_no_tests_reports_compile_errors():
 # ---------------------------------------------------------------------------
 
 def test_wrap_with_test_prints_uses_semicolons_for_c_like():
-    spec = {"statement_terminator": ";"}
+    # Structural-variance-channel Seam 4: print emission is now template-
+    # driven via spec.print_form with `<args>` placeholder. The c_like
+    # template carries its own trailing semicolon: "print(<args>);".
+    spec = {"statement_terminator": ";", "print_form": "print(<args>);"}
     user = "func add(a, b) { return a + b; }"
     program = _wrap_with_test_prints(user, [
         {"call": "add(1, 2)", "expected": "3"},
@@ -174,7 +177,9 @@ def test_wrap_with_test_prints_uses_semicolons_for_c_like():
 
 
 def test_wrap_with_test_prints_no_terminator_for_python_like():
-    spec = {"statement_terminator": "newline"}
+    # python_like print_form is "print(<args>)" with no trailing
+    # punctuation — the family uses newline as its terminator.
+    spec = {"statement_terminator": "newline", "print_form": "print(<args>)"}
     program = _wrap_with_test_prints("def foo():\n    return 1", [
         {"call": "foo()", "expected": "1"},
     ], spec)

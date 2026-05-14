@@ -128,7 +128,7 @@ _C_LIKE_BASE = {
         "syntax_example": "var x = 10;",
         "type_annotations": None,
     },
-    "print_form": "print(x);",
+    "print_form": "print(<args>);",
     "boolean_keywords": {"true": "true", "false": "false"},
     "null_keyword": "null",
     "operators": {
@@ -160,7 +160,7 @@ _PYTHON_LIKE_BASE = {
         "syntax_example": "let x = 10",
         "type_annotations": None,
     },
-    "print_form": "print(x)",
+    "print_form": "print(<args>)",
     "boolean_keywords": {"true": "True", "false": "False"},
     "null_keyword": "None",
     "operators": {
@@ -215,7 +215,7 @@ _S_EXPRESSION_BASE = {
         "syntax_example": "(def x 10)",
         "type_annotations": None,
     },
-    "print_form": "(print x)",
+    "print_form": "(print <args>)",
     "boolean_keywords": {"true": "true", "false": "false"},
     "null_keyword": "nil",
     "operators": {
@@ -291,7 +291,7 @@ _ML_LIKE_BASE = {
         "syntax_example": "let x = 10 ;;",
         "type_annotations": None,
     },
-    "print_form": "print_string s ;;",
+    "print_form": "print_any (<args>) ;;",
     "boolean_keywords": {"true": "true", "false": "false"},
     "null_keyword": "()",
     "operators": {
@@ -334,7 +334,7 @@ _STACK_BASED_BASE = {
         "syntax_example": "variable counter  0 counter !",
         "type_annotations": None,
     },
-    "print_form": ".",
+    "print_form": "<args> .",
     "boolean_keywords": {"true": "true", "false": "false"},
     "null_keyword": "nil",
     "operators": {
