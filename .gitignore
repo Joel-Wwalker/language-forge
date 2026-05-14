@@ -51,6 +51,7 @@ generated/*
 !generated/lisplang/
 !generated/forthlang/
 !generated/stacky/
+!generated/mllang/
 
 # Per-language artifacts that ARE generated (logs, compiled outputs,
 # bytecode caches, kata caches) shouldn't be tracked even for the
