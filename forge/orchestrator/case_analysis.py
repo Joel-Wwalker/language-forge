@@ -248,9 +248,16 @@ def _toylang_reference_outputs(kata: dict, toylang_dir: Path) -> Optional[list[s
     except ImportError:
         from forge.orchestrator.katas import _wrap_with_test_prints, _compile_and_run  # type: ignore
     helpers = kata.get("helpers", "") or ""
+    # Structural-variance-channel Seam 4: _wrap_with_test_prints now reads
+    # spec.print_form (with <args> placeholder). The toylang reference
+    # parses c_like `print(...);` calls, so pass the c_like template
+    # explicitly here. Pre-Seam-4 this function passed only
+    # statement_terminator and relied on the wrapper's c_like default;
+    # that default is now placeholder-shaped.
     program = _wrap_with_test_prints(
         kata["reference_solution"], kata["tests"],
-        {"statement_terminator": ";"}, helpers=helpers,
+        {"statement_terminator": ";", "print_form": "print(<args>);"},
+        helpers=helpers,
     )
     res = _compile_and_run(toylang_dir, program, ".toy")
     if not res["ok"]:

@@ -61,9 +61,13 @@ from .llm_client import LLMClient
 _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "creative.md"
 
 # Bump this when the creative prompt template changes in a way that
-# would alter outputs for the same input spec. Variance-improvement
-# bumped this from 1 to 2 when the prompt grew from one field to six.
-CREATIVE_PROMPT_VERSION = 2
+# would alter outputs for the same input spec.
+#   v1 -> v2: variance-improvement; prompt grew from 1 field to 6.
+#   v2 -> v3: structural-variance-channel Seam 6; added per-family
+#             surface-characteristics section so example_commentary
+#             references the family's actual syntax (ml_like uses
+#             pattern matching + `;;`, not c_like braces + `;`).
+CREATIVE_PROMPT_VERSION = 3
 
 _DEFAULT_CACHE_DIR = (
     Path(__file__).resolve().parents[2] / ".forge_cache" / "creative"

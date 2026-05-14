@@ -74,7 +74,7 @@
     "syntax_example": "let x = 10 ;;",
     "type_annotations": null
   },
-  "print_form": "print_string s ;;",
+  "print_form": "print_any (<args>) ;;",
   "boolean_keywords": {
     "true": "true",
     "false": "false"

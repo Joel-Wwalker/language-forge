@@ -51,6 +51,7 @@
     "file_extension": {"type": "string", "pattern": "^\\.[a-zA-Z0-9]+$"},
     "comment_syntax": {
       "type": "object",
+      "description": "Family-specific comment syntax. Preserve the value present in the base spec for the language's syntax family; do not rewrite to a different family's comment markers. c_like: line '//', block '/* */'. python_like: line '#', no block. s_expression: line ';', no block. stack_based: line '\\', block '( )'. ml_like: line null (no line comments), block '(* *)' (nestable in real OCaml; v1 treats outermost pair only).",
       "properties": {
         "line": {"type": ["string", "null"]},
         "block_open": {"type": ["string", "null"]},
@@ -87,11 +88,11 @@
       }
     },
     "statement_terminator": {
-      "description": "';' for c_like, 'newline' for python_like",
+      "description": "Family-specific. c_like: ';'. python_like: 'newline'. s_expression: ')'. stack_based: ' ' (whitespace). ml_like: ';;'. Preserve the family-correct value from the base spec; do not rewrite to a different family's form.",
       "type": "string"
     },
     "block_style": {
-      "description": "'braces' for c_like, 'indent' for python_like, 'parens' for s_expression, 'concatenative' for stack_based, 'expression-oriented' for ml_like (let-in chains, match, no blocks)",
+      "description": "Family-specific. c_like: 'braces'. python_like: 'indent'. s_expression: 'parens'. stack_based: 'concatenative'. ml_like: 'expression-oriented' (let-in chains, match, no blocks). Preserve the family-correct value from the base spec.",
       "enum": ["braces", "indent", "parens", "concatenative", "expression-oriented"]
     },
     "function_definition": {
@@ -117,7 +118,7 @@
       }
     },
     "print_form": {
-      "description": "How to print to stdout, e.g. 'print(x);' or 'print(x)'.",
+      "description": "How to print to stdout, as a template containing '<args>' as the placeholder for the value being printed. Family-specific: c_like 'print(<args>);', python_like 'print(<args>)', s_expression '(print <args>)', stack_based '<args> .', ml_like 'print_any (<args>) ;;'. The resolver MUST preserve the value present in the base spec for the language's syntax family — do not rewrite to a different family's print form. Phrasebooks may override with their own template (e.g. 'say <args>').",
       "type": "string"
     },
     "boolean_keywords": {
@@ -171,6 +172,7 @@
     },
     "error_handling": {
       "type": "object",
+      "description": "Error-handling strategy. Family defaults: c_like 'panic_only' (or 'exceptions' if explicit), python_like 'exceptions', s_expression 'panic_only', stack_based 'panic_only', ml_like 'panic_only' (v1 has no exception system; unmatched `match` arms raise _MLMatchError at runtime).",
       "properties": {
         "kind": {"enum": ["panic_only", "exceptions", "result_type"]},
         "syntax": {"type": "string"}
@@ -178,7 +180,8 @@
     },
     "loop_forms": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {"type": "string"},
+      "description": "Family-specific iteration constructs. Preserve what's appropriate for the syntax family. c_like and python_like: 'while', 'c_for', 'foreach' available. s_expression: typically 'while' or recursion-only. stack_based: 'begin/until', 'do/loop'. ml_like: empty array - mllang has NO while/for loops; iteration is recursion + pattern matching on list cons. The kata pack will use recursion for ml_like. Do NOT add 'while' to an ml_like spec's loop_forms - the grammar does not parse it."
     },
     "multiple_returns": {"enum": ["none", "tuple", "named"]},
     "boolean_evaluation": {"enum": ["short_circuit", "eager"]},

@@ -17,7 +17,7 @@
     "type_annotations": null,
     "mutability": "mutable_by_default"
   },
-  "print_form": "(print x)",
+  "print_form": "(print <args>)",
   "boolean_keywords": {
     "true": "true",
     "false": "false"

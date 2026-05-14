@@ -680,42 +680,62 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
     lines.append(user_code.rstrip())
     lines.append("")
 
+    # Structural-variance-channel Seam 4: print emission is now spec-driven
+    # via `print_form` template substitution. Each family's base dict
+    # declares `print_form` with `<args>` as the placeholder for the value
+    # being printed. Phrasebooks may override the template (e.g.
+    # `"say <args>"`). The call-shape detection / translation logic below
+    # stays per-family because it's semantic (which form the kata call is
+    # in), not syntactic (how to print).
+    print_template = spec.get("print_form") or "print(<args>)"
+
+    def _emit_print(call: str) -> str:
+        """Substitute <args> in print_form. Older `print_form` values
+        without `<args>` (legacy, pre-migration) are tolerated by treating
+        the template literally and appending the call in parens — that's
+        the c_like fallback shape."""
+        if "<args>" in print_template:
+            return print_template.replace("<args>", call)
+        # Legacy template without placeholder: best-effort append.
+        return f"print({call})"
+
     if syntax == "s_expression":
         from .mechanical_translator import transpile
         for test in tests:
             call = test["call"].strip().rstrip(";").rstrip()
             # If the call is already in s-expression form (parenthesized
-            # prefix call), wrap it directly. Otherwise translate from c_like.
+            # prefix call), wrap it directly via the print_form template.
+            # Otherwise translate from c_like; transpile() already emits
+            # the full print form, so use the translation as-is.
             if call.startswith("("):
-                lines.append(f"(print {call})")
+                lines.append(_emit_print(call))
             else:
                 translated = transpile(f"print({call});\n", spec)
                 if translated:
                     lines.append(translated.rstrip())
                 else:
-                    # Defensive fallback: try to coerce `name(a, b)` into
-                    # `(name a b)` lexically. Doesn't handle nested calls.
-                    lines.append(f"(print ({call.replace(',', ' ').replace('(', ' ').replace(')', '')}))")
+                    # Defensive fallback: coerce `name(a, b)` into
+                    # `(name a b)` lexically, then wrap with print_form.
+                    crude = "(" + call.replace(',', ' ').replace('(', ' ').replace(')', '') + ")"
+                    lines.append(_emit_print(crude))
         return "\n".join(lines) + "\n"
 
     if syntax == "ml_like":
-        # mllang: function calls are juxtaposition (`f x y`), and the
-        # generic `print_any` runtime helper prints any value + newline
-        # (mirrors c_like's `print(...)` semantics). Kata `call` strings
-        # in CLASSICS_ML_LIKE are already in mllang syntax (e.g.
-        # `fib 10`, not `fib(10)`); we wrap each with `print_any (...) ;;`.
+        # mllang: function calls are juxtaposition (`f x y`). Kata `call`
+        # strings in CLASSICS_ML_LIKE are already in mllang syntax (e.g.
+        # `fib 10`, not `fib(10)`); strip any trailing `;;` the kata
+        # author may have included, then apply the print template.
         for test in tests:
             call = test["call"].strip().rstrip(";").rstrip()
-            # Strip trailing `;;` if the kata author included it.
             if call.endswith(";;"):
                 call = call[:-2].rstrip()
-            lines.append(f"print_any ({call}) ;;")
+            lines.append(_emit_print(call))
         return "\n".join(lines) + "\n"
 
     if syntax == "stack_based":
-        # Forth: push args, call the word, then `.` to print the result.
-        # Test calls may already be in postfix form (`5 factorial`) or
-        # in c_like form (`factorial(5)`); detect the latter and translate.
+        # Forth: push args, call the word, then print. Test calls may
+        # already be in postfix form (`5 factorial`) or in c_like form
+        # (`factorial(5)`); detect the latter and translate.
         from .mechanical_translator import transpile
         for test in tests:
             call = test["call"].strip().rstrip(";").rstrip()
@@ -728,18 +748,21 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
                     expr = translated.rstrip()
                     if expr.endswith(" drop"):
                         expr = expr[:-len(" drop")]
-                    lines.append(f"{expr} .")
+                    lines.append(_emit_print(expr))
                 else:
                     lines.append(f"\\ couldn't translate test call: {call}")
             else:
-                # Already postfix; just print after.
-                lines.append(f"{call} .")
+                # Already postfix; print via template.
+                lines.append(_emit_print(call))
         return "\n".join(lines) + "\n"
 
-    terminator = ";" if spec.get("statement_terminator") == ";" else ""
+    # Default (c_like, python_like): use the template as-is. The base
+    # dicts now declare `"print(<args>);"` and `"print(<args>)"`
+    # respectively, so the family's statement_terminator is built into
+    # the template — no need to append it separately.
     for test in tests:
         call = test["call"].strip().rstrip(";").rstrip()
-        lines.append(f"print({call}){terminator}")
+        lines.append(_emit_print(call))
     return "\n".join(lines) + "\n"
 
 
