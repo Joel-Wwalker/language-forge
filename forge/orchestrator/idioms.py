@@ -67,7 +67,12 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "idioms.md"
 
 # Bump this when the idioms prompt template changes in a way that
 # would alter outputs for the same input spec.
-IDIOMS_PROMPT_VERSION = 2
+#   v1 -> v2: themed body's actual stdout becomes new expected_output.
+#   v2 -> v3: structural-variance-channel Seam 2; added per-family
+#             worked-example blocks (2 reference tests per family)
+#             so the LLM has actually-parseable examples to anchor on
+#             instead of paradigm-shaped guesses.
+IDIOMS_PROMPT_VERSION = 3
 
 _DEFAULT_CACHE_DIR = (
     Path(__file__).resolve().parents[2] / ".forge_cache" / "idioms"
