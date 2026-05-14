@@ -106,6 +106,14 @@ phase*.md
 variance-*.md
 verification_*/
 catalog.db.backup*
+catalog.db.preserved
+catalog.db.pre_*
+
+# Background-task log files written by the harness when batch
+# commands run via run_in_background. Per-run noise, not source.
+.batch_*.txt
+.batch_*.log
+.gui_log.txt
 
 # Raw LLM prompt + response logs (forge writes these per-call under
 # .forge_log/ inside generated lang dirs; never commit them).
