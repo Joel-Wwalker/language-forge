@@ -87,11 +87,11 @@
       }
     },
     "statement_terminator": {
-      "description": "';' for c_like, 'newline' for python_like",
+      "description": "Family-specific. c_like: ';'. python_like: 'newline'. s_expression: ')'. stack_based: ' ' (whitespace). ml_like: ';;'. Preserve the family-correct value from the base spec; do not rewrite to a different family's form.",
       "type": "string"
     },
     "block_style": {
-      "description": "'braces' for c_like, 'indent' for python_like, 'parens' for s_expression, 'concatenative' for stack_based, 'expression-oriented' for ml_like (let-in chains, match, no blocks)",
+      "description": "Family-specific. c_like: 'braces'. python_like: 'indent'. s_expression: 'parens'. stack_based: 'concatenative'. ml_like: 'expression-oriented' (let-in chains, match, no blocks). Preserve the family-correct value from the base spec.",
       "enum": ["braces", "indent", "parens", "concatenative", "expression-oriented"]
     },
     "function_definition": {
@@ -117,7 +117,7 @@
       }
     },
     "print_form": {
-      "description": "How to print to stdout, e.g. 'print(x);' or 'print(x)'.",
+      "description": "How to print to stdout, as a template containing '<args>' as the placeholder for the value being printed. Family-specific: c_like 'print(<args>);', python_like 'print(<args>)', s_expression '(print <args>)', stack_based '<args> .', ml_like 'print_any (<args>) ;;'. The resolver MUST preserve the value present in the base spec for the language's syntax family — do not rewrite to a different family's print form. Phrasebooks may override with their own template (e.g. 'say <args>').",
       "type": "string"
     },
     "boolean_keywords": {

@@ -15,6 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/clike/clike.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/commonlisp/commonlisp.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/forth/forth.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/edit/matchbrackets.min.js"></script>
 
   <style>
@@ -181,11 +182,13 @@
     let _fallbackHello;
     if (SYNTAX === 'c_like') _fallbackHello = `print("Hello from toylang!");\n`;
     else if (SYNTAX === 's_expression') _fallbackHello = `(print "Hello from toylang!")\n`;
+    else if (SYNTAX === 'stack_based') _fallbackHello = `." Hello from toylang!" cr\n`;
     else _fallbackHello = `print("Hello from toylang!")\n`;
     const initial = EXAMPLES["hello_world"] || _fallbackHello;
     let _cmMode;
     if (SYNTAX === 'python_like') _cmMode = 'python';
     else if (SYNTAX === 's_expression') _cmMode = 'commonlisp';
+    else if (SYNTAX === 'stack_based') _cmMode = 'forth';
     else _cmMode = { name: 'clike', keywords: {} };
     const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
       mode: _cmMode,

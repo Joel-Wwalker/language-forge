@@ -70,7 +70,7 @@
     "syntax_example": "var x = 10;",
     "type_annotations": null
   },
-  "print_form": "print(x);",
+  "print_form": "print(<args>);",
   "boolean_keywords": {
     "true": "true",
     "false": "false"
