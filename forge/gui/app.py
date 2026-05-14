@@ -343,9 +343,9 @@ def create_app(*, catalog_db_path: Optional[Path] = None,
         #     listed alongside ALL generated/ entries. Legacy default.
         #   - 'approved_only' → ONLY catalog entries with status=approved.
         #     Generated/ entries are excluded entirely. The Library tab
-        #     uses this so the library is a strictly curated surface —
-        #     unapproved test runs and reference
-        #     templates not clutter their library view.
+        #     uses this so the library is a strictly curated surface;
+        #     unapproved test runs and reference templates are filtered
+        #     out of the library view by design.
         #   - 'all'           → every catalog entry (any status) plus
         #     all generated/ entries. The Catalog UI deep-links to the
         #     playground with this so curators can launch a pending

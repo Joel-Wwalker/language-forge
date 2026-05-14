@@ -908,10 +908,10 @@ let LIBRARY_CACHE = [];
 
 async function refreshLibrary() {
   // Friction-fix (May 2026): the Library is now a strictly curated
-  // surface — only catalog rows with status=approved show up. The
-  // user explicitly asked that unapproved test runs, reference
-  // templates (toylang/lisplang/forthlang/stacky), and old ad-hoc
-  // generated/ entries not clutter their library view.
+  // surface — only catalog rows with status=approved show up.
+  // Unapproved test runs, reference templates (toylang/lisplang/
+  // forthlang/stacky), and old ad-hoc generated/ entries are filtered
+  // out of the library view by design.
   //
   // Deep-link callers (the catalog UI's "Launch REPL") still pass
   // ?include_catalog=all in the URL to override this and see pending
