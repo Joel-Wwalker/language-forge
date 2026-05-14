@@ -43,27 +43,23 @@ Each value is a short program (4-15 lines) that:
    Use only the syntax forms documented in the spec - keywords, comment
    syntax, function declaration form, variable declaration form, loop
    forms, etc. Don't invent new syntax.
-2. **Produces the same observable output** as the canonical reference
-   test would. The expected output for each test is fixed (a deterministic
-   string the smoke-test loop compares against). You don't have to match
-   it character-for-character in your head, but the program must print
-   the same sequence of lines as a generic version of that test would.
-   - `hello_world` -> prints exactly one line of greeting (the THEMED
-     version of "Hello, World!", e.g. "Ahoy, world!" for pirate)
-   - `arithmetic` -> prints arithmetic results, one per line, that map
-     to the same numerical answers the reference test would print
-   - `variables` -> prints variable values in the same order/format
-   - `conditionals` -> prints branch results showing both branches taken
-   - `loops` -> prints sequential iteration results
-   - `functions` -> prints function call results
-   - `closures` -> prints captured-state results
-   - `strings` -> prints string operations results
-3. **Reads in the persona/era/theme voice.** The variable names, the
-   comments, the chosen problem domain all reflect this language's
-   identity. A pirate language's `arithmetic` divides plunder among
-   crew. A Stroustrup-1980s language's `closures` is a CAD callback. A
-   McCarthy-1962 language's `loops` is a teaching-dialect for-loop over
-   a sum-of-squares.
+2. **Is deterministic.** Same input, same output, every run. No random,
+   no time-of-day, no nondeterministic ordering. The overlay validator
+   runs your body twice and rejects any whose stdout differs between
+   runs. A flaky test is worse than a generic one.
+3. **Exercises what the test name implies.** The test infrastructure
+   doesn't enforce specific output - the themed body's actual stdout
+   becomes the new expected_output. But each test should still cover
+   its category: `arithmetic` should exercise +/-/*//, `loops` should
+   loop, `closures` should capture state, etc. A pirate `arithmetic`
+   test that divides plunder is great; a pirate `arithmetic` test that
+   just prints "Yarr!" is not.
+4. **Reads in the persona/era/theme voice.** The variable names, the
+   comments, the problem domain, AND the printed output all reflect
+   this language's identity. A pirate language's `arithmetic` divides
+   plunder among crew and prints share amounts. A Stroustrup-1980s
+   language's `closures` is a CAD callback. A McCarthy-1962 language's
+   `loops` is a teaching-dialect for-loop over a sum-of-squares.
 
 **Constraints:**
 
