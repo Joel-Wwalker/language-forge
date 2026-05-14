@@ -60,7 +60,13 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "resolver.md"
 # of the cache under the new key shape so the savings show up
 # immediately on the first batch run.
 RESOLVER_PROMPT_VERSION = 2
-RESOLVER_SCHEMA_VERSION = 1
+# Schema version bumped from 1 to 2: structural-variance-channel Stage F
+# tightened the descriptions for print_form / statement_terminator /
+# block_style / comment_syntax / loop_forms / error_handling to be
+# family-aware. The schema is fed to the resolver as the response shape,
+# so the description changes affect the LLM's behavior. Bump invalidates
+# stale entries that were resolved under the old c_like-defaulting hints.
+RESOLVER_SCHEMA_VERSION = 2
 
 
 # Workspace-relative cache dir. Each cached spec is one JSON file keyed
