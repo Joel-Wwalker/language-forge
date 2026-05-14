@@ -353,6 +353,17 @@ def _overlay_idiomatic_content(spec: dict, lang_dir: Path,
         return True, rp.stdout
 
     # 1. Overlay themed canonical test bodies.
+    #
+    # Validation strategy: the themed body and its expected output BOTH
+    # change (a themed `hello_world` prints something other than "Hello,
+    # World!"). For the smoke-test loop to keep working, we need a new
+    # expected_output.txt that matches the themed body's actual stdout.
+    # The body must also be deterministic - same stdout on every run.
+    # We verify both: compile + run twice, accept only when both runs
+    # produce identical stdout AND the body exits 0. The accepted
+    # body's stdout becomes the new expected_output.txt; the reference
+    # version is overwritten. On any rejection, reference templates
+    # stay intact (already on disk from _template_from_reference).
     bodies = idioms.get("canonical_test_bodies") or {}
     if isinstance(bodies, dict):
         # Scratch dir lives under lang_dir so the compiled .out.py
@@ -366,27 +377,33 @@ def _overlay_idiomatic_content(spec: dict, lang_dir: Path,
                 body = bodies[name]
                 if not isinstance(body, str) or not body.strip():
                     continue
-                # Read the expected_output that _template_from_reference
-                # already wrote. If it's missing, we can't validate.
-                exp_path = tests_dir / f"{name}.expected_output.txt"
                 ref_src_path = tests_dir / f"{name}{ext}"
-                if not exp_path.exists() or not ref_src_path.exists():
+                exp_path = tests_dir / f"{name}.expected_output.txt"
+                if not ref_src_path.exists() or not exp_path.exists():
                     rejected_tests.append(name)
                     continue
-                expected = exp_path.read_text(encoding="utf-8")
 
                 scratch_src = scratch_dir / f"{name}{ext}"
                 scratch_src.write_text(body, encoding="utf-8")
-                ok, stdout = _compile_and_run(scratch_src)
-                # Be lenient with trailing newlines — the reference
-                # tests use rstrip on both sides, so do the same here.
-                if ok and stdout.rstrip("\n") == expected.rstrip("\n"):
-                    # Themed body produces the same output. Overwrite
-                    # the reference source with it.
-                    ref_src_path.write_text(body, encoding="utf-8")
-                    accepted_tests.append(name)
-                else:
+                ok1, stdout1 = _compile_and_run(scratch_src)
+                if not ok1:
                     rejected_tests.append(name)
+                    continue
+                # Second run to confirm determinism. The reference
+                # tests are deterministic by construction; the themed
+                # versions need to be too, or smoke will flake.
+                ok2, stdout2 = _compile_and_run(scratch_src)
+                if not ok2 or stdout1 != stdout2:
+                    rejected_tests.append(name)
+                    continue
+
+                # Themed body runs deterministically. Overwrite the
+                # source AND the expected_output so they're a matched
+                # pair. Both files use rstrip on comparison, so we
+                # don't normalize the trailing newline here.
+                ref_src_path.write_text(body, encoding="utf-8")
+                exp_path.write_text(stdout1, encoding="utf-8")
+                accepted_tests.append(name)
         finally:
             # Clean up the scratch dir. Don't fail generation if
             # cleanup hits a permission error (Windows file locks).

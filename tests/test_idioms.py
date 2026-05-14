@@ -237,10 +237,12 @@ def test_prompt_version_invalidates_old_cache(fresh_idioms_cache, monkeypatch):
     assert key_v1 != key_v99
 
 
-def test_prompt_version_constant_is_one():
+def test_prompt_version_constant_is_two():
     """Pin the version. Bump deliberately when the prompt changes
-    semantically."""
-    assert IDIOMS_PROMPT_VERSION == 1
+    semantically. v1 -> v2: stopped requiring themed bodies to match
+    the reference's expected_output.txt; the themed body's actual
+    stdout becomes the new expected_output."""
+    assert IDIOMS_PROMPT_VERSION == 2
 
 
 def test_canonical_test_names_match_generator():

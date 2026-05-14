@@ -67,7 +67,7 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "idioms.md"
 
 # Bump this when the idioms prompt template changes in a way that
 # would alter outputs for the same input spec.
-IDIOMS_PROMPT_VERSION = 1
+IDIOMS_PROMPT_VERSION = 2
 
 _DEFAULT_CACHE_DIR = (
     Path(__file__).resolve().parents[2] / ".forge_cache" / "idioms"
