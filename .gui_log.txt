@@ -19,3 +19,12 @@ Press CTRL+C to quit
 127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/themes HTTP/1.1" 200 -
 127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/bans HTTP/1.1" 200 -
 127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/phrasebooks HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:01] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:12] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:22] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:32] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:42] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:52] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:42:02] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:42:58] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:43:01] "GET /catalog HTTP/1.1" 200 -
