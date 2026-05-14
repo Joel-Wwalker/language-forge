@@ -60,13 +60,20 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "resolver.md"
 # of the cache under the new key shape so the savings show up
 # immediately on the first batch run.
 RESOLVER_PROMPT_VERSION = 2
-# Schema version bumped from 1 to 2: structural-variance-channel Stage F
-# tightened the descriptions for print_form / statement_terminator /
-# block_style / comment_syntax / loop_forms / error_handling to be
-# family-aware. The schema is fed to the resolver as the response shape,
-# so the description changes affect the LLM's behavior. Bump invalidates
-# stale entries that were resolved under the old c_like-defaulting hints.
-RESOLVER_SCHEMA_VERSION = 2
+# Schema version history:
+#   v1: original
+#   v1 -> v2: structural-variance-channel Stage F tightened parent
+#     descriptions for print_form / statement_terminator / block_style /
+#     comment_syntax / loop_forms / error_handling.
+#   v2 -> v3: seam8-fix; descriptions added to comment_syntax sub-
+#     properties (line, block_open, block_close, nestable) and to
+#     options.loop_forms (the input-axis sibling of top-level
+#     loop_forms). The Stage F batch revealed the resolver was still
+#     rewriting comment_syntax.block_open from '(*' to '"""' for
+#     ml_like specs, and adding 'while' to options.loop_forms, because
+#     it weights sub-property descriptions over parent ones. v3 adds
+#     the missing sub-property descriptions with family-aware values.
+RESOLVER_SCHEMA_VERSION = 3
 
 
 # Workspace-relative cache dir. Each cached spec is one JSON file keyed
