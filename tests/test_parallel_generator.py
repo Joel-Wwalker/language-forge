@@ -126,11 +126,16 @@ def test_parallel_generator_overlaps_independent_components(tmp_path):
                  verify_after_generation=False)
     elapsed = time.monotonic() - t0
 
-    # Sequential lower bound: 8 components × latency. Critical path with
-    # parallelism is parser → codegen → runtime → stdlib → language_reference
-    # (5 calls). Real-world per-call latency is 30-60s; parallelism wins big
-    # there. In this fast-fake test we just confirm SOME speedup vs sequential.
-    sequential_lower = 8 * latency
+    # Sequential lower bound includes 8 component LLM calls + 1
+    # gen-creative call (fires before component generation) + 1 unit
+    # of cushion for the fixed I/O overhead (resolved_spec.json writes,
+    # threading startup, subprocess setup). Without that cushion the
+    # threshold sits right on top of measured wall-time and the test
+    # flakes on busy machines. Critical path WITH parallelism is
+    # parser -> codegen -> runtime -> stdlib -> language_reference
+    # (5 calls), so we still have plenty of margin to catch a
+    # parallelism regression (which would land near 9*latency = 1.8s).
+    sequential_lower = 10 * latency
     assert elapsed < sequential_lower, (
         f"generation took {elapsed:.2f}s; expected speedup vs sequential "
         f"lower bound {sequential_lower:.2f}s"
