@@ -36,7 +36,7 @@ Each entry below is a problem you MUST preserve. The `id`, `title`, `difficulty`
 YOUR JOB is to write, for each problem:
 - `starter_code`: a function skeleton with empty body, in this language's syntax
 - `reference_solution`: a complete working solution, in this language's syntax. If the language bans mutation, use recursion; if it bans loops, use recursion.
-- `tests`: each test object has a `call` string (a function call in THIS language's syntax that produces the test input) and an `expected` string (what `print(<call>)` will literally produce as stdout in THIS language).
+- `tests`: each test object has a `call` string (a function call in THIS language's syntax that produces the test input) and an `expected` string (what this language's print form with `<call>` substituted as the argument will literally produce as stdout - see `spec.print_form`, typically `print(<args>)` for c_like, `(print <args>)` for s_expression, `<args> .` for stack_based, `print_any (<args>) ;;` for ml_like).
 
 ```json
 {{PROBLEMS_JSON}}
@@ -79,7 +79,7 @@ Return a JSON object with a single top-level array `katas`, ordered identically 
 
 For each translated kata:
 1. Mentally execute `reference_solution` against each test's `call`.
-2. The expected stdout must EXACTLY match what `print(<call>)` produces in this language's runtime. List formatting, boolean spelling, null spelling: all must match this language's print formatter.
+2. The expected stdout must EXACTLY match what this language's print form produces with `<call>` substituted (see `spec.print_form`). List formatting, boolean spelling, null spelling: all must match this language's print formatter.
 3. If reference + expected disagree, fix until they agree.
 4. Re-verify the syntax matches the verified sample's punctuation/keywords.
 

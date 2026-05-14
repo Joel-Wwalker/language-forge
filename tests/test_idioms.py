@@ -237,12 +237,15 @@ def test_prompt_version_invalidates_old_cache(fresh_idioms_cache, monkeypatch):
     assert key_v1 != key_v99
 
 
-def test_prompt_version_constant_is_two():
+def test_prompt_version_constant_is_three():
     """Pin the version. Bump deliberately when the prompt changes
-    semantically. v1 -> v2: stopped requiring themed bodies to match
-    the reference's expected_output.txt; the themed body's actual
-    stdout becomes the new expected_output."""
-    assert IDIOMS_PROMPT_VERSION == 2
+    semantically.
+      v1 -> v2: themed body's actual stdout becomes new expected_output.
+      v2 -> v3: structural-variance-channel Seam 2; added per-family
+                worked-example blocks (2 reference tests per family)
+                so the LLM has actually-parseable anchors instead of
+                paradigm-shaped guesses."""
+    assert IDIOMS_PROMPT_VERSION == 3
 
 
 def test_canonical_test_names_match_generator():

@@ -322,12 +322,14 @@ def test_render_templated_readme_empty_creative_fallback():
 # 6. Cache version bump invalidates old entries
 # ---------------------------------------------------------------------------
 
-def test_creative_prompt_version_is_2():
-    """Variance-improvement bumped CREATIVE_PROMPT_VERSION from 1 to
-    2. This pins the bump so a future edit that adds fields without
-    bumping the version doesn't silently serve stale cached entries
-    against a new renderer."""
-    assert CREATIVE_PROMPT_VERSION == 2
+def test_creative_prompt_version_is_3():
+    """Pin the version. Bump deliberately when the prompt changes
+    semantically.
+      v1 -> v2: variance-improvement; prompt grew from 1 field to 6.
+      v2 -> v3: structural-variance-channel Seam 6; added per-family
+                surface-characteristics section so example_commentary
+                references the correct family syntax."""
+    assert CREATIVE_PROMPT_VERSION == 3
 
 
 def test_cache_version_in_key_invalidates_old_entries(tmp_path):
