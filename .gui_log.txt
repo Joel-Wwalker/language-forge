@@ -4,3 +4,27 @@ Forge GUI listening on http://127.0.0.1:5173/
 WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
  * Running on http://127.0.0.1:5173
 Press CTRL+C to quit
+127.0.0.1 - - [13/May/2026 20:40:51] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /static/style.css HTTP/1.1" 304 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /static/app.js HTTP/1.1" 304 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/languages?include_catalog=approved_only HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/samples HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/personas HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/providers HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:51] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/eras HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/spec/democ HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/theme/democ.css?t=1778719252175 HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/themes HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/bans HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:40:52] "GET /api/phrasebooks HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:01] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:12] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:22] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:32] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:42] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:41:52] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:42:02] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:42:58] "GET /api/languages HTTP/1.1" 200 -
+127.0.0.1 - - [13/May/2026 20:43:01] "GET /catalog HTTP/1.1" 200 -
