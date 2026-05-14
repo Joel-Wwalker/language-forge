@@ -1,0 +1,254 @@
+[
+  {
+    "slot_id": "slot_ml_001",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9001,
+    "target_rarity": "common",
+    "notes": "Vanilla mllang baseline"
+  },
+  {
+    "slot_id": "slot_ml_002",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9002,
+    "target_rarity": "common",
+    "notes": "Vanilla mllang baseline (second seed)"
+  },
+  {
+    "slot_id": "slot_ml_003",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9003,
+    "target_rarity": "common",
+    "notes": "Single-axis: persona=mccarthy (functional-programming pioneer fits ML)"
+  },
+  {
+    "slot_id": "slot_ml_004",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9004,
+    "target_rarity": "common",
+    "notes": "Single-axis: era=1970s (original ML era)"
+  },
+  {
+    "slot_id": "slot_ml_005",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9005,
+    "target_rarity": "rare",
+    "notes": "Single-axis: theme=pirate"
+  },
+  {
+    "slot_id": "slot_ml_006",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": "1990s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9006,
+    "target_rarity": "rare",
+    "notes": "Two-axis: persona=wadler (Haskell co-author) + era=1990s"
+  },
+  {
+    "slot_id": "slot_ml_007",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9007,
+    "target_rarity": "rare",
+    "notes": "Two-axis: persona=hickey + theme=cozy"
+  },
+  {
+    "slot_id": "slot_ml_008",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": "latin",
+      "feature_bans": []
+    },
+    "seed": 9008,
+    "target_rarity": "epic",
+    "notes": "Three-axis: persona=mccarthy + era=1960s + phrasebook=latin (academic ML)"
+  },
+  {
+    "slot_id": "slot_ml_009",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": "1980s",
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9009,
+    "target_rarity": "epic",
+    "notes": "Three-axis: persona/era/theme \u00e2\u20ac\u201d does ML survive corporate stroustrup persona?"
+  },
+  {
+    "slot_id": "slot_ml_010",
+    "options": {
+      "syntax": "ml_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": "1990s",
+      "theme": "shakespearean",
+      "phrasebook": "latin",
+      "feature_bans": []
+    },
+    "seed": 9010,
+    "target_rarity": "epic",
+    "notes": "Four-axis stress test: persona+era+theme+phrasebook all populated"
+  },
+  {
+    "slot_id": "slot_xf_c001",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 8001,
+    "target_rarity": "common",
+    "notes": "Vanilla c_like for cross-family compare"
+  },
+  {
+    "slot_id": "slot_xf_c002",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": "1980s",
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 8002,
+    "target_rarity": "rare",
+    "notes": "Customized c_like for compare"
+  },
+  {
+    "slot_id": "slot_xf_s001",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 8003,
+    "target_rarity": "common",
+    "notes": "Vanilla s_expression for compare"
+  },
+  {
+    "slot_id": "slot_xf_st001",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 8004,
+    "target_rarity": "common",
+    "notes": "Vanilla stack_based for compare"
+  }
+]

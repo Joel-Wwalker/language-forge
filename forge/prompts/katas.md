@@ -66,7 +66,7 @@ A JSON object with one top-level array, `katas`, of exactly 5 entries:
 
 For each kata:
 1. Mentally execute `reference_solution` against each test's `call`.
-2. The expected stdout must EXACTLY match what `print(<call>)` produces. Booleans use the spec's `boolean_keywords`. Lists use the language's runtime `_toy_str` form `[1, 2, 3]`.
+2. The expected stdout must EXACTLY match what the language's print form produces (see `spec.print_form` - typically `print(<args>)` for c_like, `(print <args>)` for s_expression, `<args> .` for stack_based, `print_any (<args>) ;;` for ml_like; phrasebooks may override). Booleans use the spec's `boolean_keywords`. Lists use the language's runtime form, typically `[1, 2, 3]` but check the spec's list formatter.
 3. If reference + expected disagree, fix one until they agree.
 
 Generated katas are about to be run end-to-end through the actual compiler. If a reference solution fails its own tests, the kata is dropped silently. Don't waste output on katas you didn't validate mentally.
