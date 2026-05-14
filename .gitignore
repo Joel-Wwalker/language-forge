@@ -91,8 +91,12 @@ catalog*.db-journal
 # for reference but not committed to the public repo.
 # Catch-all patterns first so future findings docs are auto-ignored.
 *-instructions.md
+*instructions*.md
 *-findings.md
+*findings*.md
 *-followup.md
+*-design*.md
+*-experiment*.md
 *_REPORT.md
 *_REVIEW.md
 *_FINDINGS.md
