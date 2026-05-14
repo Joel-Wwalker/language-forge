@@ -319,9 +319,17 @@ def _overlay_idiomatic_content(spec: dict, lang_dir: Path,
     rejected_examples: list[str] = []
 
     def _compile_and_run(src_path: Path) -> tuple[bool, str]:
-        """Returns (success, stdout). success means compile + run both
-        finished cleanly. We don't need exit-0 — the runtime can panic
-        and we'd still want to compare what got printed."""
+        """Returns (success, stdout). Success requires BOTH:
+          - compile.py exited 0 AND wrote the .out.py file
+          - the .out.py ran to completion with exit code 0
+
+        We can't be lenient on the runtime exit code: some codegens
+        produce .out.py files with Python syntax errors when given
+        unusual inputs (forthlang's string codegen on strings with
+        spaces, for instance). Those exit nonzero with empty stdout,
+        which would otherwise pass the determinism check and ship
+        broken tests. Hard-require exit 0 here so smoke matches.
+        """
         try:
             cp = subprocess.run(
                 [sys.executable, str(compile_py), str(src_path)],
@@ -349,6 +357,8 @@ def _overlay_idiomatic_content(spec: dict, lang_dir: Path,
                 cwd=str(lang_dir), env=env,
             )
         except (subprocess.TimeoutExpired, OSError):
+            return False, ""
+        if rp.returncode != 0:
             return False, ""
         return True, rp.stdout
 
