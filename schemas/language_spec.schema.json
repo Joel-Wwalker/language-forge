@@ -39,7 +39,8 @@
         "loop_forms": {
           "type": "array",
           "items": {"enum": ["while", "c_for", "foreach", "repeat_until", "loop_break"]},
-          "uniqueItems": true
+          "uniqueItems": true,
+          "description": "Family-specific iteration constructs the language supports. c_like and python_like: pick from ['while', 'c_for', 'foreach', 'repeat_until', 'loop_break'] as appropriate. s_expression: typically ['while'] (lisplang has a while special form). stack_based: ['begin', 'until', 'do', 'loop'] are stack-based families' loop words (but those aren't in this enum since they're family-specific words, not generic forms - typically the spec just lists ['while'] here). ml_like: MUST be the empty array `[]`. mllang has NO while/for loops; iteration is recursion + pattern matching on list cons. Do NOT add 'while' to an ml_like spec's loop_forms - the grammar does not parse it and downstream stages will fail."
         },
         "multiple_returns": {"enum": ["none", "tuple", "named"]},
         "boolean_evaluation": {"enum": ["short_circuit", "eager"]},
@@ -53,10 +54,22 @@
       "type": "object",
       "description": "Family-specific comment syntax. Preserve the value present in the base spec for the language's syntax family; do not rewrite to a different family's comment markers. c_like: line '//', block '/* */'. python_like: line '#', no block. s_expression: line ';', no block. stack_based: line '\\', block '( )'. ml_like: line null (no line comments), block '(* *)' (nestable in real OCaml; v1 treats outermost pair only).",
       "properties": {
-        "line": {"type": ["string", "null"]},
-        "block_open": {"type": ["string", "null"]},
-        "block_close": {"type": ["string", "null"]},
-        "nestable": {"type": "boolean"}
+        "line": {
+          "type": ["string", "null"],
+          "description": "Single-line comment marker. Family-specific values: c_like '//', python_like '#', s_expression ';', stack_based '\\\\' (backslash, escaped here), ml_like null (no line comments). Preserve the family's value from the base spec; do NOT default to '//' or '#'."
+        },
+        "block_open": {
+          "type": ["string", "null"],
+          "description": "Opening token for block comments. Family-specific values: c_like '/*', python_like null (Python has no block comments; only line comments + triple-quoted strings), s_expression null (lisplang has no block comments), stack_based '(' (parens are paren-comments in Forth), ml_like '(*'. Preserve the family's value; do NOT default to '/*' or '\"\"\"' (the resolver historically wrote triple quotes for ml_like, which is wrong)."
+        },
+        "block_close": {
+          "type": ["string", "null"],
+          "description": "Closing token for block comments. Family-specific values: c_like '*/', python_like null, s_expression null, stack_based ')', ml_like '*)'. Must pair with block_open from the same family. Preserve the family's value; do NOT default."
+        },
+        "nestable": {
+          "type": "boolean",
+          "description": "Whether block comments can nest inside each other. Family defaults: c_like false (standard C/C++ rule), python_like false (no block comments anyway), s_expression false, stack_based false (Forth paren-comments don't nest in the standard), ml_like true (real OCaml nests; mllang v1 grammar treats outermost pair only but the source-level convention says nestable). Preserve the family's value from the base spec."
+        }
       }
     },
     "keywords": {

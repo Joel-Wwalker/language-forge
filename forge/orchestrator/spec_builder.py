@@ -65,8 +65,12 @@ _SYNTAX_EXTENDED_DEFAULTS = {
     "stack_based": {"comment_style": "both", "naming_convention": "snake_case"},
     # OCaml-flavored ML: only block comments `(* ... *)`. snake_case for
     # identifiers (lowercase-leading by grammar; uppercase-leading is
-    # reserved for ADT constructors).
-    "ml_like": {"comment_style": "block", "naming_convention": "snake_case"},
+    # reserved for ADT constructors). NO while/for loops - mllang
+    # iteration is recursion + pattern matching on list cons; the
+    # _DEFAULT_EXTENDED['while'] would corrupt ml_like specs if it
+    # weren't overridden here.
+    "ml_like": {"comment_style": "block", "naming_convention": "snake_case",
+                "loop_forms": []},
 }
 
 
@@ -521,12 +525,17 @@ def build_spec(options: Options, lang_name: str, *,
     spec = _deep_merge(spec, _memory_overlay(options["memory"]))
 
     # Fill in extended-axis defaults for any not provided by the user.
+    # Family-specific defaults (_SYNTAX_EXTENDED_DEFAULTS) take priority
+    # over the global default (_DEFAULT_EXTENDED). Otherwise a family
+    # like ml_like would silently inherit `loop_forms=['while']` from
+    # the c_like-default global, corrupting any spec where the user
+    # didn't explicitly say `loop_forms=[]`.
     full_opts = dict(options)
     syntax_defaults = _SYNTAX_EXTENDED_DEFAULTS.get(options["syntax"], {})
     for k, default in _DEFAULT_EXTENDED.items():
         if k in full_opts:
             continue
-        if default is None and k in syntax_defaults:
+        if k in syntax_defaults:
             full_opts[k] = syntax_defaults[k]
         elif default is not None:
             full_opts[k] = default
@@ -780,6 +789,21 @@ def _apply_extended_options(spec: dict, opts: dict) -> None:
         elif cs == "block":
             spec["comment_syntax"] = {"line": None, "block_open": "(", "block_close": ")"}
         # else "both" / "nestable_block": leave the default (`\` + `( )`)
+    elif opts["syntax"] == "ml_like":
+        # ml_like (OCaml-flavored) has NO line comments and `(* *)` block
+        # comments that nest in real OCaml. mllang v1 grammar treats the
+        # outermost pair only; the source-level convention says nestable.
+        # The "block" / "both" / "nestable_block" cases all collapse to
+        # `(* *)`. There's no "line" form (real OCaml doesn't have one
+        # either; the comment_style enum's "line" value isn't applicable
+        # to ml_like and the base dict already sets line=null).
+        if cs == "nestable_block":
+            spec["comment_syntax"] = {"line": None, "block_open": "(*",
+                                      "block_close": "*)", "nestable": True}
+        elif cs in ("block", "both"):
+            spec["comment_syntax"] = {"line": None, "block_open": "(*",
+                                      "block_close": "*)", "nestable": True}
+        # else: leave default ((* *) from _ML_LIKE_BASE)
     else:  # python_like
         if cs == "block":
             spec["comment_syntax"] = {"line": None, "block_open": '"""', "block_close": '"""'}
