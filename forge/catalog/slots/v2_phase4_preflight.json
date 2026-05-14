@@ -1,0 +1,1812 @@
+[
+  {
+    "slot_id": "slot_c_001",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7001,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_002",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7002,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_003",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7003,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_004",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7004,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_005",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7005,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_006",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7006,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_007",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7007,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_008",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7008,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_009",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7009,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_010",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7010,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_011",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7011,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_012",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7012,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_013",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7013,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_014",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7014,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_015",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7015,
+    "target_rarity": "common",
+    "notes": "vanilla c_like"
+  },
+  {
+    "slot_id": "slot_c_016",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7016,
+    "target_rarity": "common",
+    "notes": "single-axis persona"
+  },
+  {
+    "slot_id": "slot_c_017",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7017,
+    "target_rarity": "common",
+    "notes": "single-axis persona"
+  },
+  {
+    "slot_id": "slot_c_018",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7018,
+    "target_rarity": "common",
+    "notes": "single-axis persona"
+  },
+  {
+    "slot_id": "slot_c_019",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7019,
+    "target_rarity": "common",
+    "notes": "single-axis era"
+  },
+  {
+    "slot_id": "slot_c_020",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7020,
+    "target_rarity": "common",
+    "notes": "single-axis era"
+  },
+  {
+    "slot_id": "slot_c_021",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7021,
+    "target_rarity": "common",
+    "notes": "single-axis era"
+  },
+  {
+    "slot_id": "slot_c_022",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7022,
+    "target_rarity": "common",
+    "notes": "single-axis theme"
+  },
+  {
+    "slot_id": "slot_c_023",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "shakespearean",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7023,
+    "target_rarity": "common",
+    "notes": "single-axis theme"
+  },
+  {
+    "slot_id": "slot_c_024",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7024,
+    "target_rarity": "common",
+    "notes": "single-axis theme"
+  },
+  {
+    "slot_id": "slot_c_025",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "english_storybook",
+      "feature_bans": []
+    },
+    "seed": 7025,
+    "target_rarity": "common",
+    "notes": "single-axis phrasebook"
+  },
+  {
+    "slot_id": "slot_c_026",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7026,
+    "target_rarity": "common",
+    "notes": "single-axis phrasebook"
+  },
+  {
+    "slot_id": "slot_c_027",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "child_speak",
+      "feature_bans": []
+    },
+    "seed": 7027,
+    "target_rarity": "common",
+    "notes": "single-axis phrasebook"
+  },
+  {
+    "slot_id": "slot_c_028",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": "1980s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7028,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_029",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7029,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_030",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "matz",
+      "era": "2000s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7030,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_031",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7031,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_032",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7032,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_033",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "ousterhout",
+      "era": null,
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7033,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_034",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7034,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_035",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1960s",
+      "theme": "shakespearean",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7035,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_036",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "2020s",
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7036,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_037",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7037,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_038",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": "child_speak",
+      "feature_bans": []
+    },
+    "seed": 7038,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_039",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "2000s",
+      "theme": null,
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7039,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_c_040",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": "1980s",
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7040,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_041",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7041,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_042",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": "2020s",
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7042,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_043",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": "2000s",
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7043,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_044",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7044,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_045",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": "shakespearean",
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7045,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_046",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "matz",
+      "era": "2020s",
+      "theme": null,
+      "phrasebook": "english_storybook",
+      "feature_bans": []
+    },
+    "seed": 7046,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_047",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": "latin",
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7047,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_c_048",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": "1980s",
+      "theme": "corporate",
+      "phrasebook": "ritual",
+      "feature_bans": [
+        "no_global_state"
+      ]
+    },
+    "seed": 7048,
+    "target_rarity": "mythic",
+    "notes": "max-custom"
+  },
+  {
+    "slot_id": "slot_c_049",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": "2000s",
+      "theme": "shakespearean",
+      "phrasebook": "shakespeare",
+      "feature_bans": [
+        "no_global_state"
+      ]
+    },
+    "seed": 7049,
+    "target_rarity": "mythic",
+    "notes": "max-custom"
+  },
+  {
+    "slot_id": "slot_c_050",
+    "options": {
+      "syntax": "c_like",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": "cozy",
+      "phrasebook": "english_storybook",
+      "feature_bans": [
+        "no_null"
+      ]
+    },
+    "seed": 7050,
+    "target_rarity": "mythic",
+    "notes": "max-custom"
+  },
+  {
+    "slot_id": "slot_s_001",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7051,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_002",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7052,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_003",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7053,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_004",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7054,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_005",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7055,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_006",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7056,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_007",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7057,
+    "target_rarity": "common",
+    "notes": "vanilla s_expression"
+  },
+  {
+    "slot_id": "slot_s_008",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7058,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_009",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7059,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_010",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7060,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_011",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7061,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_012",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7062,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_013",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7063,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_014",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7064,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_s_015",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7065,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_016",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7066,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_017",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "2000s",
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7067,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_018",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7068,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_019",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": "2020s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7069,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_020",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7070,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_s_021",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7071,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_s_022",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "hickey",
+      "era": "2020s",
+      "theme": "cozy",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7072,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_s_023",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wadler",
+      "era": null,
+      "theme": "shakespearean",
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7073,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_s_024",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": "corporate",
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7074,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_s_025",
+    "options": {
+      "syntax": "s_expression",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": "latin",
+      "phrasebook": "ritual",
+      "feature_bans": [
+        "no_global_state"
+      ]
+    },
+    "seed": 7075,
+    "target_rarity": "mythic",
+    "notes": "max-custom"
+  },
+  {
+    "slot_id": "slot_t_001",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7076,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_002",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7077,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_003",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7078,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_004",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7079,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_005",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7080,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_006",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7081,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_007",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7082,
+    "target_rarity": "common",
+    "notes": "vanilla stack_based"
+  },
+  {
+    "slot_id": "slot_t_008",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7083,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_009",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7084,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_010",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7085,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_011",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7086,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_012",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7087,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_013",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7088,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_014",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": null,
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7089,
+    "target_rarity": "common",
+    "notes": "single-axis"
+  },
+  {
+    "slot_id": "slot_t_015",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7090,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_016",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": null,
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7091,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_017",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": "pirate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7092,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_018",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "cozy",
+      "phrasebook": "english_storybook",
+      "feature_bans": []
+    },
+    "seed": 7093,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_019",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "ousterhout",
+      "era": "2000s",
+      "theme": null,
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7094,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_020",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "stroustrup",
+      "era": null,
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7095,
+    "target_rarity": "rare",
+    "notes": "two-axis"
+  },
+  {
+    "slot_id": "slot_t_021",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": "latin",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 7096,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_t_022",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "dijkstra",
+      "era": "1960s",
+      "theme": null,
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 7097,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_t_023",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": null,
+      "era": "1980s",
+      "theme": "pirate",
+      "phrasebook": "shakespeare",
+      "feature_bans": []
+    },
+    "seed": 7098,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_t_024",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "matz",
+      "era": null,
+      "theme": "corporate",
+      "phrasebook": "child_speak",
+      "feature_bans": []
+    },
+    "seed": 7099,
+    "target_rarity": "epic",
+    "notes": "three-axis"
+  },
+  {
+    "slot_id": "slot_t_025",
+    "options": {
+      "syntax": "stack_based",
+      "typing": "dynamic",
+      "memory": "host_gc"
+    },
+    "customization": {
+      "persona": "wirth",
+      "era": "1970s",
+      "theme": "pirate",
+      "phrasebook": "english_storybook",
+      "feature_bans": [
+        "no_exceptions"
+      ]
+    },
+    "seed": 7100,
+    "target_rarity": "mythic",
+    "notes": "max-custom"
+  }
+]
