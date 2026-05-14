@@ -1,0 +1,173 @@
+{
+  "lang_name": "mllang",
+  "options": {
+    "syntax": "ml_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "file_extension": ".ml",
+  "comment_syntax": {
+    "line": null,
+    "block_open": "(*",
+    "block_close": "*)"
+  },
+  "keywords": [
+    "let",
+    "rec",
+    "in",
+    "if",
+    "then",
+    "else",
+    "match",
+    "with",
+    "type",
+    "of",
+    "fun",
+    "mod",
+    "not",
+    "true",
+    "false"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "mod",
+      "+.",
+      "-.",
+      "*.",
+      "/."
+    ],
+    "comparison": [
+      "=",
+      "<>",
+      "<",
+      ">",
+      "<=",
+      ">="
+    ],
+    "logical": [
+      "&&",
+      "||",
+      "not"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "float": "decimal digits with '.'",
+    "string": "double-quoted with backslash escapes",
+    "boolean": "true / false",
+    "unit": "()"
+  },
+  "statement_terminator": ";;",
+  "block_style": "expression-oriented",
+  "function_definition": {
+    "keyword": "let",
+    "syntax_example": "let add a b = a + b ;;",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "let",
+    "syntax_example": "let x = 10 ;;",
+    "type_annotations": null
+  },
+  "print_form": "print_string s ;;",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "()",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. mllang is immutable-leaning at the source level (no mutable bindings, no `ref` cells in v1), so most program-visible aliasing is naturally shallow."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print_int",
+        "description": "Print an int to stdout (no newline)",
+        "signature": "print_int n -> unit"
+      },
+      {
+        "name": "print_string",
+        "description": "Print a string to stdout (no newline)",
+        "signature": "print_string s -> unit"
+      },
+      {
+        "name": "print_newline",
+        "description": "Print a newline character to stdout",
+        "signature": "print_newline () -> unit"
+      },
+      {
+        "name": "print_endline",
+        "description": "Print a string followed by newline",
+        "signature": "print_endline s -> unit"
+      },
+      {
+        "name": "string_length",
+        "description": "Number of characters in a string",
+        "signature": "string_length s -> int"
+      },
+      {
+        "name": "string_upper",
+        "description": "Uppercase a string",
+        "signature": "string_upper s -> string"
+      },
+      {
+        "name": "list_length",
+        "description": "Number of elements in a list",
+        "signature": "list_length lst -> int"
+      },
+      {
+        "name": "list_map",
+        "description": "Map a function over a list",
+        "signature": "list_map f lst -> list"
+      },
+      {
+        "name": "list_filter",
+        "description": "Keep elements satisfying a predicate",
+        "signature": "list_filter pred lst -> list"
+      },
+      {
+        "name": "list_fold_left",
+        "description": "Left-fold a list with an accumulator",
+        "signature": "list_fold_left f acc lst -> any"
+      }
+    ]
+  },
+  "design_notes": [
+    "Hand-written reference spec for ml_like + dynamic + host_gc. OCaml-flavored: `let`/`let rec`, pattern matching, ADTs, `match ... with`, strict evaluation, immutable bindings.",
+    "Subset edges (v1): no `when` guards on match arms, no mutual recursion (`let rec ... and ...`), no records, no `ref` cells, no modules/functors, no exceptions, no type checking (constructors are dynamic).",
+    "Iteration is recursion: there is no while/for loop. Pattern matching on `[]` and `h :: t` is the natural idiom for list traversal."
+  ],
+  "origin_story": "A hand-built reference compiler in the ML family. Used as the template for every ml_like language Forge generates.",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#3b82f6",
+      "accent_2": "#60a5fa",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  }
+}
