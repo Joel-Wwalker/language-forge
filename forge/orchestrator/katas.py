@@ -698,6 +698,20 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
                     lines.append(f"(print ({call.replace(',', ' ').replace('(', ' ').replace(')', '')}))")
         return "\n".join(lines) + "\n"
 
+    if syntax == "ml_like":
+        # mllang: function calls are juxtaposition (`f x y`), and the
+        # generic `print_any` runtime helper prints any value + newline
+        # (mirrors c_like's `print(...)` semantics). Kata `call` strings
+        # in CLASSICS_ML_LIKE are already in mllang syntax (e.g.
+        # `fib 10`, not `fib(10)`); we wrap each with `print_any (...) ;;`.
+        for test in tests:
+            call = test["call"].strip().rstrip(";").rstrip()
+            # Strip trailing `;;` if the kata author included it.
+            if call.endswith(";;"):
+                call = call[:-2].rstrip()
+            lines.append(f"print_any ({call}) ;;")
+        return "\n".join(lines) + "\n"
+
     if syntax == "stack_based":
         # Forth: push args, call the word, then `.` to print the result.
         # Test calls may already be in postfix form (`5 factorial`) or

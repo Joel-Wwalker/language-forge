@@ -45,6 +45,9 @@ REFERENCE_COMPILERS = {
     # use the LLM-driven path explicitly via `template_from_reference=
     # False` (Stage F flag).
     "c_like":       WORKSPACE_ROOT / "generated" / "toylang",
+    # ml_like (added by the ml-family experiment): OCaml-flavored
+    # dynamic ML. Templates from the hand-written mllang reference.
+    "ml_like":      WORKSPACE_ROOT / "generated" / "mllang",
     # `python_like` deferred — no hand-written python_like reference
     # exists yet. When one lands (a hand-written hardcombo-style
     # reference), add it here.

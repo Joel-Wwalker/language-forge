@@ -1502,6 +1502,181 @@ def _enrich_stack(katas: list[dict]) -> list[dict]:
 STACK_CLASSICS_FORTH = _enrich_stack(STACK_CLASSICS_FORTH)
 
 
+# ---------------------------------------------------------------------------
+# ml_like kata pack (added by the ml-family experiment).
+#
+# Curated for ML idiom: pattern matching on `[]` / `h :: t`, recursive
+# accumulators, no mutation, no while loops. Stage E v1 ships a smaller
+# pack than CLASSICS_C_LIKE_RECURSIVE (6 vs 12) — see
+# MLLANG_EXPERIMENT_CLOSEOUT.md (Stage H) for cost accounting + which
+# c_like classics didn't translate cleanly (dict-heavy ones like anagram
+# would need module-system features mllang v1 doesn't have).
+#
+# Each kata's `tests[]` calls are already in mllang syntax (juxtaposition,
+# no parens, lists as `[1; 2; 3]`). The kata wrapper in
+# `katas._wrap_with_test_prints` prepends `print_any (...) ;;` per test.
+# ---------------------------------------------------------------------------
+CLASSICS_ML_LIKE: list[dict] = [
+    {
+        "id": "fibonacci",
+        "title": "Nth Fibonacci",
+        "difficulty": "easy",
+        "problem": (
+            "Return the n-th Fibonacci number (0-indexed: fib 0 = 0, "
+            "fib 1 = 1, fib 2 = 1, fib 3 = 2, ...). Classic recursion "
+            "exercise in ML."
+        ),
+        "function_name": "fib",
+        "starter_code": "let rec fib n =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec fib n =\n"
+            "  if n < 2 then n\n"
+            "  else fib (n - 1) + fib (n - 2)\n"
+            ";;\n"
+        ),
+        "tests": [
+            {"call": "fib 0",  "expected": "0"},
+            {"call": "fib 1",  "expected": "1"},
+            {"call": "fib 5",  "expected": "5"},
+            {"call": "fib 10", "expected": "55"},
+        ],
+    },
+    {
+        "id": "factorial",
+        "title": "Factorial",
+        "difficulty": "easy",
+        "problem": "Return n! (n factorial). fact 0 = 1, fact 5 = 120.",
+        "function_name": "fact",
+        "starter_code": "let rec fact n =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec fact n =\n"
+            "  if n <= 1 then 1\n"
+            "  else n * fact (n - 1)\n"
+            ";;\n"
+        ),
+        "tests": [
+            {"call": "fact 0", "expected": "1"},
+            {"call": "fact 1", "expected": "1"},
+            {"call": "fact 5", "expected": "120"},
+            {"call": "fact 7", "expected": "5040"},
+        ],
+    },
+    {
+        "id": "sum_list",
+        "title": "Sum a list",
+        "difficulty": "easy",
+        "problem": (
+            "Return the sum of all integers in a list. Empty list -> 0. "
+            "Natural ML idiom: pattern match on `[] -> 0 | h :: t -> h + sum t`."
+        ),
+        "function_name": "sum_list",
+        "starter_code": "let rec sum_list lst =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec sum_list lst = match lst with\n"
+            "  | [] -> 0\n"
+            "  | h :: t -> h + sum_list t\n"
+            ";;\n"
+        ),
+        "tests": [
+            {"call": "sum_list []",            "expected": "0"},
+            {"call": "sum_list [1; 2; 3]",     "expected": "6"},
+            {"call": "sum_list [10; -3; 7]",   "expected": "14"},
+            {"call": "sum_list [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]", "expected": "55"},
+        ],
+    },
+    {
+        "id": "list_length",
+        "title": "Length of a list",
+        "difficulty": "easy",
+        "problem": (
+            "Return the number of elements in a list, computed by "
+            "structural recursion (don't call the built-in list_length)."
+        ),
+        "function_name": "my_length",
+        "starter_code": "let rec my_length lst =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec my_length lst = match lst with\n"
+            "  | [] -> 0\n"
+            "  | h :: t -> 1 + my_length t\n"
+            ";;\n"
+        ),
+        "tests": [
+            {"call": "my_length []",                "expected": "0"},
+            {"call": "my_length [42]",              "expected": "1"},
+            {"call": "my_length [1; 2; 3; 4; 5]",   "expected": "5"},
+            {"call": "my_length [\"a\"; \"b\"; \"c\"]", "expected": "3"},
+        ],
+    },
+    {
+        "id": "reverse_list",
+        "title": "Reverse a list",
+        "difficulty": "easy",
+        "problem": (
+            "Return a new list with the elements in reverse order. "
+            "Classic ML idiom: tail-recursive with an accumulator that "
+            "gets prepended to."
+        ),
+        "function_name": "rev",
+        "starter_code": "let rec rev lst =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec rev_helper lst acc = match lst with\n"
+            "  | [] -> acc\n"
+            "  | h :: t -> rev_helper t (h :: acc)\n"
+            ";;\n"
+            "\n"
+            "let rev lst = rev_helper lst [] ;;\n"
+        ),
+        "tests": [
+            {"call": "rev []",            "expected": "[]"},
+            {"call": "rev [1; 2; 3]",     "expected": "[3, 2, 1]"},
+            {"call": "rev [42]",          "expected": "[42]"},
+            {"call": "rev [1; 1; 2; 3]",  "expected": "[3, 2, 1, 1]"},
+        ],
+    },
+    {
+        "id": "count_occurrences",
+        "title": "Count occurrences in a list",
+        "difficulty": "easy",
+        "problem": (
+            "Return how many times `target` appears in `lst`. "
+            "Recursive accumulator over the list."
+        ),
+        "function_name": "count_occ",
+        "starter_code": "let rec count_occ target lst =\n  (* your code *)\n;;\n",
+        "reference_solution": (
+            "let rec count_occ target lst = match lst with\n"
+            "  | [] -> 0\n"
+            "  | h :: t ->\n"
+            "      let rest = count_occ target t in\n"
+            "      if h = target then 1 + rest else rest\n"
+            ";;\n"
+        ),
+        "tests": [
+            {"call": "count_occ 1 []",              "expected": "0"},
+            {"call": "count_occ 2 [1; 2; 3; 2; 1]", "expected": "2"},
+            {"call": "count_occ 7 [1; 2; 3]",       "expected": "0"},
+            {"call": "count_occ 1 [1; 1; 1; 1]",    "expected": "4"},
+        ],
+    },
+]
+
+
+# Enrich with a minimal sample_test_indices tag — the GUI uses this to
+# show which tests are visible (vs hidden). For ml_like we expose the
+# first 2 of 4 as samples, hidden 2-3 are the validation set.
+def _enrich_ml(katas: list[dict]) -> list[dict]:
+    out = []
+    for k in katas:
+        merged = dict(k)
+        if "sample_test_indices" not in merged:
+            merged["sample_test_indices"] = [0, 1]
+        out.append(merged)
+    return out
+
+
+CLASSICS_ML_LIKE = _enrich_ml(CLASSICS_ML_LIKE)
+
+
 PACKS: dict[str, dict] = {
     "classics": {
         "title": "LeetCode classics",
@@ -1509,6 +1684,19 @@ PACKS: dict[str, dict] = {
                        "linked-list reverse, binary tree max depth, plus more.",
         "katas": CLASSICS_C_LIKE,
         "syntax_family": "c_like",
+    },
+    "ml_classics": {
+        "title": "ML classics",
+        "description": "6 recursion-and-pattern-matching problems curated for "
+                       "ml_like languages: fib, factorial, sum_list, list_length, "
+                       "reverse_list, count_occurrences. ML-idiomatic — pattern "
+                       "matching on `[]` / `h :: t`, tail recursion with "
+                       "accumulators, no mutation. Smaller pack than the c_like "
+                       "classics because several pointer-heavy LeetCode problems "
+                       "(two_sum-with-dict, anagram) need module-system features "
+                       "mllang v1 doesn't ship.",
+        "katas": CLASSICS_ML_LIKE,
+        "syntax_family": "ml_like",
     },
     "stack_classics": {
         "title": "Stack-based classics",
@@ -1526,10 +1714,17 @@ PACKS: dict[str, dict] = {
 def get_classics_for(spec: dict) -> list[dict]:
     """Return the classics variant best suited to a language's constraints.
 
-    For `no_mutation` (love-style), use the recursion-only variant — same
-    problems and tests, but the reference solutions don't rely on
-    `i = i + 1`-style reassignment. Returns a deep copy."""
+    Family routing:
+      - ml_like         -> CLASSICS_ML_LIKE (recursion + pattern matching)
+      - stack_based     -> handled separately via stack_classics pack
+      - any c_like-ish with no_mutation/no_loops bans -> RECURSIVE variant
+      - otherwise        -> CLASSICS_C_LIKE (mutating loops permitted)
+
+    Returns a deep copy."""
     import copy
+    syntax = (spec.get("options") or {}).get("syntax")
+    if syntax == "ml_like":
+        return copy.deepcopy(CLASSICS_ML_LIKE)
     bans = (spec.get("customization") or {}).get("feature_bans") or []
     if "no_mutation" in bans or "no_loops" in bans:
         return copy.deepcopy(CLASSICS_C_LIKE_RECURSIVE)

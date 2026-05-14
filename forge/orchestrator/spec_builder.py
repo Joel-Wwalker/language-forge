@@ -20,7 +20,7 @@ SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "language_spec.s
 
 class Options(TypedDict, total=False):
     # MVP: required
-    syntax: Literal["c_like", "python_like", "s_expression", "stack_based"]
+    syntax: Literal["c_like", "python_like", "s_expression", "stack_based", "ml_like"]
     typing: Literal["static", "dynamic"]
     memory: Literal["host_gc", "refcount"]
     # Tier 1: optional, default to current MVP behavior
@@ -63,6 +63,10 @@ _SYNTAX_EXTENDED_DEFAULTS = {
     # space-separated tokens (kebab-case is idiomatic but most printable
     # ASCII works); we map to snake_case for the schema.
     "stack_based": {"comment_style": "both", "naming_convention": "snake_case"},
+    # OCaml-flavored ML: only block comments `(* ... *)`. snake_case for
+    # identifiers (lowercase-leading by grammar; uppercase-leading is
+    # reserved for ADT constructors).
+    "ml_like": {"comment_style": "block", "naming_convention": "snake_case"},
 }
 
 
@@ -264,6 +268,58 @@ _S_EXPRESSION_BASE = {
 #
 # `block_style: concatenative` and `statement_terminator: " "` (whitespace).
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# ml_like family — dynamic OCaml-flavored ML (added by ml-family experiment).
+#
+# Strict eval, expression-oriented, `let`/`let rec` bindings, pattern
+# matching with ADTs, `match ... with | pat -> body`, list cons via
+# `::`, double-semicolon `;;` to terminate top-level items, block
+# comments `(* ... *)`. See generated/mllang/ for the reference
+# compiler + MLLANG_DESIGN.md for the full design.
+# ---------------------------------------------------------------------------
+_ML_LIKE_BASE = {
+    "comment_syntax": {"line": None, "block_open": "(*", "block_close": "*)"},
+    "statement_terminator": ";;",
+    "block_style": "expression-oriented",
+    "function_definition": {
+        "keyword": "let",
+        "syntax_example": "let add a b = a + b ;;",
+        "type_annotations": None,
+    },
+    "variable_declaration": {
+        "keyword": "let",
+        "syntax_example": "let x = 10 ;;",
+        "type_annotations": None,
+    },
+    "print_form": "print_string s ;;",
+    "boolean_keywords": {"true": "true", "false": "false"},
+    "null_keyword": "()",
+    "operators": {
+        # mllang has int + float operator pairs (`+` vs `+.`). The float
+        # forms are listed alongside int because theme/keyword themes
+        # may want to rename them in parallel.
+        "arithmetic": ["+", "-", "*", "/", "mod", "+.", "-.", "*.", "/."],
+        "comparison": ["=", "<>", "<", ">", "<=", ">="],
+        "logical": ["&&", "||", "not"],
+        # No assignment operator at the source level. `let` is the
+        # binding form; bindings are immutable in v1.
+        "assignment": [],
+    },
+    "literals": {
+        "integer": "decimal digits",
+        "float": "decimal digits with '.'",
+        "string": "double-quoted with backslash escapes",
+        "boolean": "true / false",
+        "unit": "()",
+    },
+    "keywords": [
+        "let", "rec", "in", "if", "then", "else",
+        "match", "with", "type", "of", "fun", "mod", "not",
+        "true", "false",
+    ],
+}
+
+
 _STACK_BASED_BASE = {
     "comment_syntax": {"line": "\\", "block_open": "(", "block_close": ")"},
     "statement_terminator": " ",
@@ -395,9 +451,13 @@ def _deep_merge(base: dict, overlay: dict) -> dict:
 
 
 def _file_extension(lang_name: str, syntax: str) -> str:
-    # Default: first 3 letters of lang_name; '.toy' for toylang.
+    # Default: first 3 letters of lang_name; special-cased for the
+    # hand-written references so their on-disk test files match their
+    # canonical idiomatic extensions.
     if lang_name == "toylang":
         return ".toy"
+    if lang_name == "mllang":
+        return ".ml"
     base = "".join(c for c in lang_name.lower() if c.isalnum())[:3] or "lng"
     return "." + base
 
@@ -451,6 +511,8 @@ def build_spec(options: Options, lang_name: str, *,
         spec = _copy.deepcopy(_S_EXPRESSION_BASE)
     elif syntax == "stack_based":
         spec = _copy.deepcopy(_STACK_BASED_BASE)
+    elif syntax == "ml_like":
+        spec = _copy.deepcopy(_ML_LIKE_BASE)
     else:
         spec = _copy.deepcopy(_PYTHON_LIKE_BASE)
     options = eff_opts  # subsequent code uses the merged effective options

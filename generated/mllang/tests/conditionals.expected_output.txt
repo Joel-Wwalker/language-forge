@@ -1,0 +1,4 @@
+big
+zero
+one
+many
