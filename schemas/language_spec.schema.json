@@ -28,7 +28,7 @@
       "type": "object",
       "required": ["syntax", "typing", "memory"],
       "properties": {
-        "syntax": {"enum": ["c_like", "python_like", "s_expression", "stack_based"]},
+        "syntax": {"enum": ["c_like", "python_like", "s_expression", "stack_based", "ml_like"]},
         "typing": {"enum": ["static", "dynamic"]},
         "memory": {"enum": ["host_gc", "refcount"]},
         "comment_style": {"enum": ["line", "block", "both", "nestable_block"]},
@@ -91,8 +91,8 @@
       "type": "string"
     },
     "block_style": {
-      "description": "'braces' for c_like, 'indent' for python_like, 'parens' for s_expression, 'concatenative' for stack_based (no blocks; ': name ... ;' colon definitions)",
-      "enum": ["braces", "indent", "parens", "concatenative"]
+      "description": "'braces' for c_like, 'indent' for python_like, 'parens' for s_expression, 'concatenative' for stack_based, 'expression-oriented' for ml_like (let-in chains, match, no blocks)",
+      "enum": ["braces", "indent", "parens", "concatenative", "expression-oriented"]
     },
     "function_definition": {
       "type": "object",
