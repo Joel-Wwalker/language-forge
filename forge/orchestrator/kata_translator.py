@@ -193,7 +193,7 @@ def translate_pack(pack_template: dict, spec: dict, lang_dir: Path,
     # fix-up: 5 attempts with increasingly different strategies. The last
     # attempt is a "hardcoded case-analysis" fallback that any turing-
     # complete language can do (just match each test input and return the
-    # right output via if/else). so every kata gets every chance to land,
+    # right output via if/else) - so every kata gets every chance to land,
     # since any turing-complete language should support the full pack.
     def _validate_one(kata: dict) -> tuple[dict, bool, str, int]:
         # Defense-in-depth substitution (Phase 1.5 bugfix Fix 2): even when
