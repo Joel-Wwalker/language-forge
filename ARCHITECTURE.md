@@ -16,24 +16,42 @@ model) plus optional layers (keyword themes, persona, era, natural-
 language phrasebook, feature bans). Forge:
 
 1. **Builds a spec** from your choices.
-2. **Calls an LLM** to fill in the spec (keyword spellings, grammar
-   details, stdlib semantics).
-3. **Generates per-component code** (lexer, parser, codegen, runtime,
-   stdlib, canonical tests, README, docs, REPL).
-4. **Verifies** the generated language against eight canonical programs.
-5. **Repairs** any broken component by re-asking the LLM with the
+2. **Calls an LLM resolver** to fill in spec gaps (keyword spellings,
+   grammar details, stdlib semantics).
+3. **Calls an LLM creative pass** (gen-creative) to produce 6 voiced
+   README sections (intro, design philosophy, good-at, bad-at,
+   example commentary, common mistake).
+4. **Calls an LLM idioms pass** (gen-idioms) to produce themed
+   canonical-test bodies + themed example programs.
+5. **Generates per-component code** by templating from a hand-written
+   reference compiler when possible (toylang / lisplang / forthlang /
+   mllang) or via per-component LLM calls (lexer, parser, codegen,
+   runtime, stdlib, tests, readme, language reference) when no
+   reference exists for the family.
+6. **Verifies** the generated language against eight canonical programs.
+7. **Repairs** any broken component by re-asking the LLM with the
    actual error.
-6. **Lets you write programs** in the new language via a Pyodide
+8. **Lets you write programs** in the new language via a Pyodide
    in-browser REPL or a real CLI.
-7. **Solves LeetCode-style katas** in the new language (auto-graded,
+9. **Solves LeetCode-style katas** in the new language (auto-graded,
    with sample tests visible and hidden tests run on Submit).
 
 Everything is a real Python package: `pip install -e .` and the
 language gets its own `lang-name` CLI command.
 
-The reference compiler (`generated/toylang/`) is hand-written, not LLM-
-generated — it's the golden child every test asserts against and every
-mechanical translator parses through.
+**Five syntax families** are wired up: `c_like`, `python_like`,
+`s_expression`, `stack_based`, `ml_like`. Each of the four
+non-`python_like` families has a **hand-written reference compiler**
+that lives under `generated/`. They're the golden children — every
+test asserts against them and every templated language in their family
+is built from them via the substitution layer.
+
+The pipeline is family-aware end-to-end: gen-creative + gen-idioms +
+the README's "At a glance" renderer + `_wrap_with_test_prints` all use
+per-family dispatch + spec-driven `<args>` template substitution so an
+ml_like generated language reads as pattern-matching + recursion-forward,
+not "c_like with different keywords." See section 12 for the variance
+pipeline details.
 
 ---
 
@@ -48,7 +66,9 @@ language-forge/
 │   ├── orchestrator/            # the brains
 │   │   ├── spec_builder.py
 │   │   ├── coherence.py
-│   │   ├── resolver.py
+│   │   ├── resolver.py          # LLM call #1: fill in spec gaps
+│   │   ├── creative.py          # LLM call #2: 6 voiced README sections
+│   │   ├── idioms.py            # LLM call #3: themed canonical bodies + examples
 │   │   ├── generator.py
 │   │   ├── verifier.py
 │   │   ├── repair.py
@@ -60,19 +80,32 @@ language-forge/
 │   │   ├── kata_packs.py
 │   │   ├── kata_translator.py
 │   │   ├── mechanical_translator.py
+│   │   ├── substitution.py      # per-family keyword override substitution
 │   │   ├── case_analysis.py
 │   │   └── pair_programmer.py
-│   ├── prompts/                 # Markdown LLM prompts per component
+│   ├── catalog/                 # Phase 2-3: batch + curation + dedup
+│   │   ├── batch.py             # `python -m forge.catalog.batch`
+│   │   ├── curate.py            # score + dedup + load into SQLite
+│   │   ├── backfill.py          # rehydrate customization columns
+│   │   ├── runner.py            # per-slot subprocess driver
+│   │   ├── db.py / dedup.py / quality.py / smoke_test.py
+│   │   └── slots/               # slot plans (v1_phase1.json, experiment_ml_family.json, ...)
+│   ├── prompts/                 # Markdown LLM prompts (one per call)
 │   ├── templates/               # Jinja2 + static templates (REPL, pyproject, ...)
 │   └── gui/
 │       ├── app.py               # Flask app, all REST endpoints
+│       ├── catalog_routes.py    # Phase 3: catalog curation UI routes
 │       ├── samples.py           # Curated sample programs
-│       └── static/              # index.html / app.js / style.css
+│       └── static/              # index.html / app.js / catalog.{html,js,css} / style.css
 ├── generated/                   # Output dir for languages
-│   ├── toylang/                 # Hand-written reference compiler
-│   └── <other langs>/           # LLM-generated
+│   ├── toylang/                 # Hand-written c_like reference
+│   ├── lisplang/                # Hand-written s_expression reference
+│   ├── forthlang/               # Hand-written stack_based reference
+│   ├── mllang/                  # Hand-written ml_like reference
+│   ├── stacky/                  # stack_based test fixture
+│   └── <other langs>/           # LLM-generated (.gitignored except the 5 above)
 ├── schemas/                     # JSON-Schema for resolved specs
-├── tests/                       # pytest suite + tests/audit/ deep audits
+├── tests/                       # pytest suite (1005 tests) + tests/audit/ deep audits
 └── ARCHITECTURE.md              # this file
 ```
 
@@ -135,8 +168,12 @@ language-forge/
 - `load_schema()`: returns the JSON Schema dict.
 
 **What it does**
-1. Starts with hard-coded base specs per `syntax` family (c_like or
-   python_like).
+1. Starts with hard-coded base specs per `syntax` family: `_C_LIKE_BASE`,
+   `_PYTHON_LIKE_BASE`, `_S_EXPRESSION_BASE`, `_STACK_BASED_BASE`,
+   `_ML_LIKE_BASE`. Each declares the family's surface conventions
+   including a `<args>`-template `print_form` (e.g. `print(<args>);`
+   for c_like, `(print <args>)` for s_expression,
+   `print_any (<args>) ;;` for ml_like).
 2. Layers `_typing_overlay()` and `_memory_overlay()` deltas on top.
 3. Applies extended options (`comment_style`, `string_literals`,
    `numeric_literals`, `default_mutability`, `error_handling`,
@@ -185,7 +222,116 @@ LLM returns a fully-resolved spec including:
 
 **Use case**: bridges the gap between high-level options (`syntax=c_like`) and the per-token decisions a generator needs.
 
-### 4.4 `generator.py` — generate per-component code in parallel
+**Cache discipline**: `RESOLVER_PROMPT_VERSION` + `RESOLVER_SCHEMA_VERSION`
+constants are folded into the cache key; the cache is keyed on a
+content-hash of the input spec with lang_name + file_extension +
+lineage stripped (so two slots sharing options + customization hit one
+LLM call between them). Bumping either version invalidates stale
+entries — done several times to absorb schema-description tightening
+(structural-variance-channel Seam 0 + the Stage F retry).
+
+### 4.4 `creative.py` — themed README content (LLM call #2)
+
+```
+creative_content(spec, *, client) -> dict
+```
+
+The second LLM call in the per-language pipeline. Produces six voiced
+prose sections that get inlined into the templated README:
+
+- `readme_intro` (80-180 words): the headline paragraph
+- `design_philosophy` (60-120 words): why this language has its feature set
+- `what_its_good_at` (40-80 words): 2-4 specific strengths
+- `what_its_bad_at` (40-80 words): 1-3 honest limitations (the most
+  distinctive field; most generated content avoids self-criticism)
+- `example_commentary` (50-100 words): persona's commentary on the
+  hello-world example
+- `common_mistake` (40-80 words): warning for new users
+
+Per-field word-count validation (±50% of target), required-headline
+fallback discipline (any failure returns `{}` and the templated
+renderer falls back to no-creative-content rendering), content-hash
+caching keyed on prompt version + stripped spec.
+
+**`CREATIVE_PROMPT_VERSION`** is currently 3:
+- v1: original 1-field intro
+- v1 → v2 (variance-improvement): expanded to 6 fields
+- v2 → v3 (structural-variance-channel Seam 6): added per-family
+  surface-characteristics block so `example_commentary` references
+  the right family syntax (ml_like uses `;;` not `;`, pattern
+  matching not if/else cascades)
+
+**Use case**: makes a generated c_like language feel different from
+another c_like language. The personality lives in these six sections
+plus the keyword overrides — the templated skeleton stays the same.
+
+### 4.5 `idioms.py` — themed canonical-test bodies (LLM call #3)
+
+```
+idiomatic_content(spec, *, client) -> dict
+```
+
+The third LLM call. Produces themed replacements for each of the 8
+canonical test bodies plus 0-5 longer themed example programs. Goal:
+the language's `tests/arithmetic.<ext>` reads in the persona's voice
+(a pirate divides plunder, a Stroustrup-1980s CAD callback computes
+geometry, a McCarthy-1962 teaching exercise sums squares) without
+breaking smoke-test correctness.
+
+Per-body validation: each themed body is compiled + run twice
+(determinism check); accepted bodies overwrite both the source file
+AND the `<name>.expected_output.txt`, so the smoke loop keeps
+working. Rejected bodies revert to the reference template silently.
+
+**`IDIOMS_PROMPT_VERSION`** is currently 3:
+- v1: original prompt with hand-picked output expectations
+- v1 → v2: stopped requiring themed bodies to match the reference's
+  expected_output (themed body's actual stdout becomes the new
+  expected_output)
+- v2 → v3 (structural-variance-channel Seam 2): added per-family
+  worked-example blocks. For each of c_like / s_expression /
+  stack_based / ml_like, 2 actually-parseable reference compiler
+  canonical tests are inlined into the prompt so the LLM has
+  grammar-accurate anchors instead of paradigm-shaped guesses
+
+Themed-acceptance per family (post-structural-variance-channel):
+
+| family | rate |
+| --- | --- |
+| c_like | 94% |
+| s_expression | 100% |
+| stack_based | ~50-75% (varies; forthlang codegen brittle on themed strings) |
+| ml_like | 25% (Seam 8 follow-up identified; resolver still rewrites `options.loop_forms`) |
+
+Rejected bodies fall back to the reference template, so the overall
+smoke pass rate stays at 100% even when themed-acceptance is modest.
+
+### 4.6 `substitution.py` — per-family keyword override engine
+
+The substitution layer that the templated-from-reference path uses
+to apply spec-driven keyword overrides to BOTH the parser grammar
+AND the canonical test sources at once. Phase 1.5 Stage A introduced
+the per-family `KEYWORD_ROLES_BY_FAMILY` dispatch:
+
+```python
+KEYWORD_ROLES_C_LIKE       = ("var", "func", "if", "else", "while", ...)
+KEYWORD_ROLES_S_EXPRESSION = ("if", "else", "true", "false", "null")
+KEYWORD_ROLES_STACK_BASED  = ("if", "else", "then", "begin", ...)
+KEYWORD_ROLES_ML_LIKE      = ("let", "rec", "in", "if", "then", "else",
+                              "match", "with", "type", "of", "fun", ...)
+```
+
+So a themed mllang variant with `customization.keyword_overrides =
+{"let": "define"}` gets `define rec fact n = ...` in both the
+templated parser grammar's anonymous string literals AND in
+`tests/functions.ml`'s source.
+
+Multi-char operators (`::`, `->`, `;;`, `=`, `|`, `^`, `+.`, `*.`)
+are explicitly excluded from substitution — they're not word-boundary
+tokens and substituting them would require rewriting the parser's
+operator tables, not just grammar strings.
+
+### 4.7 `generator.py` — generate per-component code in parallel
 
 The biggest single module. **Key public function**:
 
@@ -229,7 +375,7 @@ generate_all(spec, output_root="generated", *, client, on_progress=None) -> Path
 
 **Use case**: turns a resolved spec into a runnable directory.
 
-### 4.5 `verifier.py` — does the generated language actually work?
+### 4.8 `verifier.py` — does the generated language actually work?
 
 ```
 verify(lang_dir) -> VerificationReport
@@ -249,7 +395,7 @@ all_passed, tests, missing_canonical)` with `to_dict()` and
 **Use case**: deterministic gate. If `all_passed=False`, the GUI shows
 a Repair button.
 
-### 4.6 `repair.py` — fix the broken component
+### 4.9 `repair.py` — fix the broken component
 
 ```
 repair_run(lang_dir, *, client) -> VerificationReport
@@ -274,7 +420,7 @@ N times in a row (avoids spinning on a wrong attribution).
 off-by-one, a missing case in `visit_*`). Repair fixes most of them.
 Also exposed via the GUI's per-language **Repair** button.
 
-### 4.7 `llm_client.py` — talking to Anthropic
+### 4.10 `llm_client.py` — talking to Anthropic
 
 `LLMClient(api_key=None, model=None, log_dir=None)` wraps the
 `anthropic` SDK with:
@@ -298,7 +444,7 @@ api; else `claude` on PATH → claude_cli).
 **Use case**: every LLM call in the codebase goes through this. Single
 seam for retries, logging, schema enforcement.
 
-### 4.8 `personas.py / presets.py / themes.py / phrasebooks.py / bans.py`
+### 4.11 `personas.py / presets.py / themes.py / phrasebooks.py / bans.py`
 
 Five preset libraries, each with `list_*()` returning a compact list
 for the GUI picker plus a `get_*()` or `apply_*()` for use in
@@ -316,7 +462,7 @@ for the GUI picker plus a `get_*()` or `apply_*()` for use in
 (persona is mostly tone) but phrasebooks and bans do real semantic
 work.
 
-### 4.9 `katas.py` — the kata core
+### 4.12 `katas.py` — the kata core
 
 **Public API**
 - `generate_katas(spec, lang_dir, client, on_progress=None, *,
@@ -347,7 +493,7 @@ helpful message instead of grading.
 + all print lines into one program, run once, partition stdout by
 sentinel lines. ~10× faster than per-kata validation.
 
-### 4.10 `kata_packs.py` — curated LeetCode classics
+### 4.13 `kata_packs.py` — curated LeetCode classics
 
 Hand-written pack of 12 problems with full metadata:
 
@@ -374,7 +520,7 @@ Two variants:
 
 `get_classics_for(spec)` auto-picks the right variant. `PACKS = {"classics": ...}` is the registry; `list_packs()` gives the GUI dropdown options.
 
-### 4.11 `mechanical_translator.py` — c_like → target, no LLM
+### 4.14 `mechanical_translator.py` — c_like → target, no LLM
 
 The fast path that handles most languages without any LLM call.
 
@@ -408,7 +554,7 @@ The fast path that handles most languages without any LLM call.
   conversion — handled by `CLASSICS_C_LIKE_RECURSIVE` variant)
 - `python_like` + phrasebook (rare combo, LLM is safer)
 
-### 4.12 `kata_translator.py` — LLM translation when mechanical can't
+### 4.15 `kata_translator.py` — LLM translation when mechanical can't
 
 ```
 translate_pack(pack_template, spec, lang_dir, client, *, on_progress,
@@ -439,7 +585,7 @@ The fall-through ladder:
 Every step is gated by `time_budget_s` so a stubborn LLM can't burn
 unlimited time. The user sees results in 90-120s max regardless.
 
-### 4.13 `case_analysis.py` — guaranteed-working fallback reference
+### 4.16 `case_analysis.py` — guaranteed-working fallback reference
 
 When all else fails, generate a function that hardcodes the answer
 for each test:
@@ -490,7 +636,7 @@ It memorizes test answers — not a real solution, but the grader still
 correctly grades the user's submission against the precomputed
 expected outputs.
 
-### 4.14 `pair_programmer.py` — language-aware AI chat
+### 4.17 `pair_programmer.py` — language-aware AI chat
 
 ```
 chat(spec, lang_dir, user_message, history, client, *,
@@ -888,7 +1034,110 @@ a curated kata pack" would help future contributors.
 
 ---
 
-## 12. Acronyms / terms
+## 12. The variance pipeline + catalog system
+
+Two architectural layers added after Phase 1.5 to handle the
+fundamental scaling question: how do you generate hundreds of
+languages that all feel distinct from each other?
+
+### 12.1 The three-call pipeline
+
+Each generated language flows through three LLM calls:
+
+1. **`resolver`** (`resolver.py`, prompt: `resolver.md`). Reads the
+   base spec + user options, fills in keyword spellings, grammar
+   details, stdlib semantics. Output: a fully-resolved spec.
+   Cached on content-hash; cache key strips lang_name + lineage so
+   two slots sharing options share one resolver call.
+
+2. **`gen-creative`** (`creative.py`, prompt: `creative.md`). Six
+   voiced README sections (intro, design philosophy, good-at,
+   bad-at, example commentary, common mistake). The personality
+   layer. Cached identically; v3 of the prompt is family-aware so
+   `example_commentary` doesn't default to c_like-shaped framing.
+
+3. **`gen-idioms`** (`idioms.py`, prompt: `idioms.md`). Themed
+   replacements for each of the 8 canonical test bodies plus 0-5
+   themed example programs. The structural-variance layer at the
+   test-content level. v3 of the prompt inlines 2 reference-compiler
+   canonical tests per family as worked examples so the LLM has
+   grammar-accurate anchors.
+
+Per-language cost: ~$0.008 at Sonnet 4.5 rates. Warm-cache wall:
+3-6 seconds.
+
+### 12.2 The templated reference path
+
+When the syntax family has a hand-written reference compiler in
+`generated/<reflang>/`, `generator._template_from_reference()` copies
+the reference's parser, codegen, runtime, stdlib, and canonical tests
+into the new language's directory, applying:
+
+- **Package-name swap**: `from <reflang>.runtime import` rewritten to
+  `from <new_lang_name>.runtime import` everywhere.
+- **Spec-driven keyword overrides**: via `substitution.py`'s
+  per-family `KEYWORD_ROLES_BY_FAMILY`. Themed `let -> define` for
+  ml_like rewrites both the parser grammar string AND the canonical
+  test sources at once.
+- **`<args>`-template print form** (structural-variance-channel Seam 4):
+  `spec.print_form` carries an `<args>` placeholder like
+  `print_any (<args>) ;;`. The `_wrap_with_test_prints` kata wrapper
+  and the `_render_templated_readme` "At a glance" snippet both
+  substitute via the helper, so a phrasebook override of
+  `print_form: "say <args>"` propagates without code changes.
+
+After `_template_from_reference`, the `_overlay_idiomatic_content`
+hook reads `spec.idioms.canonical_test_bodies`, validates each
+themed body by compiling + running it twice (determinism check), and
+swaps the reference tests with the themed ones for the ones that
+pass. Rejected bodies stay as reference templates — the smoke loop
+keeps working.
+
+### 12.3 Per-family README "At a glance" rendering
+
+`_render_templated_readme` dispatches to `_at_a_glance_snippet(spec)`
+which routes by `spec.options.syntax` to one of five per-family
+renderers:
+
+- `_at_a_glance_c_like`: `func`, `var`, `print(<args>);` — three
+  lines, the c_like convention.
+- `_at_a_glance_s_expression`: parenthesized prefix forms.
+- `_at_a_glance_stack_based`: colon definition + variable + postfix
+  print.
+- `_at_a_glance_ml_like`: shows a `let rec ... match lst with | [] ->
+  0 | h :: t -> h + sum t ;;` pattern-match snippet — the structurally
+  distinctive ML idiom no other family produces.
+
+This is structural-variance-channel Seam 1 — the single change that
+flipped a user-read from "ml_like reads like c_like with different
+keywords" to "reads like ML now, I enjoy it."
+
+### 12.4 The catalog (Phase 2-3)
+
+For batch generation against a slot plan, the `forge.catalog`
+package adds:
+
+- **`forge.catalog.batch`**: parallel subprocess driver. Runs N
+  slots through the full pipeline at concurrency 4 by default with
+  per-slot timeout caps. Writes per-slot state for resume.
+- **`forge.catalog.curate`**: scores each generated language on
+  distinctiveness + coherence + completeness, deduplicates by
+  content hash, loads into a SQLite catalog DB (`catalog.db`).
+- **`forge.catalog.backfill`**: rehydrates customization columns
+  (theme, persona, era, phrasebook) from the slot plan. Workaround
+  for a known runner bug that NULL-s those columns at insert time.
+- **`forge.catalog.dedup`**: pairwise content-hash + structural
+  similarity check.
+
+The catalog UI (`/catalog` in the GUI, served from
+`forge/gui/catalog_routes.py`) lets users browse, filter, approve/
+reject, tag, and launch REPL/kata workspaces for every generated
+language. The Library tab uses `include_catalog=approved_only` so it
+shows only curated entries by default.
+
+---
+
+## 13. Acronyms / terms
 
 - **kata** — a programming problem with starter code, hidden tests,
   and a reference solution. Borrowed from the dojo concept.
