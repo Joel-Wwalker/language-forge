@@ -1669,52 +1669,74 @@ def generate_all(spec: dict, output_root: str | Path = "generated", *,
     # Attach telemetry; LLMClient picks it up via getattr in `_emit_telemetry`.
     _attach_telem(client, telemetry)
 
-    # Phase 1.5 Stage D: small creative-content LLM call to produce
-    # a persona-flavored README intro. Only fires on full generations
-    # (`only` is None), not on per-component re-runs. Skipped when
-    # `enrich_creative=False` (offline batches). Aggressively cached
-    # by content hash with the same lang_name-insensitive logic as
-    # the resolver, so a 50-slot batch sharing options pays the LLM
-    # cost once.
-    if enrich_creative and not only and not spec.get("creative"):
-        try:
-            from .creative import creative_content
-            creative = creative_content(spec, client=client)
-            if creative:
-                spec = dict(spec)
-                spec["creative"] = creative
-        except Exception as _ce:
-            # Creative content is best-effort. A failure here MUST
-            # NOT break generation — templated renderers handle the
-            # missing-creative case gracefully.
-            telemetry.record_error("creative", str(_ce))
-
-    # Structural variance: themed canonical-test bodies + themed
-    # examples. Same discipline as creative - best-effort, falls back
-    # to reference templates on any failure, aggressively cached. The
-    # actual validation of test bodies (compile + run + diff expected
-    # output) happens later in _overlay_idiomatic_content, after the
-    # parser/codegen/runtime have been written to lang_dir.
+    # Phase 1.5 Stage D + structural-variance: two LLM calls -
+    # creative_content (six voiced README sections) and idiomatic_content
+    # (themed canonical-test bodies + examples) - each consume the
+    # spec independently and produce a dict the templated renderers
+    # consume. Neither depends on the other's output.
     #
-    # Skipped when the templated path isn't going to run for this spec
-    # (no reference compiler available, or template_from_reference=False).
-    # The idioms overlay only modifies files that _template_from_reference
-    # wrote, so firing the LLM call on a python_like (LLM-driven) spec
-    # would burn a call with no place to apply the output.
+    # phase4-preflight option D: run them in parallel. Previously these
+    # ran sequentially, costing ~70-100s per call (~150-200s combined
+    # on cold-cache slots). With parallelism the cold-cache slot pays
+    # only `max(creative, idioms)` instead of their sum - a ~30%
+    # speedup on every uncached slot.
+    #
+    # Both calls are best-effort: any failure returns `{}` and the
+    # templated renderer falls back to the no-creative-content /
+    # reference-template path. Thread safety: LLMClient.call_json is
+    # thread-safe (internal lock + retry); telemetry is thread-safe
+    # (lock-protected appends). `spec` is read-only during both calls;
+    # we apply results back at join.
+    should_fire_creative = (
+        enrich_creative and not only and not spec.get("creative")
+    )
     will_use_template = (
         template_from_reference
         and reference_compiler_for(spec) is not None
         and not only
     )
-    if enrich_creative and will_use_template and not spec.get("idioms"):
-        try:
+    should_fire_idioms = (
+        enrich_creative and will_use_template and not spec.get("idioms")
+    )
+
+    result_creative: dict | None = None
+    result_idioms: dict | None = None
+
+    if should_fire_creative or should_fire_idioms:
+        import concurrent.futures as _cf
+
+        def _do_creative():
+            from .creative import creative_content
+            return creative_content(spec, client=client)
+
+        def _do_idioms():
             from .idioms import idiomatic_content
-            idioms = idiomatic_content(spec, client=client)
-            if idioms:
-                spec = dict(spec)
-                spec["idioms"] = idioms
-        except Exception as _ie:
-            telemetry.record_error("idioms", str(_ie))
+            return idiomatic_content(spec, client=client)
+
+        # Use max_workers=2; one for each call. If only one will fire,
+        # the executor still works correctly (only one task submitted).
+        with _cf.ThreadPoolExecutor(max_workers=2,
+                                    thread_name_prefix="enrich") as _ex:
+            _f_creative = _ex.submit(_do_creative) if should_fire_creative else None
+            _f_idioms = _ex.submit(_do_idioms) if should_fire_idioms else None
+            if _f_creative is not None:
+                try:
+                    result_creative = _f_creative.result()
+                except Exception as _ce:
+                    # Best-effort: log + carry on with no creative content.
+                    telemetry.record_error("creative", str(_ce))
+            if _f_idioms is not None:
+                try:
+                    result_idioms = _f_idioms.result()
+                except Exception as _ie:
+                    telemetry.record_error("idioms", str(_ie))
+
+    if result_creative or result_idioms:
+        spec = dict(spec)
+        if result_creative:
+            spec["creative"] = result_creative
+        if result_idioms:
+            spec["idioms"] = result_idioms
 
     # Persist the spec next to the generated source for verifier discovery.
     (lang_dir / "resolved_spec.json").write_text(
