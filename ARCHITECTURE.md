@@ -25,9 +25,9 @@ language phrasebook, feature bans). Forge:
    canonical-test bodies + themed example programs.
 5. **Generates per-component code** by templating from a hand-written
    reference compiler when possible (toylang / lisplang / forthlang /
-   mllang) or via per-component LLM calls (lexer, parser, codegen,
-   runtime, stdlib, tests, readme, language reference) when no
-   reference exists for the family.
+   mllang / prologlang) or via per-component LLM calls (lexer, parser,
+   codegen, runtime, stdlib, tests, readme, language reference) when
+   no reference exists for the family.
 6. **Verifies** the generated language against eight canonical programs.
 7. **Repairs** any broken component by re-asking the LLM with the
    actual error.
@@ -39,19 +39,26 @@ language phrasebook, feature bans). Forge:
 Everything is a real Python package: `pip install -e .` and the
 language gets its own `lang-name` CLI command.
 
-**Five syntax families** are wired up: `c_like`, `python_like`,
-`s_expression`, `stack_based`, `ml_like`. Each of the four
-non-`python_like` families has a **hand-written reference compiler**
-that lives under `generated/`. They're the golden children — every
-test asserts against them and every templated language in their family
-is built from them via the substitution layer.
+**Six syntax families** are wired up: `c_like`, `python_like`,
+`s_expression`, `stack_based`, `ml_like`, `logic_like`. Each of the
+five non-`python_like` families has a **hand-written reference
+compiler** that lives under `generated/`. They're the golden children
+— every test asserts against them and every templated language in
+their family is built from them via the substitution layer.
+
+`logic_like` is the project's first **paradigm-different** family.
+Where the other families all evaluate expressions to produce values,
+`logic_like` evaluates queries against a database of facts and rules
+via unification + chronological backtracking. The architecture
+absorbed this without structural rework — section 12 covers the
+seams that accepted it additively.
 
 The pipeline is family-aware end-to-end: gen-creative + gen-idioms +
 the README's "At a glance" renderer + `_wrap_with_test_prints` all use
 per-family dispatch + spec-driven `<args>` template substitution so an
 ml_like generated language reads as pattern-matching + recursion-forward,
-not "c_like with different keywords." See section 12 for the variance
-pipeline details.
+a logic_like one reads as facts + rules + queries, not "c_like with
+different keywords." See section 12 for the variance pipeline details.
 
 ---
 
@@ -102,10 +109,11 @@ language-forge/
 │   ├── lisplang/                # Hand-written s_expression reference
 │   ├── forthlang/               # Hand-written stack_based reference
 │   ├── mllang/                  # Hand-written ml_like reference
+│   ├── prologlang/              # Hand-written logic_like reference (Prolog subset)
 │   ├── stacky/                  # stack_based test fixture
-│   └── <other langs>/           # LLM-generated (.gitignored except the 5 above)
+│   └── <other langs>/           # LLM-generated (.gitignored except the 6 above)
 ├── schemas/                     # JSON-Schema for resolved specs
-├── tests/                       # pytest suite (1005 tests) + tests/audit/ deep audits
+├── tests/                       # pytest suite (1042 tests) + tests/audit/ deep audits
 └── ARCHITECTURE.md              # this file
 ```
 
@@ -170,10 +178,11 @@ language-forge/
 **What it does**
 1. Starts with hard-coded base specs per `syntax` family: `_C_LIKE_BASE`,
    `_PYTHON_LIKE_BASE`, `_S_EXPRESSION_BASE`, `_STACK_BASED_BASE`,
-   `_ML_LIKE_BASE`. Each declares the family's surface conventions
-   including a `<args>`-template `print_form` (e.g. `print(<args>);`
-   for c_like, `(print <args>)` for s_expression,
-   `print_any (<args>) ;;` for ml_like).
+   `_ML_LIKE_BASE`, `_LOGIC_LIKE_BASE`. Each declares the family's
+   surface conventions including a `<args>`-template `print_form`
+   (e.g. `print(<args>);` for c_like, `(print <args>)` for s_expression,
+   `print_any (<args>) ;;` for ml_like, `write(<args>), nl.` for
+   logic_like).
 2. Layers `_typing_overlay()` and `_memory_overlay()` deltas on top.
 3. Applies extended options (`comment_style`, `string_literals`,
    `numeric_literals`, `default_mutability`, `error_handling`,
@@ -1053,18 +1062,31 @@ Each generated language flows through three LLM calls:
 2. **`gen-creative`** (`creative.py`, prompt: `creative.md`). Six
    voiced README sections (intro, design philosophy, good-at,
    bad-at, example commentary, common mistake). The personality
-   layer. Cached identically; v3 of the prompt is family-aware so
-   `example_commentary` doesn't default to c_like-shaped framing.
+   layer. Cached identically; v4 of the prompt is family-aware
+   across all six families (including logic_like) so
+   `example_commentary` doesn't default to c_like-shaped framing
+   or attempt to describe assignment statements in a paradigm that
+   has none.
 
 3. **`gen-idioms`** (`idioms.py`, prompt: `idioms.md`). Themed
    replacements for each of the 8 canonical test bodies plus 0-5
    themed example programs. The structural-variance layer at the
-   test-content level. v3 of the prompt inlines 2 reference-compiler
+   test-content level. v4 of the prompt inlines 2 reference-compiler
    canonical tests per family as worked examples so the LLM has
-   grammar-accurate anchors.
+   grammar-accurate anchors, plus a logic_like-specific paragraph
+   pinning facts/rules/queries, the `is/2` vs `=/2` boundary, and
+   the SWI-Prolog features prologlang v1 rejects.
+
+**Option D parallelization (Phase 4 pre-flight):** gen-creative and
+gen-idioms now run in parallel via a 2-worker ThreadPoolExecutor in
+`generate_all`. Cold-cache wall drops from `~creative + ~idioms`
+(~150s) to `max(~creative, ~idioms)` (~80s) — a ~30% per-slot
+speedup. Each call retains its best-effort discipline: any failure
+returns `{}` and the templated renderer falls back to reference
+templates.
 
 Per-language cost: ~$0.008 at Sonnet 4.5 rates. Warm-cache wall:
-3-6 seconds.
+3-5 seconds.
 
 ### 12.2 The templated reference path
 
@@ -1096,21 +1118,29 @@ keeps working.
 ### 12.3 Per-family README "At a glance" rendering
 
 `_render_templated_readme` dispatches to `_at_a_glance_snippet(spec)`
-which routes by `spec.options.syntax` to one of five per-family
+which routes by `spec.options.syntax` to one of six per-family
 renderers:
 
 - `_at_a_glance_c_like`: `func`, `var`, `print(<args>);` — three
   lines, the c_like convention.
+- `_at_a_glance_python_like`: indented `def` + `let` + `print` —
+  the indent-based block convention.
 - `_at_a_glance_s_expression`: parenthesized prefix forms.
 - `_at_a_glance_stack_based`: colon definition + variable + postfix
   print.
 - `_at_a_glance_ml_like`: shows a `let rec ... match lst with | [] ->
   0 | h :: t -> h + sum t ;;` pattern-match snippet — the structurally
   distinctive ML idiom no other family produces.
+- `_at_a_glance_logic_like`: facts + rule + query — a 5-line example
+  showing `parent(tom, bob).` facts, the recursive `ancestor/2` rule
+  with `:-` head/body separator and `,` conjunction, and a `?-` query.
+  The structurally distinctive Prolog idiom no other family produces.
 
 This is structural-variance-channel Seam 1 — the single change that
 flipped a user-read from "ml_like reads like c_like with different
-keywords" to "reads like ML now, I enjoy it."
+keywords" to "reads like ML now, I enjoy it." The pattern extended
+cleanly when logic_like was added: one new renderer, one family_blurb
+entry, zero structural changes to the dispatch.
 
 ### 12.4 The catalog (Phase 2-3)
 

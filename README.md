@@ -7,27 +7,31 @@ README + design philosophy, themed kata pack, and an in-browser REPL.
 
 ## Status
 
-Phases 0-3 complete. Five subsequent targeted-architecture interventions
+Phases 0-3 complete. Six subsequent targeted-architecture interventions
 merged on top: variance-improvement (gen-creative six-field expansion),
 structural-variance (themed canonical-test bodies + themed examples),
 ml-family-experiment (`ml_like` reference compiler + family integration),
-and structural-variance-channel (per-family de-flattening so the
-generation pipeline carries structural variance rather than collapsing
-to c_like shapes).
+structural-variance-channel (per-family de-flattening so the generation
+pipeline carries structural variance rather than collapsing to c_like
+shapes), phase4-preflight (Seam 8 fix + 100-slot validation batch +
+Option D pipeline parallelization), and logic-family-experiment
+(`logic_like` reference compiler — pragmatic Prolog subset, the
+project's first paradigm-different family).
 
-Test suite: **1005 tests passing, 16 skipped, 0 failing.** Deterministic
+Test suite: **1042 tests passing, 23 skipped, 0 failing.** Deterministic
 tests run without API credentials; end-to-end tests are gated on
-`ANTHROPIC_API_KEY` or the `claude` CLI. Five syntax families are
+`ANTHROPIC_API_KEY` or the `claude` CLI. Six syntax families are
 wired up: `c_like`, `python_like`, `s_expression`, `stack_based`,
-`ml_like`. Hand-written reference compilers live under `generated/`
-and are templated from for new languages in the same family.
+`ml_like`, `logic_like`. Hand-written reference compilers live under
+`generated/` and are templated from for new languages in the same family.
 
 The three-call generation pipeline (resolver → gen-creative →
-gen-idioms) plus the templated reference path produces a working
-language in ~5 seconds warm-cache, ~$0.008 per language. Cross-family
-structural variance was confirmed by a user-read on a fresh
-14-slot validation batch ("reads like ML now") rather than measured
-purely via internal acceptance metrics.
+gen-idioms, the latter two now running in parallel via Option D) plus
+the templated reference path produces a working language in ~3-5
+seconds warm-cache, ~$0.008 per language. Cross-family structural
+variance was confirmed by successive user-reads — most recently a
+10-slot logic_like validation batch ("reads like Prolog, catalog feels
+richer") — rather than measured purely via internal acceptance metrics.
 
 ## Quick start
 
@@ -50,14 +54,14 @@ export ANTHROPIC_API_KEY=sk-ant-...      # API mode
 Run the test suite (deterministic, no API key needed for the bulk):
 
 ```bash
-pytest -m "not slow"                     # 1005 passed, 16 skipped
+pytest -m "not slow"                     # 1042 passed, 23 skipped
 ```
 
 Generate a language interactively:
 
 ```bash
-python -m forge create --syntax ml_like --typing dynamic --memory host_gc --name myml
-python -m forge verify generated/myml
+python -m forge create --syntax logic_like --typing dynamic --memory host_gc --name myprolog
+python -m forge verify generated/myprolog
 ```
 
 Or open the GUI:
@@ -81,7 +85,7 @@ python -m forge gui                      # http://127.0.0.1:5173/
 - A 6-12 kata pack (LeetCode-style) curated for the language family,
   each kata with reference solution + hidden tests + auto-grading
 
-## Five syntax families
+## Six syntax families
 
 | family | reference compiler | surface example |
 | --- | --- | --- |
@@ -90,13 +94,25 @@ python -m forge gui                      # http://127.0.0.1:5173/
 | `s_expression` | `generated/lisplang/` | `(defn add (a b) (+ a b))` |
 | `stack_based` | `generated/forthlang/` | `: add ( a b -- sum ) + ;` |
 | `ml_like` | `generated/mllang/` | `let rec sum lst = match lst with \| [] -> 0 \| h :: t -> h + sum t ;;` |
+| `logic_like` | `generated/prologlang/` | `factorial(N, F) :- N > 0, N1 is N - 1, factorial(N1, F1), F is N * F1.` |
 
-Each reference compiler is hand-written, tested, and serves as the
-template for every generated language in its family. The substitution
-layer applies per-family keyword overrides + spec-driven
-`<args>`-template print forms so a themed pirate ml_like language has
-its `let` renamed to `yarr` (or whatever) in both the parser grammar
-AND the canonical test sources at once.
+Five of the six families have a hand-written reference compiler.
+Each reference is tested and serves as the template for every
+generated language in its family. The substitution layer applies
+per-family keyword overrides + spec-driven `<args>`-template print
+forms so a themed pirate ml_like language has its `let` renamed to
+`yarr` (or whatever) in both the parser grammar AND the canonical
+test sources at once.
+
+`logic_like` is the project's **first paradigm-different family** —
+where the other five families all evaluate expressions to produce
+values, `logic_like` evaluates queries against a database of facts
+and rules via unification + chronological backtracking. No cut, no
+dynamic assert/retract, no DCGs (pragmatic Prolog subset). The
+architecture absorbed this paradigm shift without structural rework
+— the same five seams (`spec_builder` base + `REFERENCE_COMPILERS`
++ `_at_a_glance` + schema sub-properties + substitution roles)
+accepted the new family additively.
 
 ## The catalog system (Phase 2-3)
 
@@ -150,13 +166,14 @@ forge/
   prompts/                        one .md per LLM call
   templates/                      Jinja: pyproject, LICENSE, REPL shell
 schemas/                          language_spec.schema.json
-generated/                        languages (4 reference compilers + LLM output)
+generated/                        languages (5 reference compilers + LLM output)
   toylang/                        c_like reference
   lisplang/                       s_expression reference
   forthlang/                      stack_based reference
   mllang/                         ml_like reference
+  prologlang/                     logic_like reference (pragmatic Prolog)
   stacky/                         stack_based test fixture
-tests/                            pytest suite (1005 tests)
+tests/                            pytest suite (1042 tests)
 ```
 
 ## Documentation
