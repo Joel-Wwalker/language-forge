@@ -1,2 +1,2 @@
-{"event": "run_started", "timestamp": "2026-05-15T17:50:31Z", "lang_name": "slot_lgc_004", "seed": 9004, "started_at": "2026-05-15T17:50:31Z", "generator_version": "0.4.0"}
-{"event": "llm_call", "timestamp": "2026-05-15T17:51:46Z", "tag": "resolver", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 73.591, "attempts": 1, "success": true, "error": null}
+{"event": "run_started", "timestamp": "2026-05-16T00:59:28Z", "lang_name": "slot_lgc_004", "seed": 9004, "started_at": "2026-05-16T00:59:28Z", "generator_version": "0.4.0"}
+{"event": "llm_call", "timestamp": "2026-05-16T00:59:30Z", "tag": "resolver-cache-hit", "model": "lazy:unresolved", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 0.0, "attempts": 1, "success": true, "error": null}
