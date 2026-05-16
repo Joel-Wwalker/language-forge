@@ -1,0 +1,92 @@
+{
+  "total": 7,
+  "succeeded": 7,
+  "failed": 0,
+  "wall_clock_seconds": 1853.735,
+  "results": [
+    {
+      "slot_id": "slot_lgc_006",
+      "lang_name": "slot_lgc_006",
+      "success": true,
+      "duration_seconds": 159.383054599999,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_006",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_006\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_006\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_006\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_004",
+      "lang_name": "slot_lgc_004",
+      "success": true,
+      "duration_seconds": 163.56406689999858,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_004",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_004\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_004\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_004\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_005",
+      "lang_name": "slot_lgc_005",
+      "success": true,
+      "duration_seconds": 278.5553889999974,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_005",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_005\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_005\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_005\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_008",
+      "lang_name": "slot_lgc_008",
+      "success": true,
+      "duration_seconds": 239.29365300000063,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_008",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_008\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_008\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_008\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_007",
+      "lang_name": "slot_lgc_007",
+      "success": true,
+      "duration_seconds": 350.4125957999968,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_007",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_007\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_007\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_007\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_009",
+      "lang_name": "slot_lgc_009",
+      "success": true,
+      "duration_seconds": 259.29703119999976,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_009",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_009\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_009\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_009\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    },
+    {
+      "slot_id": "slot_lgc_010",
+      "lang_name": "slot_lgc_010",
+      "success": true,
+      "duration_seconds": 403.2293030999972,
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_010",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_010\\generation_summary.json",
+      "stdout": "{\"ok\": true, \"lang_dir\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_010\", \"summary_path\": \"C:\\\\Users\\\\theag\\\\OneDrive\\\\Desktop\\\\newAgent\\\\workspace\\\\catalog_logic_v1\\\\slot_lgc_010\\\\generation_summary.json\"}\n",
+      "stderr": "",
+      "returncode": 0,
+      "error": null
+    }
+  ]
+}
