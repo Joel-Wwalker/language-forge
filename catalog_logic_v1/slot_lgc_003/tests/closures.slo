@@ -1,0 +1,9 @@
+% higher-order predicates with call
+apply_binary(Operation, X, Y, Result) :-
+    call(Operation, X, Y, Result).
+
+add_values(A, B, C) :- C is A + B.
+multiply_values(A, B, C) :- C is A * B.
+
+:- apply_binary(add_values, 10, 5, R1), write(R1), nl.
+:- apply_binary(multiply_values, 6, 7, R2), write(R2), nl.

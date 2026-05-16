@@ -1,0 +1,5 @@
+% Proof: section sequence verification
+verify_section(0) :- write(0), nl.
+verify_section(N) :- N > 0, write(N), nl, N1 is N - 1, verify_section(N1).
+
+:- verify_section(5).

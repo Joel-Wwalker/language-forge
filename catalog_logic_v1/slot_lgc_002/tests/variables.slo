@@ -1,0 +1,3 @@
+% Invariant: signal state binding
+:- State = green, write(State), nl.
+:- Distance = 500, SafeMargin is Distance + 250, write(SafeMargin), nl.

@@ -67,7 +67,13 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "creative.md"
 #             surface-characteristics section so example_commentary
 #             references the family's actual syntax (ml_like uses
 #             pattern matching + `;;`, not c_like braces + `;`).
-CREATIVE_PROMPT_VERSION = 3
+#   v3 -> v4: logic-family experiment Stage F; added logic_like to the
+#             per-family surface-characteristics section so
+#             example_commentary correctly references facts / rules /
+#             queries + the `:-` / `is/2` / `=/2` distinction, instead
+#             of attempting to describe assignment or loops (which
+#             logic_like doesn't have).
+CREATIVE_PROMPT_VERSION = 4
 
 _DEFAULT_CACHE_DIR = (
     Path(__file__).resolve().parents[2] / ".forge_cache" / "creative"

@@ -1,0 +1,6 @@
+% Canonical: strings. v1 prologlang represents "strings" as
+% single-quoted atoms (atoms with embedded spaces or punctuation).
+% No proper string type in v1 - test the atom-with-quotes shape.
+:- write('Hello, World!'), nl.
+:- write('a string with spaces'), nl.
+:- X = 'a quoted atom', write(X), nl.

@@ -1,0 +1,318 @@
+{
+  "lang_name": "slot_lgc_002",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "is",
+    "mod",
+    "not",
+    "true",
+    "false",
+    "fail"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "integer_form": "decimal_only",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "logic_like syntax: iteration via recursion and backtracking; loop_forms=[] is the correct natural state.",
+    "Prolog-style failure semantics: failed goals yield no solution; panic_only means no throw/catch mechanism.",
+    "Transpiles to Python; user code cannot observe GC behavior directly (host_gc).",
+    "Empty list [] serves as the null_keyword (standard Prolog convention)."
+  ],
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "null_keyword_status": "active",
+  "origin_story": "Recovered from a 1982 automated theorem prover at Edinburgh's AI lab. Originally used to verify railway signaling systems until the funding dried up. The proof traces are still embedded in the comments.",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#3b82f6",
+      "accent_2": "#60a5fa",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "creative": {
+    "readme_intro": "slot_lgc_002 is a logic programming language recovered from Edinburgh's 1982 railway signaling verification project. Programs are databases of facts and rules evaluated by backtracking search, not sequential execution. Instead of writing functions that return values, you declare relationships between terms via unification. The railway heritage shows in the design: predicates declare what must hold, not how to compute it\u2014a natural fit for expressing safety constraints. Dynamic typing and mutable state make it more forgiving than pure Prolog for exploratory work, but the absence of structured error handling reflects its theorem-prover origins: invalid states fail, full stop. It transpiles to Python and inherits Python's garbage collector, so you can interoperate with host libraries while keeping the logic-based surface. The `.slo` extension stands for \"signaling logic,\" a nod to the system it once verified.",
+    "design_philosophy": "The language prioritizes declarative clarity over procedural control. Iteration is expressed as recursive rules with multiple clauses\u2014backtracking replaces branching, so no loop keywords exist. Panic-only error handling reflects the theorem-prover lineage: a failed goal yields no solution; unrecoverable errors halt execution. This eliminates try-catch scaffolding but demands careful guards. Dynamic typing reduces annotation burden in verification scripts, though it sacrifices compile-time checks. Mutable state is allowed by default because railway signaling models track evolving state machines; pure immutability would require threading state through every predicate. The design trades Prolog's mathematical purity for pragmatic modeling: facts can change, arithmetic is eager (via `is`), and the runtime is Python's heap rather than a WAM.",
+    "what_its_good_at": "Expressing constraint satisfaction problems where backtracking naturally explores solution spaces. Pattern matching via unification handles complex term structures without manual destructuring. Rules with multiple clauses let you encode domain knowledge as guarded alternatives, making the logic explicit and auditable\u2014exactly what verification tasks demand. Short-circuit evaluation in conjunctions means guards fail fast, and the Prolog-style relational model excels at bidirectional predicates: the same rule can answer \"what satisfies X?\" and \"does Y satisfy X?\" without separate implementations.",
+    "what_its_bad_at": "Dynamic typing means type errors surface at runtime, not in proofs\u2014ironic for a theorem prover language. Panic-only error handling offers no recovery: a malformed term crashes the program. The absence of loops makes iterative algorithms awkward; you'll write tail-recursive predicates where a for-loop would be clearer. Mutable state breaks logical purity, so tracking which predicates have side effects becomes manual.",
+    "example_commentary": "The example defines a rule `main` with no parameters, using the `:-` operator to declare that \"main holds if write and nl both hold.\" This is not a function call returning a value\u2014it's a goal that succeeds or fails. The `.` terminator marks the end of the clause, Prolog-style. Notice `write` and `nl` are predicates, not statements; they succeed by side effect (printing), then allow backtracking to continue. The uppercase identifiers you see in richer examples would be logic variables, unified by pattern matching, not assigned.",
+    "common_mistake": "Confusing `=` with `is`: writing `X = 2 + 3` binds X to the compound term, not 5\u2014use `X is 2 + 3` for arithmetic. Newcomers treat rules like functions, expecting `double(5, R)` to \"return\" into R, when the rule must explicitly compute via `is`. Panic-only error handling means no safety net: an unexpected failure halts the program, not just the current goal."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": ":- write(\"Edinburgh AI Lab - Railway Signaling Verifier 1982\"), nl.\n",
+      "arithmetic": "% Proof: track segment distance calculations\n:- Sum is 750 + 250, write(Sum), nl.\n:- Diff is 1200 - 180, write(Diff), nl.\n:- Product is 8 * 125, write(Product), nl.\n:- Quotient is 2400 / 6, write(Quotient), nl.\n:- Remainder is 47 mod 5, write(Remainder), nl.\n",
+      "variables": "% Invariant: signal state binding\n:- State = green, write(State), nl.\n:- Distance = 500, SafeMargin is Distance + 250, write(SafeMargin), nl.\n",
+      "conditionals": "% Theorem: track occupancy assessment\nassess_track(occupied) :- write(\"halt\"), nl.\nassess_track(clear) :- write(\"proceed\"), nl.\n\n:- assess_track(occupied).\n:- assess_track(clear).\n",
+      "loops": "% Proof: section sequence verification\nverify_section(0) :- write(0), nl.\nverify_section(N) :- N > 0, write(N), nl, N1 is N - 1, verify_section(N1).\n\n:- verify_section(5).\n",
+      "functions": "% Theorem: braking distance for given speed\nbraking_distance(0, 0).\nbraking_distance(Speed, Distance) :-\n    Speed > 0,\n    Distance is Speed * 2.\n\n:- braking_distance(45, D), write(D), nl.\n:- braking_distance(60, D2), write(D2), nl.\n",
+      "closures": "% Higher-order: safety check predicate\napply_check(Predicate, Input, Output) :- call(Predicate, Input, Output).\n\nreduce_speed(Current, Safe) :- Safe is Current - 10.\n\n:- apply_check(reduce_speed, 50, Result), write(Result), nl.\n:- apply_check(reduce_speed, 75, R2), write(R2), nl.\n",
+      "strings": "% Verification: signal designation protocol\n:- write(\"Track-A-Clear\"), nl.\n:- Message = \"Boundary-Zone-Active\", write(Message), nl.\n:- Status = \"Section-Occupied\", write(Status), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "route_interlocking_check",
+        "description": "Verifies railway route interlocking safety by detecting conflicting track allocations.",
+        "body": "% Route interlocking proof obligations - Edinburgh 1982\n\nroute(r1, platform_a, main_line).\nroute(r2, platform_b, main_line).\nroute(r3, platform_a, siding).\nroute(r4, siding, yard).\n\nshares_endpoint(R1, R2) :-\n    route(R1, _, End),\n    route(R2, _, End).\n\nverify_conflict(R1, R2) :-\n    shares_endpoint(R1, R2),\n    write(\"CONFLICT: Route \"),\n    write(R1),\n    write(\" and \"),\n    write(R2),\n    write(\" share track\"),\n    nl.\nverify_conflict(R1, R2) :-\n    \\+ shares_endpoint(R1, R2),\n    write(\"SAFE: Route \"),\n    write(R1),\n    write(\" and \"),\n    write(R2),\n    write(\" independent\"),\n    nl.\n\n:- verify_conflict(r1, r2).\n:- verify_conflict(r1, r3).\n:- verify_conflict(r1, r4).\n:- verify_conflict(r2, r4).\n"
+      },
+      {
+        "name": "track_circuit_scanner",
+        "description": "Monitors track circuit occupancy states and generates status reports for signaling logic.",
+        "body": "% Track circuit theorem prover\n\noccupied(section_a).\noccupied(section_c).\nclear(section_b).\nclear(section_d).\nclear(section_e).\n\nreport_status(Section) :-\n    occupied(Section),\n    write(\"Section \"),\n    write(Section),\n    write(\": OCCUPIED\"),\n    nl.\nreport_status(Section) :-\n    clear(Section),\n    write(\"Section \"),\n    write(Section),\n    write(\": CLEAR\"),\n    nl.\n\nscan_all([]).\nscan_all([Section|Rest]) :-\n    report_status(Section),\n    scan_all(Rest).\n\ncount_occupied([], 0).\ncount_occupied([Section|Rest], Count) :-\n    occupied(Section),\n    count_occupied(Rest, RestCount),\n    Count is RestCount + 1.\ncount_occupied([Section|Rest], Count) :-\n    clear(Section),\n    count_occupied(Rest, Count).\n\n:- Sections = [section_a, section_b, section_c, section_d, section_e].\n:- scan_all([section_a, section_b, section_c, section_d, section_e]).\n:- count_occupied([section_a, section_b, section_c, section_d, section_e], Total),\n   write(\"Total occupied sections: \"),\n   write(Total),\n   nl.\n"
+      },
+      {
+        "name": "braking_distance_calculator",
+        "description": "Calculates required braking distances based on train speed for safety verification.",
+        "body": "% Braking distance safety theorem\n\nsafe_distance(0, 0).\nsafe_distance(Speed, Distance) :-\n    Speed > 0,\n    Speed =< 30,\n    Distance is Speed * 3.\nsafe_distance(Speed, Distance) :-\n    Speed > 30,\n    Speed =< 60,\n    Distance is Speed * 4.\nsafe_distance(Speed, Distance) :-\n    Speed > 60,\n    Distance is Speed * 5.\n\nverify_safe_speed(Speed, Available) :-\n    safe_distance(Speed, Required),\n    Required =< Available,\n    write(\"Speed \"),\n    write(Speed),\n    write(\" km/h: SAFE - requires \"),\n    write(Required),\n    write(\"m, have \"),\n    write(Available),\n    write(\"m\"),\n    nl.\nverify_safe_speed(Speed, Available) :-\n    safe_distance(Speed, Required),\n    Required > Available,\n    write(\"Speed \"),\n    write(Speed),\n    write(\" km/h: UNSAFE - requires \"),\n    write(Required),\n    write(\"m, only \"),\n    write(Available),\n    write(\"m available\"),\n    nl.\n\n:- verify_safe_speed(20, 100).\n:- verify_safe_speed(45, 150).\n:- verify_safe_speed(80, 300).\n:- verify_safe_speed(80, 200).\n"
+      },
+      {
+        "name": "signal_aspect_state_machine",
+        "description": "Models signal aspect transitions in the railway interlocking state machine.",
+        "body": "% Signal aspect state transition proof\n\naspect_meaning(red, \"STOP - Track occupied\").\naspect_meaning(yellow, \"CAUTION - Prepare to stop\").\naspect_meaning(green, \"PROCEED - Track clear\").\n\nnext_state(red, yellow).\nnext_state(yellow, green).\nnext_state(green, green).\n\ndisplay_aspect(Aspect) :-\n    aspect_meaning(Aspect, Meaning),\n    write(Aspect),\n    write(\": \"),\n    write(Meaning),\n    nl.\n\ntransition(Current) :-\n    write(\"Current state: \"),\n    display_aspect(Current),\n    next_state(Current, Next),\n    write(\"Next state: \"),\n    display_aspect(Next),\n    nl.\n\nsequence([]).\nsequence([Aspect|Rest]) :-\n    display_aspect(Aspect),\n    sequence(Rest).\n\n:- write(\"Signal aspect state machine verification\"), nl, nl.\n:- transition(red).\n:- transition(yellow).\n:- transition(green).\n:- nl, write(\"Full clearance sequence:\"), nl.\n:- sequence([red, yellow, green]).\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "variables",
+        "loops",
+        "functions",
+        "closures"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "conditionals",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "route_interlocking_check",
+        "track_circuit_scanner",
+        "braking_distance_calculator",
+        "signal_aspect_state_machine"
+      ]
+    }
+  }
+}

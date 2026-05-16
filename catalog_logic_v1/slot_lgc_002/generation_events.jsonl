@@ -1,0 +1,15 @@
+{"event": "run_started", "timestamp": "2026-05-15T17:47:05Z", "lang_name": "slot_lgc_002", "seed": 9002, "started_at": "2026-05-15T17:47:05Z", "generator_version": "0.4.0"}
+{"event": "llm_call", "timestamp": "2026-05-15T17:49:01Z", "tag": "resolver", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 115.896, "attempts": 1, "success": true, "error": null}
+{"event": "llm_call", "timestamp": "2026-05-15T17:50:29Z", "tag": "gen-creative", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 87.804, "attempts": 1, "success": true, "error": null}
+{"event": "llm_call", "timestamp": "2026-05-15T17:51:13Z", "tag": "gen-idioms", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 131.118, "attempts": 1, "success": true, "error": null}
+{"event": "pipeline_path", "timestamp": "2026-05-15T17:51:13Z", "path": "templated"}
+{"event": "component", "timestamp": "2026-05-15T17:51:13Z", "name": "tests", "duration_seconds": 0.005, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:13Z", "name": "codegen", "duration_seconds": 0.005, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:13Z", "name": "parser", "duration_seconds": 0.005, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:13Z", "name": "stdlib", "duration_seconds": 0.005, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:13Z", "name": "runtime", "duration_seconds": 0.005, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:16Z", "name": "language_reference", "duration_seconds": 0.001, "success": true, "llm_calls": 0}
+{"event": "component", "timestamp": "2026-05-15T17:51:16Z", "name": "readme", "duration_seconds": 0.001, "success": true, "llm_calls": 0}
+{"event": "llm_call", "timestamp": "2026-05-15T17:51:27Z", "tag": "gen-lexer", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 11.02, "attempts": 1, "success": true, "error": null}
+{"event": "component", "timestamp": "2026-05-15T17:51:27Z", "name": "lexer", "duration_seconds": 11.023, "success": true, "llm_calls": 1}
+{"event": "canonical", "timestamp": "2026-05-15T17:51:29Z", "passed": 8, "total": 8, "pass_rate": 1.0}

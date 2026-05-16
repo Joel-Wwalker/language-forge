@@ -1,0 +1,18 @@
+{
+  "slot_id": "slot_lgc_005",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "customization": {
+    "persona": null,
+    "era": null,
+    "theme": "shakespearean",
+    "phrasebook": null,
+    "feature_bans": []
+  },
+  "seed": 9005,
+  "target_rarity": "common",
+  "notes": "single-axis: shakespearean theme"
+}
