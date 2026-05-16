@@ -1,0 +1,6 @@
+% evaluating mathematical expressions
+:- Sum is 7 + 13, write(Sum), nl.
+:- Difference is 20 - 8, write(Difference), nl.
+:- Product is 3 * 4, write(Product), nl.
+:- Quotient is 21 // 3, write(Quotient), nl.
+:- Remainder is 17 mod 5, write(Remainder), nl.

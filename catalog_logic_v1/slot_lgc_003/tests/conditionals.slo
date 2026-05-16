@@ -1,0 +1,8 @@
+% logical reasoning with guards
+classify(X, positive) :- X > 0.
+classify(X, zero) :- X =:= 0.
+classify(X, negative) :- X < 0.
+
+:- classify(42, C1), write(C1), nl.
+:- classify(0, C2), write(C2), nl.
+:- classify(-7, C3), write(C3), nl.

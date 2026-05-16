@@ -1137,6 +1137,19 @@ def can_handle(spec: dict) -> Optional[Backend]:
             return None
         return StackBackend(spec)
 
+    # ml_like and logic_like deliberately have NO mechanical-translator
+    # backends. Both are structurally too divergent from c_like for
+    # syntactic transpilation:
+    #   - ml_like: expression-form, pattern matching on ADTs, currying.
+    #     A c_like `while (i < n) { ... }` doesn't translate to an
+    #     equivalent ml_like form without rewriting the loop as
+    #     recursion (algorithmic transform, not syntactic).
+    #   - logic_like: facts/rules/queries, unification-based binding,
+    #     backtracking. There is no syntactic mapping from c_like
+    #     `if/while/return` to Prolog clauses — they evaluate under
+    #     a fundamentally different model (reduction vs. resolution).
+    # The LLM-fallback path absorbs both. Documented absence (mirroring
+    # the ml_like experiment finding); not a missing backend.
     return None
 
 

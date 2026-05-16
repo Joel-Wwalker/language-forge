@@ -1,0 +1,8 @@
+% arithmetic as logical relations
+theorem(addition, R) :- R is 15 + 27.
+theorem(multiplication, R) :- R is 8 * 7.
+theorem(division, R) :- R is 100 // 3.
+
+:- theorem(addition, A), write(A), nl.
+:- theorem(multiplication, M), write(M), nl.
+:- theorem(division, D), write(D), nl.

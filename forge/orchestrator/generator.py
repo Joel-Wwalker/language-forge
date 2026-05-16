@@ -48,6 +48,10 @@ REFERENCE_COMPILERS = {
     # ml_like (added by the ml-family experiment): OCaml-flavored
     # dynamic ML. Templates from the hand-written mllang reference.
     "ml_like":      WORKSPACE_ROOT / "generated" / "mllang",
+    # logic_like (added by the logic-family experiment): pragmatic
+    # Prolog. Templates from the hand-written prologlang reference.
+    # See generated/prologlang/ + LOGICLANG_DESIGN.md.
+    "logic_like":   WORKSPACE_ROOT / "generated" / "prologlang",
     # `python_like` deferred — no hand-written python_like reference
     # exists yet. When one lands (a hand-written hardcombo-style
     # reference), add it here.
@@ -697,12 +701,33 @@ def _at_a_glance_ml_like(spec: dict) -> str:
     return "\n".join(parts)
 
 
+def _at_a_glance_logic_like(spec: dict) -> str:
+    """logic_like: facts + rule + query - the shape no other family can
+    produce. A reader seeing this should immediately register Prolog.
+
+    Shows the canonical family relationship example: two `parent/2` facts,
+    a recursive `ancestor/2` rule using `:-` for the head/body separator
+    and `,` for conjunction, and a `?-` query that exercises backtracking.
+    """
+    # The base spec's syntax_example is good for the predicate-definition
+    # form; we override the at-a-glance to make the family's distinctive
+    # shape (facts vs rules vs queries) visible in 4 lines.
+    return (
+        "parent(tom, bob).\n"
+        "parent(bob, ann).\n"
+        "ancestor(X, Z) :- parent(X, Z).\n"
+        "ancestor(X, Z) :- parent(X, Y), ancestor(Y, Z).\n"
+        "?- ancestor(tom, X), write(X), nl."
+    )
+
+
 _AT_A_GLANCE_RENDERERS = {
     "c_like":       _at_a_glance_c_like,
     "python_like":  _at_a_glance_python_like,
     "s_expression": _at_a_glance_s_expression,
     "stack_based":  _at_a_glance_stack_based,
     "ml_like":      _at_a_glance_ml_like,
+    "logic_like":   _at_a_glance_logic_like,
 }
 
 
@@ -726,6 +751,7 @@ def _render_templated_readme(spec: dict) -> str:
         "s_expression": "Lisp-style: every form is `(operator operand ...)`. Code is data.",
         "stack_based":  "Forth-style: postfix evaluation on an implicit data stack.",
         "ml_like":      "OCaml-flavored: expression-oriented, pattern matching, recursion-forward. `let` binds; `let rec` for recursion; `match ... with | pat -> body`.",
+        "logic_like":   "Prolog-flavored: a database of facts and rules; queries return all bindings that satisfy them. `:-` separates rule head from body; `,` is conjunction; uppercase identifiers are variables, lowercase are atoms. No loops - iteration is recursion + backtracking.",
     }.get(syntax, "")
 
     # Phase 1.5 Stage D + variance-improvement: persona-flavored prose

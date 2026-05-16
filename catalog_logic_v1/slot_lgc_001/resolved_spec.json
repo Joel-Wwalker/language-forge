@@ -1,0 +1,318 @@
+{
+  "lang_name": "slot_lgc_001",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "is",
+    "mod",
+    "not",
+    "true",
+    "false",
+    "fail"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "integer_form": "decimal_only",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "logic_like languages have empty loop_forms by design; iteration is expressed via recursion and backtracking through multi-clause predicates.",
+    "The stdlib predicates (print, list, get, set, etc.) are imperative-style for practical use, even though Prolog traditionally relies on unification and queries.",
+    "Failure semantics: a goal that fails yields no solution rather than raising an exception. Runtime panics occur only for type errors or undefined predicates.",
+    "The `=` operator is unification, not assignment; variables are single-assignment within a clause."
+  ],
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "null_keyword_status": "active",
+  "origin_story": "Unearthed from a 1981 AI lab where logic programming was the only paradigm taught. Researchers insisted all computation should be queries against facts. The project was abandoned when the funding ran out, but the spec survived in a filing cabinet marked 'Too Pure For Industry'.",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#3b82f6",
+      "accent_2": "#60a5fa",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "creative": {
+    "readme_intro": "This language descends from a 1981 AI lab experiment where every problem was a query, every solution a proof. Programs are databases of facts and rules; execution is pattern matching and backtracking. Where most logic languages compromise with imperative features bolted on, this one keeps the clause-based core but admits the stdlib needs mutation - lists are mutable, predicates like `set/3` and `push/2` modify in place. The result is a logic shell around a procedural heart: you define predicates with `:-`, unify with `=`, and recurse instead of looping, but when you need a list reversed, you don't thread state through arguments. The lab abandoned this design when funding dried up, filing it under 'Too Pure For Industry.' They were half right. Pure logic programming remains impractical for most work. But this hybrid - unification and backtracking for control flow, mutation for data structures - carves out a niche where declarative reasoning meets pragmatic state.",
+    "design_philosophy": "The 1981 designers believed computation should be logical inference, not imperative steps. No loops: iteration is recursion and backtracking through multi-clause predicates. No static types: unification is the only safety net you need. But they weren't dogmatic. Prolog's traditional immutability makes list processing painful, so we made variables mutable by default and added imperative stdlib predicates. Error handling is panic-only because logic programming already has failure semantics - a goal that fails yields no solution, distinct from a runtime crash. The tension is intentional: keep the declarative surface (facts, rules, queries) but allow the imperative escape hatches that make real programs tolerable.",
+    "what_its_good_at": "Expressing recursive algorithms and relational constraints without ceremony. The clause-based syntax makes multi-case definitions readable - factorial is two facts, not a function with nested ifs. Backtracking search problems (permutations, constraint satisfaction) collapse to a few rules. The mutable stdlib means you can build up lists incrementally without threading accumulators, so ad-hoc scripting doesn't require the functional-programming mental overhead. Unification handles pattern decomposition for free.",
+    "what_its_bad_at": "Programs with complex mutable state become unreadable - the clause syntax is built for rules, not stateful procedures. Dynamic typing means type errors surface at runtime, often deep in a backtracking search. The panic-only model is unforgiving; there's no try/catch, so a bad `int/1` conversion crashes the program. Debugging is hard: backtracking is invisible, and the lack of stack traces in the Prolog tradition means you add `write/1` calls and pray. Performance is Python-backend speeds, slower than compiled languages.",
+    "example_commentary": "The `:-` operator separates the rule head from its body - `main :- ...` reads as 'main succeeds if the body succeeds.' The comma is conjunction: `write(\"Hello, World!\"), nl` means 'write this string AND print a newline,' executed left to right. The period terminates the clause. Notice there's no return statement - predicates succeed or fail, they don't return values. The empty argument list in `main` is implicit; this is a fact with zero parameters. The whole program is one rule that, when queried, prints and succeeds.",
+    "common_mistake": "Confusing `=` with `is`. The former is unification: `X = 2 + 3` binds X to the compound term `+(2, 3)`, not the integer 5. Use `is` for arithmetic: `X is 2 + 3` binds X to 5. New users write `Y = X * 2` expecting evaluation and get a structure instead. Also, treating variables as reassignable - within a clause, `X = 1, X = 2` fails because X can't unify with both 1 and 2."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": ":- write(\"Query: success\"), nl.\n",
+      "arithmetic": "% arithmetic as logical relations\ntheorem(addition, R) :- R is 15 + 27.\ntheorem(multiplication, R) :- R is 8 * 7.\ntheorem(division, R) :- R is 100 // 3.\n\n:- theorem(addition, A), write(A), nl.\n:- theorem(multiplication, M), write(M), nl.\n:- theorem(division, D), write(D), nl.\n",
+      "variables": "% bindings via unification\n:- Term = \"axiom\", write(Term), nl.\n:- Value is 1981, write(Value), nl.\n:- Fact = true, write(Fact), nl.\n",
+      "conditionals": "% conditional proof via clause selection\nprove(N, \"proved\") :- N > 0.\nprove(N, \"refuted\") :- N =< 0.\n\n:- prove(42, R1), write(R1), nl.\n:- prove(-5, R2), write(R2), nl.\n",
+      "loops": "% iteration is recursion - the pure approach\nquery_range(0) :- write(0), nl.\nquery_range(N) :- N > 0, write(N), nl, N1 is N - 1, query_range(N1).\n\n:- query_range(4).\n",
+      "functions": "% predicates encode relations\ndouble_relation(X, Y) :- Y is X * 2.\nsum_relation(A, B, C) :- C is A + B.\n\n:- double_relation(21, R1), write(R1), nl.\n:- sum_relation(30, 12, R2), write(R2), nl.\n",
+      "closures": "% higher-order via call mechanism\ncompose(P, X, R) :- call(P, X, T), call(P, T, R).\nsuccessor(X, R) :- R is X + 1.\n\n:- compose(successor, 10, Result), write(Result), nl.\n",
+      "strings": "% symbolic computation\n:- S = \"inference\", write(S), nl.\n:- lower(\"PROLOG\", L), write(L), nl.\n:- join(\" \", [\"pure\", \"logic\"], J), write(J), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "knowledge_base_query",
+        "description": "Classic AI-era knowledge representation with researchers and their fields.",
+        "body": "% knowledge base from the lab archives\nresearcher(\"mccarthy\", \"ai\").\nresearcher(\"minsky\", \"ai\").\nresearcher(\"newell\", \"cognitive\").\nfield(\"ai\", \"symbolic\").\nfield(\"cognitive\", \"symbolic\").\n\nexpert(Person, Domain) :- researcher(Person, Field), field(Field, Domain).\n\n:- expert(\"mccarthy\", D), write(\"McCarthy: \"), write(D), nl.\n:- expert(\"minsky\", D), write(\"Minsky: \"), write(D), nl.\n"
+      },
+      {
+        "name": "list_reasoning",
+        "description": "Recursive list processing using pure logic, no loops.",
+        "body": "% pure functional list operations\nsum_list([], 0).\nsum_list([H|T], Sum) :- sum_list(T, Rest), Sum is H + Rest.\n\nlength_list([], 0).\nlength_list([_|T], N) :- length_list(T, N1), N is N1 + 1.\n\nappend_lists([], L, L).\nappend_lists([H|T], L, [H|R]) :- append_lists(T, L, R).\n\n:- sum_list([1, 2, 3, 4, 5], S), write(\"Sum: \"), write(S), nl.\n:- length_list([10, 20, 30], L), write(\"Length: \"), write(L), nl.\n:- append_lists([1, 2], [3, 4], R), write(\"Appended: \"), write(R), nl.\n"
+      },
+      {
+        "name": "theorem_verifier",
+        "description": "Simple automated reasoning system verifying logical propositions.",
+        "body": "% automated theorem verification\naxiom(1, \"all men are mortal\").\naxiom(2, \"socrates is a man\").\naxiom(3, \"all logic is sound\").\n\nderive(socrates_mortal) :- axiom(1, _), axiom(2, _).\nderive(logic_sound) :- axiom(3, _).\n\nverify(Theorem) :- derive(Theorem), write(\"Theorem \"), write(Theorem), write(\" verified\"), nl.\n\n:- verify(socrates_mortal).\n:- verify(logic_sound).\n"
+      },
+      {
+        "name": "inference_chain",
+        "description": "Multi-step logical inference demonstrating rule chaining.",
+        "body": "% inference engine demonstrating rule chaining\nbase_fact(\"computing\", \"discipline\").\nbase_fact(\"ai\", \"subfield\").\n\nrelation(\"ai\", \"computing\").\nrelation(\"logic_prog\", \"ai\").\n\ntransitive(X, Y) :- relation(X, Y).\ntransitive(X, Z) :- relation(X, Y), transitive(Y, Z).\n\ncount_steps(X, Y, 1) :- relation(X, Y).\ncount_steps(X, Z, N) :- relation(X, Y), count_steps(Y, Z, N1), N is N1 + 1.\n\n:- transitive(\"logic_prog\", \"computing\"), write(\"Transitive: proven\"), nl.\n:- count_steps(\"logic_prog\", \"computing\", Depth), write(\"Depth: \"), write(Depth), nl.\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "loops",
+        "functions",
+        "closures"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "variables",
+        "conditionals",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "knowledge_base_query",
+        "list_reasoning",
+        "theorem_verifier",
+        "inference_chain"
+      ]
+    }
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "lang_name": "slot_lgc_003",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "is",
+    "mod",
+    "not",
+    "true",
+    "false",
+    "fail"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "integer_form": "decimal_only",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)",
+    "list": "[1, 2, 3] or [H | T]"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "null_keyword_status": "active",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "error_handling": {
+    "kind": "panic_only",
+    "syntax": "Built-in predicates fail on error; unhandled failure terminates the query."
+  },
+  "loop_forms": [],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "design_notes": [
+    "Logic programming model: predicates can succeed/fail and backtrack; no explicit return statements.",
+    "Unification `=` binds variables; once unified, variables are immutable within a clause's scope.",
+    "No iteration constructs (loop_forms is empty); iteration is expressed via recursive predicates with base and inductive cases.",
+    "Logical operators: `,` (conjunction) short-circuits on failure, `;` (disjunction) tries alternatives, `\\+` (negation as failure).",
+    "Empty list `[]` serves as the null representation; atoms `true` and `false` are boolean values.",
+    "Stdlib includes imperative helpers (set/push/pop) that wrap Python mutation for practical data structure manipulation."
+  ],
+  "customization": {
+    "persona": "mccarthy"
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#1a1a24",
+      "bg_2": "#222230",
+      "card": "#1a1a24",
+      "card_2": "#262638",
+      "line": "#383850",
+      "line_2": "#5050a0",
+      "text": "#e8e8f0",
+      "text_2": "#c0c0d0",
+      "muted": "#8080a0",
+      "accent": "#ff70d0",
+      "accent_2": "#ff9be0",
+      "font_family": "'Iosevka', 'JetBrains Mono', monospace",
+      "mono_font": "'Iosevka', 'JetBrains Mono', monospace",
+      "radius": "4px",
+      "decoration": "",
+      "name_treatment": "uppercase-tracked"
+    },
+    "sources": {
+      "persona": "mccarthy",
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "origin_story": "Discovered in McCarthy's desk drawer at Stanford AI Lab, 1978. An attempt to reconcile Lisp's uniform representation with Prolog's relational semantics. Never published, deemed too austere for practical use.",
+  "creative": {
+    "readme_intro": "A logic programming system stripped to first principles. Programs are databases of facts and rules; computation is query resolution through unification and backtracking. Variables bind once per clause\u2014no assignment, no mutation within scope. Control flow emerges from predicate success and failure, not from explicit branching. The syntax honors Prolog's heritage while removing ornament: predicates succeed or fail, conjunctions short-circuit, recursion replaces iteration. The standard library includes pragmatic imperative operations (set, push, pop) that acknowledge the host runtime's mutation model, a concession to utility. Every top-level clause terminates with a period, a typographic finality that McCarthy insisted upon. The language was found incomplete, documented in margin notes suggesting that removing loops and structured exceptions was not an oversight but a deliberate return to relational purity.",
+    "design_philosophy": "Programs should be declarative specifications, not instruction sequences. Loops imply an execution order that obscures the relational invariant; recursion states the invariant directly. A single unification operator subsumes assignment, pattern matching, and equality testing\u2014three concepts collapsed into one. Dynamic typing permits the flexibility required for symbolic computation, while the absence of null (replaced by the empty list) eliminates a category of errors. Error handling via panic reflects the view that a logic program either proves a goal or fails cleanly; partial success is incoherent. The period terminator is not punctuation\u2014it is the declaration that a clause's semantics are complete. Austerity is not deprivation; it is the removal of choice where choice is distraction.",
+    "what_its_good_at": "Expressing algorithms as relations rather than procedures. Backtracking search over solution spaces without explicit state management. Pattern matching via unification handles destructuring and binding simultaneously. Recursive predicates with base and inductive cases map naturally to the clause structure. Programs that are small, self-contained proofs are tersely stated\u2014the twenty-line solution often suffices where imperative code sprawls.",
+    "what_its_bad_at": "Iteration without recursion is unavailable, making bulk transformations verbose until the recursive idiom is internalized. Panic-only error handling means a single failure in a compound query aborts the entire computation; defensive checking must be explicit. Dynamic typing defers detection of arity mismatches and type confusions to runtime. The austere syntax offers no syntactic affordances for common imperative patterns\u2014stateful programs require threading accumulators through arguments, a discipline that feels unnatural to programmers expecting mutable locals.",
+    "example_commentary": "The clause head names the predicate; the :- operator separates specification from implementation; the body is a conjunction of goals. The period is mandatory\u2014omit it and the clause remains incomplete, syntactically unresolved. The write/1 and nl/0 predicates handle output; their side effects are acknowledged but not reflected in the type system. The query form ?- initiates evaluation. This is logic programming with Lisp's minimalism: no syntactic conveniences, no implicit conversions, no ceremony beyond what unification requires.",
+    "common_mistake": "Confusing = (unification) with is (arithmetic evaluation). Writing X = 2 + 3 binds X to the compound term +(2, 3), not to 5; use X is 2 + 3 for evaluation. Variables are immutable within a clause's scope\u2014attempting to 're-assign' a bound variable by unifying it with a different term will fail. Beginners expect loops; the language provides none. Express iteration as recursive predicates with explicit base cases."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": ":- write(\"Advice Taker initialized\"), nl.\n",
+      "arithmetic": "% evaluating mathematical expressions\n:- Sum is 7 + 13, write(Sum), nl.\n:- Difference is 20 - 8, write(Difference), nl.\n:- Product is 3 * 4, write(Product), nl.\n:- Quotient is 21 // 3, write(Quotient), nl.\n:- Remainder is 17 mod 5, write(Remainder), nl.\n",
+      "variables": "% symbolic unification and binding\n:- X = 42, write(X), nl.\n:- Y = 100, Z is Y + 58, write(Z), nl.\n:- [First | Rest] = [1, 2, 3, 4], write(First), nl, write(Rest), nl.\n",
+      "conditionals": "% logical reasoning with guards\nclassify(X, positive) :- X > 0.\nclassify(X, zero) :- X =:= 0.\nclassify(X, negative) :- X < 0.\n\n:- classify(42, C1), write(C1), nl.\n:- classify(0, C2), write(C2), nl.\n:- classify(-7, C3), write(C3), nl.\n",
+      "loops": "% recursive descent computation\nsum_integers(0, 0).\nsum_integers(N, Total) :-\n    N > 0,\n    N1 is N - 1,\n    sum_integers(N1, Subtotal),\n    Total is Subtotal + N.\n\n:- sum_integers(10, Result), write(Result), nl.\n",
+      "functions": "% recursive predicates\nfibonacci(0, 0).\nfibonacci(1, 1).\nfibonacci(N, F) :-\n    N > 1,\n    N1 is N - 1,\n    N2 is N - 2,\n    fibonacci(N1, F1),\n    fibonacci(N2, F2),\n    F is F1 + F2.\n\n:- fibonacci(8, Result), write(Result), nl.\n",
+      "closures": "% higher-order predicates with call\napply_binary(Operation, X, Y, Result) :-\n    call(Operation, X, Y, Result).\n\nadd_values(A, B, C) :- C is A + B.\nmultiply_values(A, B, C) :- C is A * B.\n\n:- apply_binary(add_values, 10, 5, R1), write(R1), nl.\n:- apply_binary(multiply_values, 6, 7, R2), write(R2), nl.\n",
+      "strings": "% symbolic text manipulation\n:- Name = \"John McCarthy\", write(Name), nl.\n:- System = \"Advice Taker\", write(System), nl.\n:- Language = \"LISP\", write(Language), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "list_operations",
+        "description": "Fundamental recursive list processing in the Lisp tradition.",
+        "body": "% Recursive operations on symbolic lists\nlist_length([], 0).\nlist_length([_ | Tail], N) :-\n    list_length(Tail, N1),\n    N is N1 + 1.\n\nlist_sum([], 0).\nlist_sum([Head | Tail], Sum) :-\n    list_sum(Tail, SubSum),\n    Sum is SubSum + Head.\n\nlist_map_double([], []).\nlist_map_double([H | T], [H2 | T2]) :-\n    H2 is H * 2,\n    list_map_double(T, T2).\n\n:- write(\"List length:\"), nl.\n:- list_length([1, 2, 3, 4, 5], Len), write(Len), nl.\n\n:- write(\"List sum:\"), nl.\n:- list_sum([10, 20, 30, 40], Total), write(Total), nl.\n\n:- write(\"Map double:\"), nl.\n:- list_map_double([1, 2, 3, 4], Doubled), write(Doubled), nl.\n"
+      },
+      {
+        "name": "reasoning_engine",
+        "description": "Propositional inference over a knowledge base of metalanguage properties.",
+        "body": "% Knowledge base: metalanguages and their properties\nis_metalanguage(lisp).\nis_metalanguage(prolog).\ninvented_by(lisp, mccarthy).\nyear_created(lisp, 1958).\n\nhas_recursion(L) :- is_metalanguage(L).\nsuitable_for_ai(L) :- is_metalanguage(L), has_recursion(L).\n\nhistoric_work(L) :-\n    invented_by(L, mccarthy),\n    year_created(L, Y),\n    Y < 1970.\n\n:- suitable_for_ai(lisp), write(\"LISP suitable for AI research\"), nl.\n:- historic_work(lisp), write(\"LISP is historic work\"), nl.\n:- is_metalanguage(prolog), write(\"Prolog is metalanguage\"), nl.\n:- has_recursion(lisp), write(\"LISP has recursion\"), nl.\n"
+      },
+      {
+        "name": "recursive_functions",
+        "description": "Classic recursive functions from MIT AI Lab teaching materials.",
+        "body": "% Pedagogical examples: factorial, fibonacci, power\nfactorial(0, 1).\nfactorial(N, F) :-\n    N > 0,\n    N1 is N - 1,\n    factorial(N1, F1),\n    F is N * F1.\n\nfibonacci(0, 0).\nfibonacci(1, 1).\nfibonacci(N, F) :-\n    N > 1,\n    N1 is N - 1,\n    N2 is N - 2,\n    fibonacci(N1, F1),\n    fibonacci(N2, F2),\n    F is F1 + F2.\n\npower(_, 0, 1).\npower(Base, Exp, Result) :-\n    Exp > 0,\n    Exp1 is Exp - 1,\n    power(Base, Exp1, SubResult),\n    Result is Base * SubResult.\n\n:- factorial(6, F), write(\"6! = \"), write(F), nl.\n:- fibonacci(10, Fib), write(\"fib(10) = \"), write(Fib), nl.\n:- power(2, 8, P), write(\"2^8 = \"), write(P), nl.\n"
+      },
+      {
+        "name": "symbolic_computation",
+        "description": "Computing mathematical forms through symbolic manipulation and recursion.",
+        "body": "% Sum of squares from 1 to N\nsum_of_squares(0, 0).\nsum_of_squares(N, Sum) :-\n    N > 0,\n    N1 is N - 1,\n    sum_of_squares(N1, SubSum),\n    Square is N * N,\n    Sum is SubSum + Square.\n\n% Product of list elements\nproduct_list([], 1).\nproduct_list([H | T], Product) :-\n    product_list(T, SubProduct),\n    Product is SubProduct * H.\n\n% Greatest common divisor\ngcd(A, 0, A) :- A > 0.\ngcd(A, B, G) :-\n    B > 0,\n    R is A mod B,\n    gcd(B, R, G).\n\n:- sum_of_squares(5, SumSq), write(\"Sum of squares 1-5: \"), write(SumSq), nl.\n:- product_list([2, 3, 4, 5], Prod), write(\"Product [2,3,4,5]: \"), write(Prod), nl.\n:- gcd(48, 18, G), write(\"gcd(48,18): \"), write(G), nl.\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "variables",
+        "conditionals",
+        "loops",
+        "functions",
+        "closures"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "list_operations",
+        "reasoning_engine",
+        "recursive_functions",
+        "symbolic_computation"
+      ]
+    }
+  }
+}

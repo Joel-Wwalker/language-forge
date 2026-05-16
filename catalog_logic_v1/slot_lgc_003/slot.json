@@ -1,0 +1,18 @@
+{
+  "slot_id": "slot_lgc_003",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "customization": {
+    "persona": "mccarthy",
+    "era": null,
+    "theme": null,
+    "phrasebook": null,
+    "feature_bans": []
+  },
+  "seed": 9003,
+  "target_rarity": "common",
+  "notes": "single-axis: McCarthy persona (Lisp/AI tradition; should align with logic programming nicely)"
+}
