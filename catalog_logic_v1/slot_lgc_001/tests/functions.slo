@@ -1,6 +1,0 @@
-% predicates encode relations
-double_relation(X, Y) :- Y is X * 2.
-sum_relation(A, B, C) :- C is A + B.
-
-:- double_relation(21, R1), write(R1), nl.
-:- sum_relation(30, 12, R2), write(R2), nl.

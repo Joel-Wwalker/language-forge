@@ -1,9 +1,0 @@
-% Calculate lines spoken across scenes
-lines_spoken(0, 0).
-lines_spoken(Scenes, Total) :-
-    Scenes > 0,
-    Scenes1 is Scenes - 1,
-    lines_spoken(Scenes1, Subtotal),
-    Total is Subtotal + 15.
-
-:- lines_spoken(5, Result), write(Result), nl.

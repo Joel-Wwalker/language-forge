@@ -1,9 +1,0 @@
-% recursive descent computation
-sum_integers(0, 0).
-sum_integers(N, Total) :-
-    N > 0,
-    N1 is N - 1,
-    sum_integers(N1, Subtotal),
-    Total is Subtotal + N.
-
-:- sum_integers(10, Result), write(Result), nl.

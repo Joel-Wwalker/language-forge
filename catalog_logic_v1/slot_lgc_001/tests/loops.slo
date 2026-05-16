@@ -1,5 +1,0 @@
-% iteration is recursion - the pure approach
-query_range(0) :- write(0), nl.
-query_range(N) :- N > 0, write(N), nl, N1 is N - 1, query_range(N1).
-
-:- query_range(4).

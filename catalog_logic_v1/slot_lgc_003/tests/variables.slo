@@ -1,4 +1,0 @@
-% symbolic unification and binding
-:- X = 42, write(X), nl.
-:- Y = 100, Z is Y + 58, write(Z), nl.
-:- [First | Rest] = [1, 2, 3, 4], write(First), nl, write(Rest), nl.

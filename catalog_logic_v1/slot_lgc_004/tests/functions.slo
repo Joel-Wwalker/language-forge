@@ -1,5 +1,0 @@
-/* Student grade averaging */
-average(Sum, Count, Result) :- Result is Sum // Count.
-
-:- average(270, 3, Avg),
-   write(Avg), nl.

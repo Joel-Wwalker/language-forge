@@ -1,6 +1,0 @@
-% Canonical: variables. Variables are bound by unification (=) and
-% by arithmetic (is). Once bound, they hold their value for the rest
-% of the goal.
-:- X = hello, write(X), nl.
-:- X = 42, Y = X, write(Y), nl.
-:- X is 3 + 4, Y is X * 2, write(Y), nl.

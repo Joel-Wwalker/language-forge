@@ -1,8 +1,0 @@
-/* Comfort level advisor */
-comfort(Temp, cozy) :- Temp >= 68, Temp =< 72.
-comfort(Temp, chilly) :- Temp < 68.
-comfort(Temp, warm) :- Temp > 72.
-
-:- comfort(70, Level), write(Level), nl.
-:- comfort(65, Level), write(Level), nl.
-:- comfort(75, Level), write(Level), nl.

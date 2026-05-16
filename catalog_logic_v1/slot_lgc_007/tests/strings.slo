@@ -1,4 +1,0 @@
-:- write('forall a. a -> a'), nl.
-:- write(upper('monad')), nl.
-:- write(lower('FUNCTOR')), nl.
-:- write(replace('alpha -> beta', '->', '=>')), nl.

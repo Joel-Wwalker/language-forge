@@ -1,8 +1,0 @@
-% Computing scriptural divisions and penance
-indulgences(X, Y, Sum) :- Sum is X + Y.
-penance_days(Base, Severity, Total) :- Total is Base * Severity.
-verses_per_scribe(Total, Scribes, Each) :- Each is Total // Scribes.
-
-:- indulgences(40, 30, R1), write(R1), nl.
-:- penance_days(7, 3, R2), write(R2), nl.
-:- verses_per_scribe(100, 4, R3), write(R3), nl.

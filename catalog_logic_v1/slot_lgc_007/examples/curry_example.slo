@@ -1,8 +1,0 @@
-% curry_example - partial application via specialized predicates
-add(X, Y, Sum) :- Sum is X + Y.
-add_five(Y, Sum) :- add(5, Y, Sum).
-add_ten(Y, Sum) :- add(10, Y, Sum).
-
-:- add(3, 7, R1), write('3 + 7 = '), write(R1), nl.
-:- add_five(12, R2), write('5 + 12 = '), write(R2), nl.
-:- add_ten(8, R3), write('10 + 8 = '), write(R3), nl.

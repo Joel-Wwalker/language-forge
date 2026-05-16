@@ -1,8 +1,0 @@
-% Theorem: braking distance for given speed
-braking_distance(0, 0).
-braking_distance(Speed, Distance) :-
-    Speed > 0,
-    Distance is Speed * 2.
-
-:- braking_distance(45, D), write(D), nl.
-:- braking_distance(60, D2), write(D2), nl.
