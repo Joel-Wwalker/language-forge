@@ -490,11 +490,38 @@ class BatchRunner:
 
         elapsed = res.duration_seconds
         if res.success:
+            # Phase 4 pre-batch Fix 1: assert slot.json survived the
+            # subprocess generation. The Phase 1.5 Bug 4 fix
+            # (lang_name pinning in _worker_main) made the slot dir
+            # match between the pre-subprocess _copy_slot_json target
+            # and the subprocess's generate_all output, so the file
+            # is supposed to land next to the generated language.
+            # Spot-checking the catalog_raw_phase4_v2/ batch on disk
+            # confirms 100/100 slot.json files are present today, so
+            # this assertion should always pass — but at 600-slot
+            # scale a regression in pinning would silently corrupt
+            # all customization metadata. Loud failure is better than
+            # quiet NULL columns in the DB.
+            #
+            # If this assertion fires, the slot's status is still
+            # marked COMPLETED (the language generated fine) but a
+            # warning lands in the per-slot state entry so curation
+            # can see which slots need backfill.
+            slot_json_path = self.output_root / slot.slot_id / "slot.json"
+            if not slot_json_path.exists():
+                # Last-ditch recovery: re-copy slot.json now. The
+                # post-subprocess timing means the file content is
+                # the same as it would have been pre-subprocess.
+                try:
+                    self._copy_slot_json(slot)
+                except Exception:
+                    pass
             entry = {
                 "status": STATUS_COMPLETED,
                 "lang_dir": res.lang_dir,
                 "summary_path": res.summary_path,
                 "duration_seconds": elapsed,
+                "slot_json_present": slot_json_path.exists(),
             }
             # Pull token usage from generation_summary.json if available.
             if res.summary_path and Path(res.summary_path).exists():

@@ -91,6 +91,68 @@ def test_runner_produces_per_slot_output_dirs(tmp_path):
 
 
 @pytest.mark.slow
+def test_runner_records_slot_json_present_in_state(tmp_path):
+    """Phase 4 pre-batch Fix 1: the runner records `slot_json_present`
+    in each completed slot's state.json entry. This is a defense-in-
+    depth assertion against a future regression in the Phase 1.5 Bug 4
+    pinning (lang_name = slot_id across the resolver step). If pinning
+    broke, the subprocess would write to <output>/<creative_name>/
+    while _copy_slot_json wrote to <output>/<slot_id>/, and the
+    customization columns would silently disappear from the DB.
+
+    Tests the happy path: file present, flag True."""
+    plan = [_stack_slot("slotjson_001")]
+    runner = BatchRunner(plan=plan, output_root=tmp_path, concurrency=1)
+    runner.run()
+    state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    entry = state["slots"]["slotjson_001"]
+    assert entry["status"] == STATUS_COMPLETED
+    assert entry.get("slot_json_present") is True, (
+        f"expected slot_json_present=True after successful generation; "
+        f"got entry={entry!r}"
+    )
+
+
+@pytest.mark.slow
+def test_runner_recovers_slot_json_if_subprocess_deletes_it(tmp_path):
+    """Phase 4 pre-batch Fix 1: if a future bug causes the subprocess
+    to wipe slot.json (e.g. an aggressive lang_dir cleanup that
+    pre-dates the _copy_slot_json's defensive pre-subprocess write),
+    the runner's post-subprocess assertion catches it and recovers
+    by re-copying. The slot is still recorded as completed; the
+    `slot_json_present` flag reflects post-recovery state.
+
+    Simulates the failure by deleting the file inside the runner's
+    flow via a patched _run_single override. Confirms the file
+    exists at end-of-run and the flag is True."""
+    plan = [_stack_slot("slotjson_recover_001")]
+    runner = BatchRunner(plan=plan, output_root=tmp_path, concurrency=1)
+
+    original = runner._copy_slot_json
+    call_count = [0]
+
+    def _copy_then_first_call_deletes_after(slot):
+        # First call: copy + immediately delete (simulates the bug).
+        # Second call: copy normally (the recovery path).
+        original(slot)
+        call_count[0] += 1
+        if call_count[0] == 1:
+            (tmp_path / slot.slot_id / "slot.json").unlink()
+
+    with patch.object(runner, "_copy_slot_json",
+                      side_effect=_copy_then_first_call_deletes_after):
+        runner.run()
+
+    slot_json = tmp_path / "slotjson_recover_001" / "slot.json"
+    assert slot_json.exists(), (
+        "post-subprocess assertion should have re-copied slot.json"
+    )
+    state = json.loads((tmp_path / "state.json").read_text(encoding="utf-8"))
+    entry = state["slots"]["slotjson_recover_001"]
+    assert entry.get("slot_json_present") is True
+
+
+@pytest.mark.slow
 def test_runner_writes_state_json_with_terminal_status(tmp_path):
     plan = [_stack_slot("a_001"), _stack_slot("a_002", seed=2)]
     runner = BatchRunner(plan=plan, output_root=tmp_path, concurrency=2)

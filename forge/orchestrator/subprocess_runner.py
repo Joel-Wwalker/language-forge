@@ -271,6 +271,75 @@ def _worker_main(slot_path: str) -> int:
 # Parent-side API
 # ---------------------------------------------------------------------------
 
+def _kill_process_tree(proc: "subprocess.Popen", *,
+                       grace_period: float = 5.0) -> None:
+    """Kill `proc` AND its descendants. Cross-platform.
+
+    Unix path:
+      1. SIGTERM to the process group (proc was launched with
+         start_new_session=True so its pid is the pgid).
+      2. Wait `grace_period` seconds for graceful exit.
+      3. SIGKILL to the group if still alive.
+
+    Windows path:
+      `taskkill /T /F /PID <pid>` — the /T flag walks the process tree;
+      /F is hard-terminate. Simpler than CreateJobObject + AssignProcess-
+      ToJobObject and works without WinAPI bindings.
+
+    Best-effort. Any inner exception is swallowed; if a process clings
+    to handles after this returns, the caller's communicate(timeout=...)
+    catches that as a secondary failure and force-closes pipes.
+
+    Used by the run_one timeout path (Phase 4 pre-batch Fix 2).
+    """
+    import os as _os
+    import signal as _signal
+
+    pid = proc.pid
+    if pid is None or proc.poll() is not None:
+        return  # already exited
+
+    if _os.name == "nt":
+        # Windows: taskkill /T walks the process tree.
+        try:
+            subprocess.run(
+                ["taskkill", "/T", "/F", "/PID", str(pid)],
+                capture_output=True, timeout=10.0,
+            )
+        except Exception:
+            # Fallback: kill the immediate child even if taskkill failed.
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        return
+
+    # POSIX: signal the entire process group.
+    try:
+        pgid = _os.getpgid(pid)
+    except (ProcessLookupError, OSError):
+        return  # process already gone
+
+    try:
+        _os.killpg(pgid, _signal.SIGTERM)
+    except (ProcessLookupError, OSError):
+        return
+
+    # Give it a moment to clean up.
+    import time as _time
+    deadline = _time.monotonic() + grace_period
+    while _time.monotonic() < deadline:
+        if proc.poll() is not None:
+            return
+        _time.sleep(0.1)
+
+    # Still alive: escalate to SIGKILL.
+    try:
+        _os.killpg(pgid, _signal.SIGKILL)
+    except (ProcessLookupError, OSError):
+        pass
+
+
 def run_one(spec: dict, output_root: str | Path, *,
             slot_id: Optional[str] = None,
             seed: Optional[int] = None,
@@ -317,25 +386,91 @@ def run_one(spec: dict, output_root: str | Path, *,
     if env:
         sub_env.update(env)
 
+    # Phase 4 pre-batch Fix 2: tree-kill on timeout.
+    #
+    # `subprocess.run(timeout=...)` calls `child.kill()` on timeout, which
+    # uses TerminateProcess on Windows and SIGKILL on Unix. Neither
+    # propagates to grandchildren. The Claude CLI subprocess spawns a
+    # Node.js child (the actual `claude` script); when Python kills the
+    # outer subprocess, the Node child is reparented but stays alive,
+    # holding stdio handles. The pre-flight batch's three runaway slots
+    # ran ~7900s each (almost 9× the 900s timeout) because of this.
+    #
+    # The fix:
+    #   1. Use Popen with a NEW PROCESS GROUP so the entire subtree can
+    #      be addressed as a unit.
+    #      - Unix: start_new_session=True (new pgid).
+    #      - Windows: CREATE_NEW_PROCESS_GROUP flag.
+    #   2. On timeout, terminate the GROUP, not just the immediate child:
+    #      - Unix: os.killpg(pgid, SIGTERM) → wait briefly → SIGKILL.
+    #      - Windows: `taskkill /T /F /PID <pid>` (the /T flag walks the
+    #        process tree).
+    #   3. communicate() with a short timeout after kill so we collect
+    #      whatever output the (now dead) tree managed to emit.
+    #
+    # The acceptance test (test_subprocess_runner_timeout_kills_tree)
+    # spawns a Python child that ignores SIGTERM + spawns its own
+    # grandchild, then confirms the timeout path kills the entire tree
+    # within ~30s of the timeout firing.
+    import signal as _signal
+
     t0 = time.monotonic()
+    popen_kwargs = {
+        "stdout": subprocess.PIPE, "stderr": subprocess.PIPE,
+        "text": True, "encoding": "utf-8", "errors": "replace",
+        "env": sub_env, "cwd": str(WORKSPACE_ROOT),
+    }
+    if os.name == "nt":
+        # CREATE_NEW_PROCESS_GROUP lets us send Ctrl-Break; taskkill /T
+        # also walks the tree from the recorded pid even without this
+        # but the flag makes intent explicit.
+        popen_kwargs["creationflags"] = getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    timed_out = False
     try:
-        cp = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=timeout, encoding="utf-8", errors="replace",
-            env=sub_env, cwd=str(WORKSPACE_ROOT),
-        )
-    except subprocess.TimeoutExpired:
-        return SubprocessResult(
-            slot_id=slot_id, lang_name=lang_name, success=False,
-            duration_seconds=time.monotonic() - t0,
-            error=f"timeout after {timeout}s",
-            returncode=-1,
-        )
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            returncode = proc.returncode
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            _kill_process_tree(proc)
+            # Collect what the tree managed to produce before kill.
+            try:
+                stdout, stderr = proc.communicate(timeout=15.0)
+            except subprocess.TimeoutExpired:
+                # Some grandchild is STILL holding a pipe. Force-close.
+                try: proc.stdout.close()  # type: ignore[union-attr]
+                except Exception: pass
+                try: proc.stderr.close()  # type: ignore[union-attr]
+                except Exception: pass
+                stdout, stderr = "", ""
+            returncode = -1
     finally:
         try:
             Path(slot_path).unlink(missing_ok=True)
         except Exception:
             pass
+
+    if timed_out:
+        return SubprocessResult(
+            slot_id=slot_id, lang_name=lang_name, success=False,
+            duration_seconds=time.monotonic() - t0,
+            error=f"timeout after {timeout}s (tree-killed)",
+            stdout=stdout, stderr=stderr,
+            returncode=-1,
+        )
+
+    # Repackage into the cp-like object the rest of the function expects.
+    class _CP:
+        pass
+    cp = _CP()
+    cp.returncode = returncode
+    cp.stdout = stdout
+    cp.stderr = stderr
 
     duration = time.monotonic() - t0
     success = cp.returncode == 0
