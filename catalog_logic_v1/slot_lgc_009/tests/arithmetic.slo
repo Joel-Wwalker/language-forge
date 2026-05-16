@@ -1,0 +1,6 @@
+/* Portion calculations for the lab potluck */
+:- X is 3 + 5, write(X), nl.
+:- Y is 12 - 4, write(Y), nl.
+:- Z is 6 * 7, write(Z), nl.
+:- W is 20 // 4, write(W), nl.
+:- R is 17 mod 5, write(R), nl.

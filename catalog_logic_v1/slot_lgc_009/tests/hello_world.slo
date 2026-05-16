@@ -1,0 +1,3 @@
+% Canonical: hello_world. The simplest possible prologlang program -
+% a directive that prints a greeting. ':-' at top level runs at load.
+:- write('Hello, World!'), nl.

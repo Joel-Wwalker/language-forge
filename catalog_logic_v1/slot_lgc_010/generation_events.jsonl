@@ -1,0 +1,3 @@
+{"event": "run_started", "timestamp": "2026-05-16T01:06:12Z", "lang_name": "slot_lgc_010", "seed": 9010, "started_at": "2026-05-16T01:06:12Z", "generator_version": "0.4.0"}
+{"event": "llm_call", "timestamp": "2026-05-16T01:08:52Z", "tag": "resolver", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 158.549, "attempts": 1, "success": true, "error": null}
+{"event": "llm_call", "timestamp": "2026-05-16T01:09:57Z", "tag": "gen-creative", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 65.897, "attempts": 1, "success": true, "error": null}

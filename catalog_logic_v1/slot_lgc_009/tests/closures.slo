@@ -1,0 +1,6 @@
+/* Higher-order recipe scaling */
+scale(Base, Factor, Result) :- Result is Base * Factor.
+apply_scaling(Pred, Cups, Multiplier, Scaled) :- call(Pred, Cups, Multiplier, Scaled).
+
+:- apply_scaling(scale, 4, 3, R), write(R), nl.
+:- apply_scaling(scale, 5, 2, R2), write(R2), nl.

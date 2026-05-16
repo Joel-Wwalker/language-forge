@@ -1,0 +1,7 @@
+% Canonical: arithmetic. is/2 evaluates RHS and unifies LHS.
+% Comparison operators evaluate both sides.
+:- X is 2 + 3, write(X), nl.
+:- X is 10 - 4, write(X), nl.
+:- X is 6 * 7, write(X), nl.
+:- X is 20 // 3, write(X), nl.
+:- X is 20 mod 3, write(X), nl.

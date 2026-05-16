@@ -1,0 +1,4 @@
+forall a. a -> a
+upper(monad)
+lower(FUNCTOR)
+replace(alpha -> beta, ->, =>)

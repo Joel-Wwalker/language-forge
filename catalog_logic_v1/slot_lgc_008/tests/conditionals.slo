@@ -1,0 +1,10 @@
+% Canonical: conditionals. Prolog "conditionals" are multi-clause
+% predicates with mutually exclusive guards. classify/2 has three
+% clauses; the engine picks whichever one matches.
+classify(N, negative) :- N < 0.
+classify(0, zero).
+classify(N, positive) :- N > 0.
+
+:- classify(-3, R), write(R), nl.
+:- classify(0, R), write(R), nl.
+:- classify(5, R), write(R), nl.

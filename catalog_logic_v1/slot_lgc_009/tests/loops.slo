@@ -1,0 +1,5 @@
+/* Countdown to teatime */
+countdown(0) :- write(0), nl.
+countdown(N) :- N > 0, write(N), nl, N1 is N - 1, countdown(N1).
+
+:- countdown(5).

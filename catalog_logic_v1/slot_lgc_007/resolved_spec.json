@@ -1,0 +1,320 @@
+{
+  "lang_name": "slot_lgc_007",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "line",
+    "string_literals": "both",
+    "numeric_literals": "c_style",
+    "default_mutability": "mutable",
+    "error_handling": "exceptions",
+    "loop_forms": [],
+    "multiple_returns": "tuple",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": null,
+    "block_close": null,
+    "nestable": false
+  },
+  "keywords": [
+    "catch",
+    "fail",
+    "false",
+    "is",
+    "mod",
+    "not",
+    "throw",
+    "true",
+    "try"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal, hex (0x), octal (0o), binary (0b)",
+    "integer_form": "c_style",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\", 'hello'",
+    "string_form": "both",
+    "boolean": "true / false (atoms)"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "null_keyword_status": "active",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "Recursion is the sole iteration primitive; clause-based syntax precludes while/for loops",
+    "Exception handling (try/catch/throw) extends Prolog's failure semantics for practical error handling",
+    "Unification (=) serves dual duty as pattern matching and variable binding; supports reassignment for imperative workflows",
+    "Empty list ([]) as null follows Prolog's nil convention; simplifies base cases in recursive predicates",
+    "Short-circuit evaluation of conjunction (,) and disjunction (;) preserves logical semantics while enabling efficient goal evaluation"
+  ],
+  "error_handling": {
+    "kind": "exceptions",
+    "syntax": "try/catch with throw"
+  },
+  "loop_forms": [],
+  "multiple_returns": "tuple",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "customization": {
+    "persona": "wadler",
+    "era": "2000s"
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#1a1a1f",
+      "bg_2": "#22222a",
+      "card": "#252530",
+      "card_2": "#2c2c38",
+      "line": "#3a3a48",
+      "line_2": "#4f4f65",
+      "text": "#f5f5f5",
+      "text_2": "#c5c5d0",
+      "muted": "#888898",
+      "accent": "#39c5ff",
+      "accent_2": "#60d6ff",
+      "font_family": "'Trebuchet MS', 'Segoe UI', sans-serif",
+      "mono_font": "'Consolas', 'Lucida Console', monospace",
+      "radius": "10px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": "wadler",
+      "era": "2000s",
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "origin_story": "Discovered in Wadler's 2004 course notes for 'Logic Programming for Functional Programmers.' Students demanded exceptions. He complied, then never taught it again. The notes survived.",
+  "creative": {
+    "readme_intro": "Logic programming remains one of the most elegant formalisms for expressing search and constraint problems, yet Prolog's commitment to backtracking failure makes robust error handling a notorious pain point. This language emerged from a 2004 attempt to introduce exceptions into the unification calculus without violating logical semantics\u2014specifically, to let students write file I/O and user input handlers without resorting to failure-based hacks. The result preserves clause-based pattern matching and recursive predicates while grafting on try/catch/throw for the mundane world of missing files and malformed input. Wadler's students got their exceptions. He got a language nobody asked for twice. The notes endured because someone needed logic programming that could fail gracefully, and Prolog's ISO standard wasn't about to budge.",
+    "design_philosophy": "The core tension was maintaining logical purity while accommodating real-world failure modes. Recursion replaces loops because clause-based dispatch with pattern matching naturally expresses iterative algorithms as mathematical recurrences. Exceptions extend rather than replace Prolog's failure semantics: unification still fails via backtracking, but resource errors and programmer-signaled faults throw instead. Mutable unification breaks pure logic programming but enables imperative workflows without abandoning the predicate calculus. The empty list as null follows Prolog's nil convention, simplifying recursive base cases. Dynamic typing keeps unification flexible; host GC keeps memory invisible. The design asks: what's the minimal graft to make logic programming practically tolerable?",
+    "what_its_good_at": "Recursive algorithms with multiple exit conditions shine here\u2014clause dispatch replaces nested conditionals, and pattern matching on list structure makes traversals trivial. Search problems naturally map to backtracking predicates with conjunction and disjunction operators. Exception handling cleanly separates logical failure (backtrack and try the next clause) from unexpected failure (throw and unwind). Small constraint-satisfaction scripts benefit from the minimal keyword set and terse clause syntax. Programs that need both symbolic reasoning and practical I/O without drowning in continuation-passing style.",
+    "what_its_bad_at": "The clause-based syntax becomes genuinely painful for imperative algorithms that don't decompose into recursive predicates\u2014you end up simulating while-loops with tail-recursive predicates and accumulator parameters, which is more ceremony than enlightenment. Dynamic typing means arithmetic errors surface at runtime; there's no static check that Y in 'Y is X * 2' will actually be numeric. Large programs suffer because clause order matters for semantics but becomes invisible in long files. The unification-as-assignment duality confuses newcomers and irritates Prolog purists in equal measure.",
+    "example_commentary": "The factorial example demonstrates clause-based dispatch: the base case factorial(0, 1). is a fact, while the recursive case factorial(N, F) :- ... is a rule whose body evaluates via conjunction (the comma operator). Notice 'is' for arithmetic evaluation\u2014'N1 is N - 1' binds N1 to a number, whereas 'N1 = N - 1' would bind N1 to the compound term, not its value. The query ?- factorial(5, R), write(R), nl. runs the predicate, unifies R with the result, then prints it. Clause termination with '.' follows Prolog convention.",
+    "common_mistake": "Confusing unification (=) with arithmetic evaluation (is). Writing 'X = 2 + 3' binds X to the structure '2 + 3', not the integer 5\u2014you'll print the unevaluated term. Use 'X is 2 + 3' to force evaluation. Relatedly, forgetting that clause order determines semantics: putting the recursive case before the base case often causes infinite regress because unification matches top-to-bottom. Always place your base cases first unless you have guard conditions that prevent premature matching."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": ":- write('Greetings from the University of Edinburgh'), nl.\n",
+      "arithmetic": ":- X is 2 + 3, write(X), nl.\n:- Y is 10 - 4, write(Y), nl.\n:- Z is 6 * 7, write(Z), nl.\n:- W is 17 mod 5, write(W), nl.\n:- A is 1 + 2 * 3, write(A), nl.\n",
+      "variables": ":- Alpha = int, write(Alpha), nl.\n:- Beta = bool, write(Beta), nl.\n:- Alpha = int, Gamma = Alpha, write(Gamma), nl.\n",
+      "conditionals": "infer_type(0, int).\ninfer_type(N, int) :- N > 0.\ninfer_type(true, bool).\ninfer_type(false, bool).\n\n:- infer_type(42, T), write(T), nl.\n:- infer_type(true, U), write(U), nl.\n:- infer_type(0, V), write(V), nl.\n",
+      "loops": "count_down(0) :- write(0), nl.\ncount_down(N) :- N > 0, write(N), nl, N1 is N - 1, count_down(N1).\n\n:- count_down(5).\n",
+      "functions": "arity(unit, 0).\narity(int, 0).\narity(bool, 0).\narrow_arity(A, B, N) :- arity(A, X), arity(B, Y), N is X + Y + 1.\n\n:- arrow_arity(int, bool, R), write(R), nl.\n:- arity(int, N), write(N), nl.\n",
+      "closures": "apply_twice(Pred, X, Z) :- call(Pred, X, Y), call(Pred, Y, Z).\nsucc(N, M) :- M is N + 1.\n\n:- apply_twice(succ, 5, Result), write(Result), nl.\n",
+      "strings": ":- write('forall a. a -> a'), nl.\n:- write(upper('monad')), nl.\n:- write(lower('FUNCTOR')), nl.\n:- write(replace('alpha -> beta', '->', '=>')), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "monad_laws",
+        "description": "Verify the monad left identity law through predicate composition.",
+        "body": "% monad_laws - verify monad left identity\nunit(X, X).\nbind(M, F, Result) :- call(F, M, Result).\nadd_ten(X, Y) :- Y is X + 10.\n\ntest_identity(X) :-\n    unit(X, M),\n    bind(M, add_ten, R1),\n    add_ten(X, R2),\n    R1 =:= R2,\n    write('Identity verified for '),\n    write(X),\n    nl.\n\n:- test_identity(5).\n:- test_identity(10).\n:- test_identity(0).\n"
+      },
+      {
+        "name": "curry_example",
+        "description": "Demonstrate partial application through specialized predicates.",
+        "body": "% curry_example - partial application via specialized predicates\nadd(X, Y, Sum) :- Sum is X + Y.\nadd_five(Y, Sum) :- add(5, Y, Sum).\nadd_ten(Y, Sum) :- add(10, Y, Sum).\n\n:- add(3, 7, R1), write('3 + 7 = '), write(R1), nl.\n:- add_five(12, R2), write('5 + 12 = '), write(R2), nl.\n:- add_ten(8, R3), write('10 + 8 = '), write(R3), nl.\n"
+      },
+      {
+        "name": "list_fold",
+        "description": "Left fold combinator for reducing lists to a single value.",
+        "body": "% list_fold - left fold over lists\nfold_left([], Acc, Pred, Acc).\nfold_left([H|T], Acc, Pred, Result) :-\n    call(Pred, Acc, H, NewAcc),\n    fold_left(T, NewAcc, Pred, Result).\n\nadd_nums(Acc, X, Sum) :- Sum is Acc + X.\nmult_nums(Acc, X, Prod) :- Prod is Acc * X.\n\n:- fold_left([1, 2, 3, 4, 5], 0, add_nums, Sum),\n   write('Sum: '), write(Sum), nl.\n:- fold_left([1, 2, 3, 4], 1, mult_nums, Prod),\n   write('Product: '), write(Prod), nl.\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "hello_world",
+        "arithmetic",
+        "variables",
+        "conditionals",
+        "loops",
+        "functions",
+        "closures",
+        "strings"
+      ],
+      "tests_rejected": [],
+      "examples_accepted": [
+        "monad_laws",
+        "curry_example",
+        "list_fold"
+      ],
+      "examples_rejected": []
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "lang_name": "slot_lgc_007",
+  "seed": 9007,
+  "started_at": "2026-05-16T01:02:08Z",
+  "wall_clock_seconds": 349.889,
+  "generator_version": "0.4.0",
+  "llm": {
+    "total_calls": 4,
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "by_tag": {
+      "resolver": {
+        "calls": 1,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 154.256
+      },
+      "gen-creative": {
+        "calls": 1,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 61.859
+      },
+      "gen-idioms": {
+        "calls": 1,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 163.577
+      },
+      "gen-lexer": {
+        "calls": 1,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 16.016
+      }
+    },
+    "calls": [
+      {
+        "tag": "resolver",
+        "model": "claude-sonnet-4-5",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 154.256,
+        "attempts": 1,
+        "success": true,
+        "error": null
+      },
+      {
+        "tag": "gen-creative",
+        "model": "claude-sonnet-4-5",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 61.859,
+        "attempts": 1,
+        "success": true,
+        "error": null
+      },
+      {
+        "tag": "gen-idioms",
+        "model": "claude-sonnet-4-5",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 163.577,
+        "attempts": 1,
+        "success": true,
+        "error": null
+      },
+      {
+        "tag": "gen-lexer",
+        "model": "claude-sonnet-4-5",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "duration_seconds": 16.016,
+        "attempts": 1,
+        "success": true,
+        "error": null
+      }
+    ]
+  },
+  "repair": {
+    "total_attempts": 0,
+    "by_component": {},
+    "attempts": []
+  },
+  "components": {
+    "parser": {
+      "duration_seconds": 0.01,
+      "success": true,
+      "llm_calls": 0
+    },
+    "stdlib": {
+      "duration_seconds": 0.01,
+      "success": true,
+      "llm_calls": 0
+    },
+    "runtime": {
+      "duration_seconds": 0.01,
+      "success": true,
+      "llm_calls": 0
+    },
+    "tests": {
+      "duration_seconds": 0.01,
+      "success": true,
+      "llm_calls": 0
+    },
+    "codegen": {
+      "duration_seconds": 0.01,
+      "success": true,
+      "llm_calls": 0
+    },
+    "language_reference": {
+      "duration_seconds": 0.004,
+      "success": true,
+      "llm_calls": 0
+    },
+    "readme": {
+      "duration_seconds": 0.005,
+      "success": true,
+      "llm_calls": 0
+    },
+    "lexer": {
+      "duration_seconds": 16.021,
+      "success": true,
+      "llm_calls": 1
+    }
+  },
+  "cache_hits": 0,
+  "pipeline_path": "templated",
+  "canonical_tests": {
+    "passed": 8,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "kata_pack": null,
+  "errors": []
+}
