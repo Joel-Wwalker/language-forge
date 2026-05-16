@@ -2,7 +2,7 @@
   "plan_path": "forge\\catalog\\slots\\v_logic_validation.json",
   "output_root": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1",
   "started_at": "2026-05-15T17:47:04Z",
-  "last_updated": "2026-05-16T01:08:26Z",
+  "last_updated": "2026-05-16T01:12:55Z",
   "slots": {
     "slot_lgc_001": {
       "status": "completed",
@@ -266,7 +266,33 @@
       }
     },
     "slot_lgc_010": {
-      "status": "running"
+      "status": "completed",
+      "lang_dir": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_010",
+      "summary_path": "C:\\Users\\theag\\OneDrive\\Desktop\\newAgent\\workspace\\catalog_logic_v1\\slot_lgc_010\\generation_summary.json",
+      "duration_seconds": 403.2293030999972,
+      "llm_total_calls": 4,
+      "llm_input_tokens": 0,
+      "llm_output_tokens": 0,
+      "smoke": {
+        "passed": true,
+        "canonical": {
+          "passed": 8,
+          "total": 8,
+          "pass_rate": 1.0,
+          "source": "summary"
+        },
+        "kata": null,
+        "repl": {
+          "repl_html_ok": true,
+          "compile_exit_code": 0,
+          "launches": true
+        },
+        "failures": [],
+        "skips": [
+          "kata: no curated pack for syntax_family='logic_like' (Phase 1 limitation; needs LLM translation which smoke skips)"
+        ],
+        "duration_seconds": 0.195
+      }
     }
   }
 }
