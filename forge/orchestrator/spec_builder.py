@@ -20,7 +20,7 @@ SCHEMA_PATH = Path(__file__).resolve().parents[2] / "schemas" / "language_spec.s
 
 class Options(TypedDict, total=False):
     # MVP: required
-    syntax: Literal["c_like", "python_like", "s_expression", "stack_based", "ml_like"]
+    syntax: Literal["c_like", "python_like", "s_expression", "stack_based", "ml_like", "logic_like"]
     typing: Literal["static", "dynamic"]
     memory: Literal["host_gc", "refcount"]
     # Tier 1: optional, default to current MVP behavior
@@ -71,6 +71,15 @@ _SYNTAX_EXTENDED_DEFAULTS = {
     # weren't overridden here.
     "ml_like": {"comment_style": "block", "naming_convention": "snake_case",
                 "loop_forms": []},
+    # logic_like (pragmatic Prolog) uses `%` line comments + `/* */`
+    # block comments. NO loops - iteration is recursion or backtracking.
+    # Identifiers are atoms (lowercase-leading); variables are uppercase-
+    # leading. We map to snake_case as the closest schema-supported
+    # naming convention. The _DEFAULT_EXTENDED['loop_forms']=['while']
+    # would corrupt logic_like the same way it corrupted ml_like before
+    # the Seam 8 fix - the explicit `[]` here prevents that.
+    "logic_like": {"comment_style": "both", "naming_convention": "snake_case",
+                   "loop_forms": []},
 }
 
 
@@ -324,6 +333,81 @@ _ML_LIKE_BASE = {
 }
 
 
+# ---------------------------------------------------------------------------
+# logic_like family — pragmatic Prolog (added by logic-family experiment).
+#
+# Facts, rules, queries. Clauses end in `.`. Variables are uppercase-
+# leading; atoms are lowercase-leading. `:-` separates rule head from
+# body; `,` is conjunction; `;` is disjunction; `\+` is negation as
+# failure. Lists are `[1, 2, 3]` with head/tail patterns `[H | T]`.
+# Built-in predicates include `is/2` (arithmetic), `write/1`, `nl/0`,
+# `length/2`, `append/3`, `member/2`, `reverse/2`, `call/N` for
+# N in {1,2,3}, `findall/3`, `\+/1`, `once/1`.
+#
+# v1 subset edges: no cut, no assert/retract during queries, no DCGs,
+# no constraint logic, no tabling, no operator declarations, no
+# read predicates, no exception machinery. See generated/prologlang/
+# for the reference compiler + LOGICLANG_DESIGN.md for the full design.
+# ---------------------------------------------------------------------------
+_LOGIC_LIKE_BASE = {
+    "comment_syntax": {"line": "%", "block_open": "/*", "block_close": "*/"},
+    "statement_terminator": ".",
+    "block_style": "clause-based",
+    "function_definition": {
+        # Predicates use `:-` to separate head from body. "function
+        # definition" is a slight semantic stretch (Prolog has predicates,
+        # not functions) but the syntax_example shows the family's
+        # function-equivalent pattern: a predicate with last-arg-is-output.
+        "keyword": ":-",
+        "syntax_example": "double(X, Y) :- Y is X * 2.",
+        "type_annotations": None,
+    },
+    "variable_declaration": {
+        # Variables in Prolog don't have explicit "declarations" in the
+        # imperative sense - they're introduced by unification (`X = 10`).
+        # The syntax_example shows the unification idiom.
+        "keyword": "=",
+        "syntax_example": "X = 10",
+        "type_annotations": None,
+    },
+    # Default print form: `write(<args>), nl.` matches the kata-harness
+    # wrap shape used by katas._wrap_with_test_prints for logic_like.
+    "print_form": "write(<args>), nl.",
+    "boolean_keywords": {"true": "true", "false": "false"},
+    "null_keyword": "[]",
+    "operators": {
+        # Arithmetic operators are usable INSIDE `is/2` evaluation
+        # (`X is 2 + 3`). Outside `is`, `2 + 3` is just the compound
+        # term `+(2, 3)` - it doesn't compute.
+        "arithmetic": ["+", "-", "*", "/", "//", "mod", "**"],
+        # Comparison: `=:=` and `=\\=` evaluate both sides; `<`/`>`/`=<`/`>=`
+        # do too. `=` is unification (NOT comparison) - included separately
+        # in `logical` because it's structurally different from numeric
+        # comparison.
+        "comparison": ["=:=", "=\\=", "<", ">", "=<", ">="],
+        "logical": [",", ";", "\\+"],
+        # No assignment operator. `is/2` evaluates; `=/2` unifies; neither
+        # is "assignment" in the c_like sense.
+        "assignment": [],
+    },
+    "literals": {
+        "integer": "decimal digits",
+        "float": "decimal digits with '.'",
+        "string": "single-quoted atom 'like this'",
+        "boolean": "true / false (atoms)",
+        "list": "[1, 2, 3] or [H | T]",
+    },
+    "keywords": [
+        # Reserved words. Note: very few keywords compared to other
+        # families - Prolog is mostly operator-driven. Most "control flow"
+        # is done via predicates (call, once, findall) rather than
+        # keywords. `is`, `mod`, `not`, `true`, `false`, `fail` are the
+        # actual reserved words.
+        "is", "mod", "not", "true", "false", "fail",
+    ],
+}
+
+
 _STACK_BASED_BASE = {
     "comment_syntax": {"line": "\\", "block_open": "(", "block_close": ")"},
     "statement_terminator": " ",
@@ -462,6 +546,8 @@ def _file_extension(lang_name: str, syntax: str) -> str:
         return ".toy"
     if lang_name == "mllang":
         return ".ml"
+    if lang_name == "prologlang":
+        return ".lgc"
     base = "".join(c for c in lang_name.lower() if c.isalnum())[:3] or "lng"
     return "." + base
 
@@ -517,6 +603,8 @@ def build_spec(options: Options, lang_name: str, *,
         spec = _copy.deepcopy(_STACK_BASED_BASE)
     elif syntax == "ml_like":
         spec = _copy.deepcopy(_ML_LIKE_BASE)
+    elif syntax == "logic_like":
+        spec = _copy.deepcopy(_LOGIC_LIKE_BASE)
     else:
         spec = _copy.deepcopy(_PYTHON_LIKE_BASE)
     options = eff_opts  # subsequent code uses the merged effective options
@@ -804,6 +892,18 @@ def _apply_extended_options(spec: dict, opts: dict) -> None:
             spec["comment_syntax"] = {"line": None, "block_open": "(*",
                                       "block_close": "*)", "nestable": True}
         # else: leave default ((* *) from _ML_LIKE_BASE)
+    elif opts["syntax"] == "logic_like":
+        # logic_like (Prolog-flavored) uses `%` for line comments and
+        # `/* */` for block comments. Block comments do NOT nest in
+        # standard Prolog (and prologlang's BLOCK_COMMENT regex doesn't
+        # support nesting). Mirrors the Seam 8 discipline: explicit
+        # branch so logic_like doesn't fall into the `python_like` else
+        # and get rewritten to triple-quote comments.
+        if cs == "line":
+            spec["comment_syntax"] = {"line": "%", "block_open": None, "block_close": None}
+        elif cs == "block":
+            spec["comment_syntax"] = {"line": None, "block_open": "/*", "block_close": "*/"}
+        # else "both" / "nestable_block": leave default (% + /* */)
     else:  # python_like
         if cs == "block":
             spec["comment_syntax"] = {"line": None, "block_open": '"""', "block_close": '"""'}

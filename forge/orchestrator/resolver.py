@@ -73,7 +73,15 @@ RESOLVER_PROMPT_VERSION = 2
 #     ml_like specs, and adding 'while' to options.loop_forms, because
 #     it weights sub-property descriptions over parent ones. v3 adds
 #     the missing sub-property descriptions with family-aware values.
-RESOLVER_SCHEMA_VERSION = 3
+#   v3 -> v4: logic-family experiment Stage C; logic_like added to the
+#     syntax enum and to every sub-property description that enumerates
+#     family-specific values (comment_syntax.line/block_open/block_close/
+#     nestable, loop_forms, statement_terminator, block_style,
+#     print_form, error_handling). block_style enum gained 'clause-based'.
+#     Without the bump, cached resolver outputs from before logic_like
+#     existed would not see the new family enumeration and could attempt
+#     to rewrite logic_like specs toward c_like defaults.
+RESOLVER_SCHEMA_VERSION = 4
 
 
 # Workspace-relative cache dir. Each cached spec is one JSON file keyed

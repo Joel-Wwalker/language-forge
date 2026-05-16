@@ -1677,6 +1677,227 @@ def _enrich_ml(katas: list[dict]) -> list[dict]:
 CLASSICS_ML_LIKE = _enrich_ml(CLASSICS_ML_LIKE)
 
 
+# ---------------------------------------------------------------------------
+# logic_like kata pack — pragmatic Prolog problems.
+#
+# Added by the logic-family experiment. Per LOGICLANG_DESIGN.md §8: 7
+# katas curated for the logic-programming idiom. The katas are NOT
+# c_like problems with renamed syntax — they're logic-programming-shaped
+# problems where the predicate's last argument is the "result" (the
+# standard Prolog convention: `factorial(N, F)`, `length(L, N)`, etc.).
+#
+# Each kata's `tests[]` calls are in Prolog source syntax with a free
+# variable as the last argument. The kata wrapper in
+# `katas._wrap_with_test_prints` (logic_like branch) emits each test
+# as a directive: `:- factorial(5, R), write(R), nl.`
+#
+# Boolean predicates (like `is_member/2`) use a free-var-less test call;
+# the wrapper falls back to the if-then-else boolean form:
+# `:- (is_member(2, [1,2,3]) -> write(true) ; write(false)), nl.`
+#
+# Naming caveat: `is_member` not `member` because the runtime ships
+# `member/2` as a built-in. Using `member` as a kata predicate name
+# would shadow the builtin and make the reference solution trivially
+# delegable to "call the builtin" — defeats the kata's pedagogical
+# point. Same for `list_length` (vs builtin `length/2`),
+# `append_lists` (vs builtin `append/3`), `reverse_list` (vs builtin
+# `reverse/2`).
+# ---------------------------------------------------------------------------
+CLASSICS_LOGIC_LIKE: list[dict] = [
+    {
+        "id": "factorial",
+        "title": "Factorial",
+        "difficulty": "easy",
+        "problem": (
+            "Define `factorial(N, F)` such that F is N! (N factorial). "
+            "factorial(0, F) should bind F to 1. Classic recursive predicate "
+            "with a base case + recursive case."
+        ),
+        "function_name": "factorial",
+        "starter_code": "factorial(N, F) :-\n    % your code.\n",
+        "reference_solution": (
+            "factorial(0, 1).\n"
+            "factorial(N, F) :-\n"
+            "    N > 0,\n"
+            "    N1 is N - 1,\n"
+            "    factorial(N1, F1),\n"
+            "    F is N * F1.\n"
+        ),
+        "tests": [
+            {"call": "factorial(0, R)", "expected": "1"},
+            {"call": "factorial(1, R)", "expected": "1"},
+            {"call": "factorial(5, R)", "expected": "120"},
+            {"call": "factorial(7, R)", "expected": "5040"},
+        ],
+    },
+    {
+        "id": "list_length",
+        "title": "Length of a list",
+        "difficulty": "easy",
+        "problem": (
+            "Define `list_length(L, N)` such that N is the number of "
+            "elements in list L. Use head/tail recursion: empty list has "
+            "length 0; [H|T] has length 1 + list_length(T)."
+        ),
+        "function_name": "list_length",
+        "starter_code": "list_length(L, N) :-\n    % your code.\n",
+        "reference_solution": (
+            "list_length([], 0).\n"
+            "list_length([_ | T], N) :-\n"
+            "    list_length(T, N1),\n"
+            "    N is N1 + 1.\n"
+        ),
+        "tests": [
+            {"call": "list_length([], R)",              "expected": "0"},
+            {"call": "list_length([a], R)",             "expected": "1"},
+            {"call": "list_length([a, b, c], R)",       "expected": "3"},
+            {"call": "list_length([1, 2, 3, 4, 5], R)", "expected": "5"},
+        ],
+    },
+    {
+        "id": "is_member",
+        "title": "List membership",
+        "difficulty": "easy",
+        "problem": (
+            "Define `is_member(X, L)` that succeeds if X appears anywhere in "
+            "list L. Pattern-match head/tail; recurse on tail. (Named "
+            "is_member to not shadow the builtin member/2.)"
+        ),
+        "function_name": "is_member",
+        "starter_code": "is_member(X, L) :-\n    % your code.\n",
+        "reference_solution": (
+            "is_member(X, [X | _]).\n"
+            "is_member(X, [_ | T]) :- is_member(X, T).\n"
+        ),
+        "tests": [
+            # Boolean-shaped tests: no free var in the call. The kata
+            # wrapper detects this and emits the if-then-else boolean form.
+            {"call": "is_member(2, [1, 2, 3])",   "expected": "true"},
+            {"call": "is_member(5, [1, 2, 3])",   "expected": "false"},
+            {"call": "is_member(a, [a, b, c])",   "expected": "true"},
+            {"call": "is_member(x, [])",          "expected": "false"},
+        ],
+    },
+    {
+        "id": "reverse_list",
+        "title": "Reverse a list",
+        "difficulty": "medium",
+        "problem": (
+            "Define `reverse_list(L, R)` such that R is L with its elements "
+            "in reverse order. The idiomatic Prolog approach uses an "
+            "accumulator: reverse_list(L, R) :- reverse_acc(L, [], R). "
+            "(Named reverse_list to not shadow the builtin reverse/2.)"
+        ),
+        "function_name": "reverse_list",
+        "starter_code": "reverse_list(L, R) :-\n    % your code.\n",
+        "reference_solution": (
+            "reverse_list(L, R) :- reverse_acc(L, [], R).\n"
+            "reverse_acc([], Acc, Acc).\n"
+            "reverse_acc([H | T], Acc, R) :- reverse_acc(T, [H | Acc], R).\n"
+        ),
+        "tests": [
+            {"call": "reverse_list([], R)",         "expected": "[]"},
+            {"call": "reverse_list([1], R)",        "expected": "[1]"},
+            {"call": "reverse_list([1, 2, 3], R)",  "expected": "[3, 2, 1]"},
+            {"call": "reverse_list([a, b, c, d], R)", "expected": "[d, c, b, a]"},
+        ],
+    },
+    {
+        "id": "append_lists",
+        "title": "Append two lists",
+        "difficulty": "medium",
+        "problem": (
+            "Define `append_lists(L1, L2, R)` such that R is L1 followed by L2. "
+            "The classic recursive append: empty + L = L; [H|T] + L = "
+            "[H | T + L]. (Named append_lists to not shadow the builtin "
+            "append/3.)"
+        ),
+        "function_name": "append_lists",
+        "starter_code": "append_lists(L1, L2, R) :-\n    % your code.\n",
+        "reference_solution": (
+            "append_lists([], L, L).\n"
+            "append_lists([H | T], L, [H | R]) :- append_lists(T, L, R).\n"
+        ),
+        "tests": [
+            {"call": "append_lists([], [1, 2, 3], R)",         "expected": "[1, 2, 3]"},
+            {"call": "append_lists([1, 2], [], R)",            "expected": "[1, 2]"},
+            {"call": "append_lists([1, 2], [3, 4], R)",        "expected": "[1, 2, 3, 4]"},
+            {"call": "append_lists([a, b], [c, d, e], R)",     "expected": "[a, b, c, d, e]"},
+        ],
+    },
+    {
+        "id": "max_list",
+        "title": "Maximum of a list",
+        "difficulty": "medium",
+        "problem": (
+            "Define `max_list(L, M)` such that M is the largest element in "
+            "the non-empty list L. Recurse on the tail; compare head against "
+            "the recursive result."
+        ),
+        "function_name": "max_list",
+        "starter_code": "max_list(L, M) :-\n    % your code.\n",
+        "reference_solution": (
+            "max_list([X], X).\n"
+            "max_list([H | T], M) :-\n"
+            "    max_list(T, MT),\n"
+            "    (H >= MT -> M = H ; M = MT).\n"
+        ),
+        "tests": [
+            {"call": "max_list([5], R)",            "expected": "5"},
+            {"call": "max_list([1, 2, 3], R)",      "expected": "3"},
+            {"call": "max_list([3, 1, 4, 1, 5, 9, 2, 6], R)", "expected": "9"},
+            {"call": "max_list([-1, -5, -2], R)",   "expected": "-1"},
+        ],
+    },
+    {
+        "id": "ancestor",
+        "title": "Ancestor relations",
+        "difficulty": "medium",
+        "problem": (
+            "Given facts about parent/2 relationships, define `ancestor(X, Y)` "
+            "that succeeds if X is an ancestor of Y (parent, grandparent, "
+            "great-grandparent, ...). Two clauses: parent IS an ancestor; "
+            "and any parent's ancestor is also an ancestor."
+        ),
+        "function_name": "ancestor",
+        "starter_code": "ancestor(X, Y) :-\n    % your code.\n",
+        # The kata's reference depends on parent/2 facts. The kata's
+        # `helpers` field carries them so the test runner has the
+        # background facts available before the user's clauses run.
+        "helpers": (
+            "parent(tom, bob).\n"
+            "parent(bob, ann).\n"
+            "parent(ann, sue).\n"
+            "parent(tom, liz).\n"
+        ),
+        "reference_solution": (
+            "ancestor(X, Y) :- parent(X, Y).\n"
+            "ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).\n"
+        ),
+        "tests": [
+            {"call": "ancestor(tom, bob)",   "expected": "true"},
+            {"call": "ancestor(tom, sue)",   "expected": "true"},
+            {"call": "ancestor(bob, tom)",   "expected": "false"},
+            {"call": "ancestor(liz, sue)",   "expected": "false"},
+        ],
+    },
+]
+
+
+# Enrich with sample_test_indices, same shape as ml_like.
+def _enrich_logic(katas: list[dict]) -> list[dict]:
+    out = []
+    for k in katas:
+        merged = dict(k)
+        if "sample_test_indices" not in merged:
+            merged["sample_test_indices"] = [0, 1]
+        out.append(merged)
+    return out
+
+
+CLASSICS_LOGIC_LIKE = _enrich_logic(CLASSICS_LOGIC_LIKE)
+
+
 PACKS: dict[str, dict] = {
     "classics": {
         "title": "LeetCode classics",
@@ -1708,6 +1929,19 @@ PACKS: dict[str, dict] = {
         "katas": STACK_CLASSICS_FORTH,
         "syntax_family": "stack_based",
     },
+    "logic_classics": {
+        "title": "Logic-programming classics",
+        "description": "7 Prolog-idiomatic problems: factorial, list_length, "
+                       "is_member, reverse_list, append_lists, max_list, "
+                       "ancestor (family-relations). Last-arg-is-output "
+                       "convention; multi-clause predicates with base + "
+                       "recursive cases; pattern matching on [H|T]. Curated "
+                       "for logic_like languages where c_like classics would "
+                       "be category errors (no mutation, no loops, queries "
+                       "instead of function calls).",
+        "katas": CLASSICS_LOGIC_LIKE,
+        "syntax_family": "logic_like",
+    },
 }
 
 
@@ -1715,6 +1949,7 @@ def get_classics_for(spec: dict) -> list[dict]:
     """Return the classics variant best suited to a language's constraints.
 
     Family routing:
+      - logic_like      -> CLASSICS_LOGIC_LIKE (predicates + backtracking)
       - ml_like         -> CLASSICS_ML_LIKE (recursion + pattern matching)
       - stack_based     -> handled separately via stack_classics pack
       - any c_like-ish with no_mutation/no_loops bans -> RECURSIVE variant
@@ -1723,6 +1958,8 @@ def get_classics_for(spec: dict) -> list[dict]:
     Returns a deep copy."""
     import copy
     syntax = (spec.get("options") or {}).get("syntax")
+    if syntax == "logic_like":
+        return copy.deepcopy(CLASSICS_LOGIC_LIKE)
     if syntax == "ml_like":
         return copy.deepcopy(CLASSICS_ML_LIKE)
     bans = (spec.get("customization") or {}).get("feature_bans") or []

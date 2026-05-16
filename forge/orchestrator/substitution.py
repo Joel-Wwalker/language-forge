@@ -132,6 +132,74 @@ KEYWORD_ROLES_ML_LIKE = (
     "true", "false",
 )
 
+# logic_like / prologlang keywords. Audited from generated/prologlang/
+# parser.py's GRAMMAR + ATOM_NAME's negative lookahead + the base
+# spec's keywords list.
+#
+# Logic programming is operator-heavy, not keyword-heavy. Most of
+# Prolog's "vocabulary" is built-in predicates (`write`, `nl`, `length`,
+# `member`, ...) which are NOT keywords at parse time — they're regular
+# atom tokens whose meaning is set by runtime dispatch. Substituting
+# them would require concurrent rewrites in stdlib.register_builtins,
+# which is out of scope for the parser-grammar substitution layer.
+# That's the same exclusion logic that kept `print_int` out of
+# KEYWORD_ROLES_ML_LIKE.
+#
+# IN: words that appear as anonymous string terminals in the grammar
+# (so substituting them re-spells the parser) OR as atoms in test
+# sources that benefit from rename.
+#   - `is`     : infix operator in grammar (`cmp_expr ... "is" add_expr`)
+#                + reserved via ATOM_NAME negative lookahead. Substitution
+#                fires in the parser (so source `X equals 2 + 3` parses)
+#                AND codegen normalizes the parsed `is_op` tree node to
+#                `Compound("is", [...])` regardless of source spelling.
+#                Result: `is` substitutes cleanly end-to-end.
+#   - `not`    : in the keywords list for parity with other families,
+#                but logic_like grammar uses `\+` for negation instead
+#                of a `not` keyword. Including the role still allows
+#                themes/phrasebooks to assert it without breaking parse.
+#   - `true`   : an atom; substitutes cleanly in test source.
+#   - `false`  : ditto.
+#   - `fail`   : an atom usable as a built-in goal; substitutes cleanly.
+#
+# EXCLUDED from substitution (and why):
+#   - `mod`    : infix operator in `MUL_OP` enum AND grammar emits the
+#                source token through to codegen (which builds a generic
+#                Compound for binops, passing the operator name verbatim).
+#                Substituting `mod -> remainder` in source makes the
+#                parser accept `remainder`, but codegen emits
+#                `Compound("remainder", [...])` which the runtime's
+#                `_eval_arith` doesn't recognize — `is/2` fails silently.
+#                Excluded from substitution. This is a documented seam-
+#                resistance finding (LOGICLANG_DESIGN.md §9): unlike
+#                mllang's `mod` (which codegen lowers to Python `%`),
+#                logic_like operators are first-class terms whose
+#                identity reaches the runtime dispatch. A future
+#                expansion could add an alias table to `_eval_arith`,
+#                routed through the spec — out of scope for v1.
+#   - `:-`     : multi-char rule operator. Same exclusion logic as
+#                mllang's `::` — would require operator-table rewrites
+#                beyond the substitution layer's scope.
+#   - `?-`     : directive marker; multi-char. Excluded.
+#   - `\+`     : negation-as-failure; multi-char operator. Excluded.
+#   - `,` `;` `|` : conjunction / disjunction / cons-tail operators.
+#   - `=` `=:=` `=\=` `<` `>` `=<` `>=` `==` `\==` `\=`   : operators.
+#   - `+` `-` `*` `/` `//` `**` : arithmetic operators (used inside is/2).
+#   - `.`      : clause terminator; substituting it would change every
+#                clause's end-marker and is too invasive for v1.
+#   - Built-in predicate names (`write`, `nl`, `length`, `append`,
+#     `member`, `reverse`, `atom`, `number`, `integer`, `var`, `nonvar`,
+#     `is_list`, `once`, `call`, `findall`) : atom tokens at parse time,
+#     but their meaning is set by stdlib.register_builtins. Substituting
+#     them in source without concurrent stdlib rewrites would emit goals
+#     that fall through to "no clauses defined" and silently fail.
+#     Deferred to a future expansion that wires substitution into
+#     stdlib's builtin registration.
+KEYWORD_ROLES_LOGIC_LIKE = (
+    "is", "not",
+    "true", "false", "fail",
+)
+
 # Default fallback (for unknown / missing syntax). c_like is the most
 # common family and the safest default — its role names overlap with
 # stack_based and s_expression on `if/else/while/true/false/null` so
@@ -145,6 +213,7 @@ _ROLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
     "stack_based":  KEYWORD_ROLES_STACK_BASED,
     "s_expression": KEYWORD_ROLES_S_EXPRESSION,
     "ml_like":      KEYWORD_ROLES_ML_LIKE,
+    "logic_like":   KEYWORD_ROLES_LOGIC_LIKE,
     # python_like deferred: no reference compiler exists yet (Phase 5).
 }
 
@@ -166,6 +235,14 @@ _DEFAULT_COMMENT_BY_FAMILY: dict[str, dict] = {
     "c_like":       {"line": "//", "block_open": "/*", "block_close": "*/"},
     "stack_based":  {"line": "\\", "block_open": "(",  "block_close": ")"},
     "s_expression": {"line": ";",  "block_open": "#|", "block_close": "|#"},
+    # ml_like has no line comments; nested block `(* *)`.
+    "ml_like":      {"line": None, "block_open": "(*", "block_close": "*)"},
+    # logic_like uses `%` line comments and `/* */` non-nesting block.
+    # Without this entry, the substitution layer falls back to c_like
+    # defaults, sees `//` in a logic_like test source (used as integer
+    # divide), and rewrites it to `%` (logic_like's line comment) -
+    # breaking the parser because the `//` was arithmetic, not a comment.
+    "logic_like":   {"line": "%", "block_open": "/*", "block_close": "*/"},
 }
 
 # Backward-compat — c_like default for code paths that haven't been

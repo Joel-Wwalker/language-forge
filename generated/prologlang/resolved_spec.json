@@ -1,0 +1,165 @@
+{
+  "lang_name": "prologlang",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "file_extension": ".lgc",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "is",
+    "mod",
+    "not",
+    "true",
+    "false",
+    "fail"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "float": "decimal digits with '.'",
+    "string": "single-quoted atom 'like this'",
+    "boolean": "true / false (atoms)",
+    "list": "[1, 2, 3] or [H | T] for head/tail"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "loop_forms": [],
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Substitutions are short-lived dicts that fall out of scope between solutions; the knowledge base persists for the lifetime of the compiled program."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "write",
+        "description": "Print a term to stdout (no quotes for atoms)",
+        "signature": "write(Term)"
+      },
+      {
+        "name": "nl",
+        "description": "Print a newline character to stdout",
+        "signature": "nl"
+      },
+      {
+        "name": "length",
+        "description": "Length of a list (or generate list of N fresh vars)",
+        "signature": "length(List, N)"
+      },
+      {
+        "name": "append",
+        "description": "Concatenate two lists into a third",
+        "signature": "append(L1, L2, L3)"
+      },
+      {
+        "name": "member",
+        "description": "Succeed once per element of the list (non-deterministic)",
+        "signature": "member(Elem, List)"
+      },
+      {
+        "name": "reverse",
+        "description": "Reverse a list",
+        "signature": "reverse(List, Reversed)"
+      },
+      {
+        "name": "is",
+        "description": "Evaluate arithmetic expression and unify with LHS",
+        "signature": "X is Expr"
+      },
+      {
+        "name": "call",
+        "description": "Invoke a goal term; with extra args, appends them (closures via partial application)",
+        "signature": "call(Goal, ...)"
+      },
+      {
+        "name": "findall",
+        "description": "Collect all Template instantiations across Goal solutions",
+        "signature": "findall(Template, Goal, List)"
+      },
+      {
+        "name": "once",
+        "description": "Succeed at most once for Goal (commit to first solution)",
+        "signature": "once(Goal)"
+      }
+    ]
+  },
+  "design_notes": [
+    "Hand-written reference spec for logic_like + dynamic + host_gc. Pragmatic Prolog subset: facts, rules, queries, chronological backtracking via depth-first search.",
+    "Subset edges (v1): no cut (!), no dynamic assert/retract, no DCG syntax, no constraint logic, no tabling, no operator declarations, no read/input, no exception machinery (throw/catch). See LOGICLANG_DESIGN.md for the full design.",
+    "Iteration is recursion: there are no while/for loops. Multi-clause predicates with mutually exclusive guards replace if/else; recursive predicates with a base case replace for/while.",
+    "Closures via partial application: call/2 and call/3 build new goals by appending args to a partial goal term. `call(add(5), 3, R)` constructs `add(5, 3, R)` and solves it."
+  ],
+  "origin_story": "A hand-built reference compiler in the logic-programming family. Used as the template for every logic_like language Forge generates.",
+  "theme": {
+    "tokens": {
+      "bg": "#0a0e16",
+      "bg_2": "#0d1220",
+      "card": "#0a0e16",
+      "card_2": "#131a2a",
+      "line": "#1e293b",
+      "line_2": "#2a3a55",
+      "text": "#f8fafc",
+      "text_2": "#cbd5e1",
+      "muted": "#94a3b8",
+      "accent": "#6366f1",
+      "accent_2": "#818cf8",
+      "font_family": "'Inter', system-ui, sans-serif",
+      "mono_font": "'JetBrains Mono', ui-monospace, monospace",
+      "radius": "8px",
+      "decoration": "",
+      "name_treatment": "title"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  }
+}

@@ -237,15 +237,22 @@ def test_prompt_version_invalidates_old_cache(fresh_idioms_cache, monkeypatch):
     assert key_v1 != key_v99
 
 
-def test_prompt_version_constant_is_three():
+def test_prompt_version_constant_is_four():
     """Pin the version. Bump deliberately when the prompt changes
     semantically.
       v1 -> v2: themed body's actual stdout becomes new expected_output.
       v2 -> v3: structural-variance-channel Seam 2; added per-family
                 worked-example blocks (2 reference tests per family)
                 so the LLM has actually-parseable anchors instead of
-                paradigm-shaped guesses."""
-    assert IDIOMS_PROMPT_VERSION == 3
+                paradigm-shaped guesses.
+      v3 -> v4: logic-family experiment Stage F; added logic_like
+                worked-example block (countdown + factorial) plus the
+                syntax-rules paragraph pinning facts/rules/queries,
+                `:-` operator, `is/2` vs `=/2`, var-uppercase /
+                atom-lowercase, and write/nl output. Prevents the LLM
+                from emitting SWI features (cut, assert, op/3) that
+                prologlang v1 rejects."""
+    assert IDIOMS_PROMPT_VERSION == 4
 
 
 def test_canonical_test_names_match_generator():
