@@ -1,6 +1,0 @@
-% Proof: track segment distance calculations
-:- Sum is 750 + 250, write(Sum), nl.
-:- Diff is 1200 - 180, write(Diff), nl.
-:- Product is 8 * 125, write(Product), nl.
-:- Quotient is 2400 / 6, write(Quotient), nl.
-:- Remainder is 47 mod 5, write(Remainder), nl.

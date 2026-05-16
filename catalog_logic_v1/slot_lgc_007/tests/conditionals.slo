@@ -1,8 +1,0 @@
-infer_type(0, int).
-infer_type(N, int) :- N > 0.
-infer_type(true, bool).
-infer_type(false, bool).
-
-:- infer_type(42, T), write(T), nl.
-:- infer_type(true, U), write(U), nl.
-:- infer_type(0, V), write(V), nl.

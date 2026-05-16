@@ -1,7 +1,0 @@
-% Higher-order: safety check predicate
-apply_check(Predicate, Input, Output) :- call(Predicate, Input, Output).
-
-reduce_speed(Current, Safe) :- Safe is Current - 10.
-
-:- apply_check(reduce_speed, 50, Result), write(Result), nl.
-:- apply_check(reduce_speed, 75, R2), write(R2), nl.

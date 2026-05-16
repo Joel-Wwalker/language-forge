@@ -1,5 +1,0 @@
-:- X is 2 + 3, write(X), nl.
-:- Y is 10 - 4, write(Y), nl.
-:- Z is 6 * 7, write(Z), nl.
-:- W is 17 mod 5, write(W), nl.
-:- A is 1 + 2 * 3, write(A), nl.

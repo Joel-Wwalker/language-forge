@@ -1,7 +1,0 @@
-/* Recipe ingredient scaling */
-scale_cups(Base, Factor, Result) :- Result is Base * Factor.
-total_servings(Batch1, Batch2, Total) :- Total is Batch1 + Batch2.
-
-:- scale_cups(3, 2, Doubled), write(Doubled), nl.
-:- scale_cups(4, 3, Tripled), write(Tripled), nl.
-:- total_servings(12, 8, All), write(All), nl.

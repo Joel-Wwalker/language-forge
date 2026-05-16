@@ -1,3 +1,0 @@
-:- Alpha = int, write(Alpha), nl.
-:- Beta = bool, write(Beta), nl.
-:- Alpha = int, Gamma = Alpha, write(Gamma), nl.

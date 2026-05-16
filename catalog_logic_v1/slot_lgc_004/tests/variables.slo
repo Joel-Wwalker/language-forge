@@ -1,7 +1,0 @@
-/* Terminal session accounting */
-:- User_Id = 1974,
-   Port = 23,
-   Minutes = 45,
-   write(User_Id), nl,
-   write(Port), nl,
-   write(Minutes), nl.

@@ -1,7 +1,0 @@
-% Higher-order theological reasoning
-apply_rule(Rule, Argument, Result) :- call(Rule, Argument, Result).
-venial_calc(Days, Penance) :- Penance is Days * 2.
-mortal_calc(Days, Penance) :- Penance is Days * 10.
-
-:- apply_rule(venial_calc, 3, R1), write(R1), nl.
-:- apply_rule(mortal_calc, 3, R2), write(R2), nl.

@@ -1,8 +1,0 @@
-/* Unificatio et ligatio variabilium */
-demonstrate_binding :-
-    Valor = 42,
-    Computatio is Valor + 8,
-    write(Valor), nl,
-    write(Computatio), nl.
-
-:- demonstrate_binding.

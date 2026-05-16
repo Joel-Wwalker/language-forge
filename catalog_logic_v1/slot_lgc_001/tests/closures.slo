@@ -1,5 +1,0 @@
-% higher-order via call mechanism
-compose(P, X, R) :- call(P, X, T), call(P, T, R).
-successor(X, R) :- R is X + 1.
-
-:- compose(successor, 10, Result), write(Result), nl.
