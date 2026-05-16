@@ -1,0 +1,20 @@
+{
+  "slot_id": "slot_lgc_010",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc"
+  },
+  "customization": {
+    "persona": "mccarthy",
+    "era": "1960s",
+    "theme": "latin",
+    "phrasebook": "ritual",
+    "feature_bans": [
+      "no_global_state"
+    ]
+  },
+  "seed": 9010,
+  "target_rarity": "mythic",
+  "notes": "max-customized: McCarthy + 1960s + latin + ritual + no_global_state"
+}

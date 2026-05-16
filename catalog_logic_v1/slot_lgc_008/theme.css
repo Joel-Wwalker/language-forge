@@ -1,0 +1,18 @@
+body[data-lang-theme] {
+  --bg: #f4f4f4;
+  --bg-2: #ebebeb;
+  --card: #ffffff;
+  --card-2: #f0f0f0;
+  --line: #d0d0d0;
+  --line-2: #a0a0a0;
+  --text: #202020;
+  --text-2: #505050;
+  --muted: #808080;
+  --accent: #0064a8;
+  --accent-2: #0080d4;
+  --font-body: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-mono: 'Consolas', monospace;
+  --radius-sm: 4px;
+  --accent-soft: rgba(0, 100, 168, 0.12);
+  --accent-glow: rgba(0, 100, 168, 0.35);
+}

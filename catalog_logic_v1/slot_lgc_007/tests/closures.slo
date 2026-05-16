@@ -1,0 +1,4 @@
+apply_twice(Pred, X, Z) :- call(Pred, X, Y), call(Pred, Y, Z).
+succ(N, M) :- M is N + 1.
+
+:- apply_twice(succ, 5, Result), write(Result), nl.

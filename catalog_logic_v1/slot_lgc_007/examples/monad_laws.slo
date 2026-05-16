@@ -1,0 +1,17 @@
+% monad_laws - verify monad left identity
+unit(X, X).
+bind(M, F, Result) :- call(F, M, Result).
+add_ten(X, Y) :- Y is X + 10.
+
+test_identity(X) :-
+    unit(X, M),
+    bind(M, add_ten, R1),
+    add_ten(X, R2),
+    R1 =:= R2,
+    write('Identity verified for '),
+    write(X),
+    nl.
+
+:- test_identity(5).
+:- test_identity(10).
+:- test_identity(0).

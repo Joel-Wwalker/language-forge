@@ -1,0 +1,4 @@
+count_down(0) :- write(0), nl.
+count_down(N) :- N > 0, write(N), nl, N1 is N - 1, count_down(N1).
+
+:- count_down(5).

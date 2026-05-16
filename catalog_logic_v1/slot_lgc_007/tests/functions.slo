@@ -1,0 +1,7 @@
+arity(unit, 0).
+arity(int, 0).
+arity(bool, 0).
+arrow_arity(A, B, N) :- arity(A, X), arity(B, Y), N is X + Y + 1.
+
+:- arrow_arity(int, bool, R), write(R), nl.
+:- arity(int, N), write(N), nl.

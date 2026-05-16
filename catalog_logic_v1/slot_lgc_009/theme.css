@@ -1,0 +1,18 @@
+body[data-lang-theme] {
+  --bg: #1f1610;
+  --bg-2: #2a1f17;
+  --card: #1f1610;
+  --card-2: #332520;
+  --line: #4a3a30;
+  --line-2: #6a5040;
+  --text: #f8efe2;
+  --text-2: #d8c4a8;
+  --muted: #a89078;
+  --accent: #e08a4a;
+  --accent-2: #f4a570;
+  --font-body: 'Quicksand', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius-sm: 16px;
+  --accent-soft: rgba(224, 138, 74, 0.12);
+  --accent-glow: rgba(224, 138, 74, 0.35);
+}
