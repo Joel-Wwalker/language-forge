@@ -322,14 +322,18 @@ def test_render_templated_readme_empty_creative_fallback():
 # 6. Cache version bump invalidates old entries
 # ---------------------------------------------------------------------------
 
-def test_creative_prompt_version_is_3():
+def test_creative_prompt_version_is_4():
     """Pin the version. Bump deliberately when the prompt changes
     semantically.
       v1 -> v2: variance-improvement; prompt grew from 1 field to 6.
       v2 -> v3: structural-variance-channel Seam 6; added per-family
                 surface-characteristics section so example_commentary
-                references the correct family syntax."""
-    assert CREATIVE_PROMPT_VERSION == 3
+                references the correct family syntax.
+      v3 -> v4: logic-family experiment Stage F; added logic_like to
+                the per-family surface-characteristics section so
+                example_commentary references facts/rules/queries +
+                the `:-` operator + `is/2` vs `=/2` distinction."""
+    assert CREATIVE_PROMPT_VERSION == 4
 
 
 def test_cache_version_in_key_invalidates_old_entries(tmp_path):

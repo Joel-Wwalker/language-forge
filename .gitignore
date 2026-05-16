@@ -52,6 +52,7 @@ generated/*
 !generated/forthlang/
 !generated/stacky/
 !generated/mllang/
+!generated/prologlang/
 
 # Per-language artifacts that ARE generated (logs, compiled outputs,
 # bytecode caches, kata caches) shouldn't be tracked even for the
@@ -66,6 +67,30 @@ generated/*/katas.json
 # Per-generation telemetry (Phase 0.4); cache-like, not source.
 generated/*/generation_summary.json
 generated/*/generation_events.jsonl
+
+# Batch output directories. Each batch (Phase 1.5 gates, ml family
+# experiment, structural variance work, Phase 4 pre-flight, logic
+# family experiment, etc.) writes generated languages under a
+# `catalog_raw_*` or `catalog_*` directory. These are throwaway
+# artifacts — the curated DB is what persists. Without this pattern
+# the harness auto-commit silently captures hundreds of files per
+# batch.
+catalog_raw_*/
+catalog_logic_*/
+catalog_phase4_*/
+catalog_ml_*/
+catalog_structural_*/
+catalog_svc_*/
+catalog_variance_*/
+
+# Catalog SQLite DBs are local artifacts; the corpus is rebuildable
+# from the slot plan + a fresh batch. Keep the GUI's pointer
+# (`catalog.db`) tracked when needed but block all `catalog_*.db`
+# and `.db.<suffix>` backups.
+catalog_*.db
+catalog_*.db.*
+catalog.db.*
+*.phase4_backup.db
 
 # Forge resolver cache (Phase 0.3). Auto-invalidates on
 # RESOLVER_PROMPT_VERSION / RESOLVER_SCHEMA_VERSION bumps. Kilobytes

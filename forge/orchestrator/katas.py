@@ -652,6 +652,71 @@ def load_pack(lang_dir: Path) -> Optional[dict]:
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _extract_last_var(prolog_call: str) -> str | None:
+    """Extract the last-arg variable name from a Prolog goal source string.
+
+    Returns the variable name (e.g. 'R') if the last argument of the outer
+    compound is a Prolog variable (uppercase-leading or `_`-leading),
+    otherwise None.
+
+    Used by `_wrap_with_test_prints` for logic_like kata wrapping:
+      - 'factorial(5, R)' -> 'R'           (result-binding shape)
+      - 'is_member(2, [1,2,3])' -> None    (boolean shape; no free var)
+      - 'parent(tom, bob)' -> None         (all atoms; boolean check)
+
+    Implementation: find the LAST top-level argument inside the outer
+    `(...)` of the goal. If it's a Prolog variable (matches /^[A-Z_]/),
+    return the variable name; else None.
+
+    Handles nested parens/brackets at the depth-tracking level so
+    `is_member(2, [1, 2, 3])` correctly identifies `[1, 2, 3]` (NOT
+    a var) as the last arg.
+    """
+    s = prolog_call.strip()
+    # Find the OUTERMOST parens. If the call has no parens (e.g. just
+    # an atom like `true`), there's no last-arg var.
+    open_idx = s.find("(")
+    if open_idx == -1:
+        return None
+    # Walk through and find the matching close paren.
+    depth = 0
+    close_idx = -1
+    for i, ch in enumerate(s[open_idx:], start=open_idx):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                close_idx = i
+                break
+    if close_idx == -1:
+        return None
+    args_str = s[open_idx + 1:close_idx]
+    # Split at top-level commas only (not inside nested parens / brackets).
+    last_arg = ""
+    cur = ""
+    nest = 0
+    for ch in args_str:
+        if ch in "([{":
+            nest += 1
+            cur += ch
+        elif ch in ")]}":
+            nest -= 1
+            cur += ch
+        elif ch == "," and nest == 0:
+            last_arg = cur
+            cur = ""
+        else:
+            cur += ch
+    last_arg = cur.strip()
+    # A Prolog variable starts with uppercase or underscore.
+    if last_arg and (last_arg[0].isupper() or last_arg[0] == "_"):
+        # Make sure it's just a name (no operators, no parens).
+        if all(c.isalnum() or c == "_" for c in last_arg):
+            return last_arg
+    return None
+
+
 def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
                            helpers: str = "") -> str:
     """Build a single program: helpers (if any), user code, then a print
@@ -730,6 +795,32 @@ def _wrap_with_test_prints(user_code: str, tests: list[dict], spec: dict,
             if call.endswith(";;"):
                 call = call[:-2].rstrip()
             lines.append(_emit_print(call))
+        return "\n".join(lines) + "\n"
+
+    if syntax == "logic_like":
+        # prologlang: kata test calls are predicate goals in Prolog source
+        # syntax. Two test shapes per LOGICLANG_DESIGN.md §7:
+        #
+        # 1. Last-arg-is-output (the common case): `factorial(5, R)`.
+        #    The last arg is a free variable that captures the result.
+        #    Wrap as `:- factorial(5, R), write(R), nl.` — the directive
+        #    solves the goal and writes the binding.
+        #
+        # 2. Boolean query (no free var): `is_member(2, [1,2,3])`.
+        #    Wrap with the if-then-else boolean form:
+        #    `:- (is_member(2, [1,2,3]) -> write(true) ; write(false)), nl.`
+        #    Matches the kata's expected output of "true" / "false".
+        for test in tests:
+            call = test["call"].strip().rstrip(".").rstrip()
+            if call.endswith("."):
+                call = call[:-1].rstrip()
+            result_var = _extract_last_var(call)
+            if result_var is not None:
+                lines.append(f":- {call}, write({result_var}), nl.")
+            else:
+                lines.append(
+                    f":- ({call} -> write(true) ; write(false)), nl."
+                )
         return "\n".join(lines) + "\n"
 
     if syntax == "stack_based":

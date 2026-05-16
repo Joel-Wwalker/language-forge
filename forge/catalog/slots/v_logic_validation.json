@@ -1,0 +1,132 @@
+[
+  {
+    "slot_id": "slot_lgc_001",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": null, "era": null, "theme": null, "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9001,
+    "target_rarity": "common",
+    "notes": "vanilla logic_like (baseline)"
+  },
+  {
+    "slot_id": "slot_lgc_002",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": null, "era": null, "theme": null, "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9002,
+    "target_rarity": "common",
+    "notes": "vanilla logic_like (duplicate seed-diff for dedup signal)"
+  },
+  {
+    "slot_id": "slot_lgc_003",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": "mccarthy",
+      "era": null, "theme": null, "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9003,
+    "target_rarity": "common",
+    "notes": "single-axis: McCarthy persona (Lisp/AI tradition; should align with logic programming nicely)"
+  },
+  {
+    "slot_id": "slot_lgc_004",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": null,
+      "era": "1970s",
+      "theme": null, "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9004,
+    "target_rarity": "common",
+    "notes": "single-axis: 1970s era (when Prolog was actually invented)"
+  },
+  {
+    "slot_id": "slot_lgc_005",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "shakespearean",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9005,
+    "target_rarity": "common",
+    "notes": "single-axis: shakespearean theme"
+  },
+  {
+    "slot_id": "slot_lgc_006",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": null,
+      "era": null,
+      "theme": "latin",
+      "phrasebook": "ritual",
+      "feature_bans": []
+    },
+    "seed": 9006,
+    "target_rarity": "rare",
+    "notes": "two-axis: latin + ritual (suits the syllogism feel of Prolog)"
+  },
+  {
+    "slot_id": "slot_lgc_007",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": "wadler",
+      "era": "2000s",
+      "theme": null, "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9007,
+    "target_rarity": "rare",
+    "notes": "two-axis: Wadler persona + 2000s (academic FP / logic-FP intersection)"
+  },
+  {
+    "slot_id": "slot_lgc_008",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": "dijkstra",
+      "era": "1970s",
+      "theme": "corporate",
+      "phrasebook": null,
+      "feature_bans": []
+    },
+    "seed": 9008,
+    "target_rarity": "epic",
+    "notes": "three-axis: Dijkstra persona + 1970s + corporate"
+  },
+  {
+    "slot_id": "slot_lgc_009",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1970s",
+      "theme": "cozy",
+      "phrasebook": "english_storybook",
+      "feature_bans": []
+    },
+    "seed": 9009,
+    "target_rarity": "epic",
+    "notes": "three-axis (+ phrasebook): McCarthy + 1970s + cozy + storybook"
+  },
+  {
+    "slot_id": "slot_lgc_010",
+    "options": {"syntax": "logic_like", "typing": "dynamic", "memory": "host_gc"},
+    "customization": {
+      "persona": "mccarthy",
+      "era": "1960s",
+      "theme": "latin",
+      "phrasebook": "ritual",
+      "feature_bans": ["no_global_state"]
+    },
+    "seed": 9010,
+    "target_rarity": "mythic",
+    "notes": "max-customized: McCarthy + 1960s + latin + ritual + no_global_state"
+  }
+]

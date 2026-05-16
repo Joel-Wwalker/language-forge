@@ -31,10 +31,13 @@ syntactic skeleton (keywords, operators, statement form, comment
 style) MUST match.
 
 The previous prompt produced themed bodies in plausible-looking but
-not-actually-parseable forms - especially for ml_like, where the LLM
-knew OCaml broadly but didn't match this language's specific subset.
-These examples close that gap by anchoring the LLM to syntax that
-**already works** against the reference.
+not-actually-parseable forms - especially for ml_like (where the LLM
+knew OCaml broadly but didn't match this language's specific subset)
+and now logic_like (where the LLM may know SWI-Prolog idioms that
+prologlang doesn't ship: cut, assert/retract during queries, custom
+operators, DCGs, CLP, etc.). These examples close that gap by
+anchoring the LLM to syntax that **already works** against the
+reference.
 
 ### c_like worked examples
 
@@ -165,6 +168,49 @@ output (NOT a single `print(x)` function - mllang has type-specific
 print functions). Sequence inside parens: `(e1 ; e2 ; e3)` evaluates
 all and returns last. **No while/for loops** - iteration is always
 recursion + pattern matching on list cons.
+
+### logic_like worked examples
+
+```
+% loops - Prolog has NO while/for. The "loop" is recursion with
+% a guard separating base case from recursive case.
+countdown(0) :- write(0), nl.
+countdown(N) :- N > 0, write(N), nl, N1 is N - 1, countdown(N1).
+
+:- countdown(5).
+```
+
+```
+% functions - Prolog has predicates, not functions. The last-arg-is-
+% output convention emulates functions: factorial(N, F) takes N and
+% binds F to the result. `is/2` evaluates arithmetic; `=/2` is
+% unification (syntactic, doesn't evaluate).
+factorial(0, 1).
+factorial(N, F) :-
+    N > 0,
+    N1 is N - 1,
+    factorial(N1, F1),
+    F is N * F1.
+
+:- factorial(5, R), write(R), nl.
+```
+
+logic_like uses: `% line comment` and `/* block comment */` (non-
+nesting). Clauses are FACTS (`parent(tom, bob).`) or RULES
+(`grandparent(X, Z) :- parent(X, Y), parent(Y, Z).`) - both end in
+`.`. Directives `:- Goal.` or `?- Goal.` run a query at load. `,`
+is conjunction, `;` is disjunction, `\+` is negation-as-failure.
+UPPERCASE-leading identifiers are VARIABLES (`X`, `Foo`); lowercase
+are ATOMS (`tom`, `bob`). `[1, 2, 3]` is list literal; `[H | T]` is
+head/tail pattern. Lists end in atom `[]`. The arithmetic boundary
+is critical: `X is 2 + 3` evaluates and binds X to `5`; `X = 2 + 3`
+unifies X with the compound `+(2, 3)` WITHOUT evaluating. Comparison
+operators `=:= =\= < > =< >=` evaluate both sides. Output: `write(X)`
+prints (atoms unquoted), `nl` prints a newline. **No assignment, no
+loops, no functions returning values** - everything is bindings via
+unification, multi-clause predicates with guards instead of if/else,
+and recursion + backtracking instead of iteration. Closures via
+`call/N`: `call(add(5), 3, R)` builds and solves `add(5, 3, R)`.
 
 ### python_like
 

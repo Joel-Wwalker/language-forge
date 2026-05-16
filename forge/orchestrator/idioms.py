@@ -72,7 +72,15 @@ _PROMPT_PATH = Path(__file__).resolve().parents[1] / "prompts" / "idioms.md"
 #             worked-example blocks (2 reference tests per family)
 #             so the LLM has actually-parseable examples to anchor on
 #             instead of paradigm-shaped guesses.
-IDIOMS_PROMPT_VERSION = 3
+#   v3 -> v4: logic-family experiment Stage F; added logic_like
+#             worked-example block (countdown via recursion + factorial
+#             via last-arg-is-output) plus the syntax-rules paragraph
+#             pinning facts/rules/queries, the `:-` operator, `is/2`
+#             vs `=/2`, variable-is-uppercase / atom-is-lowercase, and
+#             write/nl output. Without this, gen-idioms would attempt
+#             to produce themed Prolog using SWI features (cut,
+#             assert, op declarations) that prologlang v1 rejects.
+IDIOMS_PROMPT_VERSION = 4
 
 _DEFAULT_CACHE_DIR = (
     Path(__file__).resolve().parents[2] / ".forge_cache" / "idioms"

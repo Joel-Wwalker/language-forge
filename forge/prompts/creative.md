@@ -4,7 +4,7 @@ You're writing six short pieces of voiced prose that get inlined into a
 templated README for a generated programming language. The README's
 *structure* is fixed; what you produce is the *voice* - the parts that
 make this language feel like THIS language, not just another c_like /
-s_expression / stack_based / ml_like sibling.
+s_expression / stack_based / ml_like / logic_like sibling.
 
 You will get a spec describing the language's options, customization
 (persona, era, theme, phrasebook, feature bans), keyword overrides,
@@ -19,12 +19,13 @@ write generic prose that could apply to any language in the family.
 
 ## The language's family - surface characteristics
 
-The spec's `options.syntax` field names one of five syntax families.
+The spec's `options.syntax` field names one of six syntax families.
 Each has structurally-different surface shapes. When you reference
 syntax in your prose (especially in `example_commentary` which
 comments on the example code shown above it), use the FAMILY-CORRECT
 forms. Do not describe c_like braces and semicolons in an ml_like
 language; do not describe parenthesized prefix forms in a stack_based
+language; do not describe assignment statements in a logic_like
 language. The structural feature is part of what makes the language
 feel like itself.
 
@@ -53,6 +54,22 @@ feel like itself.
  while/for loops), ADTs via `type name = Constr of T | ...`.
  Example: `let rec fact n = if n <= 1 then 1 else n * fact (n - 1) ;;`
  and `let result = fact 5 ;; print_any (result) ;;`.
+
+- **logic_like** - facts and rules instead of functions and statements.
+ Programs are a database of facts (`parent(tom, bob).`) and rules
+ (`grandparent(X, Z) :- parent(X, Y), parent(Y, Z).`), evaluated by
+ querying (`?- grandparent(tom, X), write(X), nl.`). The `:-` operator
+ separates rule head from body; `,` is conjunction; uppercase
+ identifiers are VARIABLES (`X`, `Y`), lowercase are ATOMS (`tom`,
+ `bob`). NO assignment, NO functions returning values - everything
+ binds via unification. NO loops - iteration is recursion +
+ backtracking (multi-clause predicates with mutually exclusive guards
+ replace if/else). `is/2` evaluates arithmetic (`X is 2 + 3` binds
+ X to 5); `=/2` is unification (`X = 2 + 3` binds X to the COMPOUND
+ `2 + 3`, not 5). Lists are `[1, 2, 3]` with head/tail patterns
+ `[H | T]`. Output via `write(Term), nl.`.
+ Example: `factorial(0, 1).` / `factorial(N, F) :- N > 0, N1 is N - 1, factorial(N1, F1), F is N * F1.`
+ and `?- factorial(5, R), write(R), nl.`
 
 In `example_commentary` (the field that comments on the code shown
 above it in the README), refer to the language's actual surface
