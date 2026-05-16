@@ -1,0 +1,7 @@
+/* CPU cycle allocation for batch jobs */
+:- Total = 1000,
+   Jobs = 8,
+   Per_Job is Total // Jobs,
+   Remainder is Total mod Jobs,
+   write(Per_Job), nl,
+   write(Remainder), nl.

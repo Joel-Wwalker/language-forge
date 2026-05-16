@@ -1,0 +1,9 @@
+% Canonical: loops. Prolog has no while/for - the "loop" IS recursion.
+% countdown(N) prints N down to 0, recursing on N1 = N - 1.
+% The guard N > 0 in the second clause makes the two clauses
+% mutually exclusive (no cut needed; on backtrack the engine tries
+% the other clause but its guard fails so no spurious output).
+countdown(0) :- write(0), nl.
+countdown(N) :- N > 0, write(N), nl, N1 is N - 1, countdown(N1).
+
+:- countdown(5).

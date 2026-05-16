@@ -1,0 +1,343 @@
+{
+  "lang_name": "slot_lgc_006",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "fail",
+    "falsum",
+    "is",
+    "mod",
+    "not",
+    "verum"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "integer_form": "decimal_only",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)",
+    "list": "[1, 2, 3] or [H | T]"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": "munus",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "sit",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "verum",
+    "false": "falsum"
+  },
+  "null_keyword": "nihil",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "loop_forms is empty by design for logic_like syntax - iteration is achieved via recursion and backtracking, not loops.",
+    "Assignment operators array is empty because logic_like uses unification (=) rather than imperative assignment.",
+    "Logical operators: ',' is conjunction (AND), ';' is disjunction (OR), '\\+' is negation-as-failure.",
+    "Comparison operator '=<' uses Prolog convention (equivalent to '<=' in other languages).",
+    "The natural_language phrasebook contains imperative templates, but the parser currently supports only clause-based logic syntax; templates may represent aspirational extensions.",
+    "Variable 'declaration' in logic_like is actually unification - the syntax_example 'X = 10' unifies variable X with the value 10."
+  ],
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "null_keyword_status": "active",
+  "customization": {
+    "keyword_overrides": {
+      "var": "sit",
+      "func": "munus",
+      "return": "redde",
+      "if": "si",
+      "else": "aliter",
+      "while": "dum",
+      "true": "verum",
+      "false": "falsum",
+      "null": "nihil"
+    },
+    "keyword_theme": "latin",
+    "natural_language": {
+      "var_decl": "let it be known that <name> is <value>.",
+      "func_def": "to invoke <name> upon <params> one must <body>.",
+      "if_stmt": "should <cond> hold then <body> else <else>.",
+      "while_stmt": "as long as <cond> persists, <body>.",
+      "return_stmt": "the result, henceforth, is <value>.",
+      "print_form": "proclaim <args>",
+      "true_word": "verum",
+      "false_word": "falsum",
+      "null_word": "void",
+      "and_word": "and",
+      "or_word": "or",
+      "not_word": "not"
+    }
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#faf3e3",
+      "bg_2": "#f0e6d0",
+      "card": "#fdf8eb",
+      "card_2": "#f3e9d4",
+      "line": "#c8b89a",
+      "line_2": "#9a8868",
+      "text": "#2a1d10",
+      "text_2": "#4a3520",
+      "muted": "#806848",
+      "accent": "#8b3a2a",
+      "accent_2": "#b04830",
+      "font_family": "'Cinzel', 'Cormorant Garamond', Georgia, serif",
+      "mono_font": "'Cormorant Garamond', Georgia, serif",
+      "radius": "2px",
+      "decoration": "",
+      "name_treatment": "uppercase-tracked"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": "latin",
+      "phrasebook": "ritual"
+    }
+  },
+  "origin_story": "Unearthed from a Benedictine scriptorium, circa 1147. The monks formalized their theological disputations in this notation, proving heresies by contradiction. Modern recovery dates to 2023.",
+  "creative": {
+    "readme_intro": "Unearthed from a Benedictine scriptorium, this language preserves the monks' method for proving theological propositions through logical contradiction. Programs are not sequences of commands but collections of facts and rules; execution is a query that either succeeds by unification or fails by exhausted possibilities. The syntax descends from their dispute notation: clauses terminated with the period that ended each formal proposition, variables in uppercase as manuscript convention dictated, lowercase atoms for concrete truths. Where imperative tongues command the machine, this one petitions: one must state what is known, declare what follows, then ask whether a conclusion holds. The Latin keywords\u2014verum and falsum, sit and munus\u2014echo the liturgical language in which the original disputations were conducted. Modern recovery has transpiled the notation to Python, retaining the host's garbage collection, but the logic remains: no loops, no mutation in the imperative sense, only recursive descent through rule bodies and the prover's relentless backtracking.",
+    "design_philosophy": "The monks rejected procedural thinking in favor of declarative truth. A program is a database of propositions, not a sequence of actions; one states what holds and queries whether further propositions follow. Hence no loops\u2014iteration is recursion over structure, as a theological proof recurses over premises. The period terminator mirrors the punctus that closed each thesis in formal disputation. Dynamic typing reflects their focus: logical structure mattered, not the metalogical apparatus of type judgments. Mutable-by-default semantics accommodate the Python host's reference model, but mutation is incidental; the language's essence is unification, not assignment. Panic-only error handling: a failed proof halts disputation, as a discovered contradiction must end the argument. The runtime is host-managed, freeing the notation from memory ceremony. What remains is pure relational thinking\u2014facts, rules, and the question of what necessarily follows.",
+    "what_its_good_at": "Expressing recursive relationships over structured data\u2014lists, trees, genealogies\u2014where pattern matching via unification naturally decomposes the problem. Declarative specifications that read as logical propositions rather than procedural recipes: state the rules, ask the question, let backtracking explore the solution space. Problems that reduce to theorem-proving: constraint satisfaction, symbolic manipulation, pattern-driven transformations. The clause-based syntax encourages thinking in terms of cases and invariants, not control flow, which clarifies algorithms that are inherently relational.",
+    "what_its_bad_at": "Imperative sequences where one must orchestrate side effects in strict order\u2014the notation resists this, as it was designed for timeless propositions, not temporal commands. Programs that demand mutable state threaded through long computation chains grow awkward; unification binds once, and the imperative dance of update-read-update requires contortions. Performance-sensitive tasks suffer: the Python host is itself interpreted, and backtracking's exhaustive search compounds the cost. Modularity is absent from this recovery; scaling past a few dozen clauses becomes archaeological.",
+    "example_commentary": "The example invokes write to emit a string and nl for the newline\u2014a pattern inherited from Prolog's I/O primitives, where output is a side-effecting predicate, not a function's return. The query begins with the interrogative symbol that marks every question posed to the rule database. The clause terminates with the period that closes a proposition, here signaling the query's end. Notice the absence of a main function or entry point: execution is the act of asking whether this goal succeeds, not calling a designated procedure. Thus the program is a petition, not a command.",
+    "common_mistake": "Confusing the unification operator with arithmetic evaluation. Writing X = 2 + 3 binds X to the compound term itself, not the integer 5; one must write X is 2 + 3 to force evaluation, as is was the monks' operator for calculating numeric consequences. Newcomers trained in imperative tongues attempt assignment where the language offers only unification, then wonder why variables refuse re-binding. Another error: omitting the period terminator\u2014the parser expects every clause and query to end as a proposition ends, with the punctus that marks finality."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": "% Proclamation from the scriptorium\n:- write(\"In principio erat Verbum\"), nl.\n",
+      "arithmetic": "% Computing scriptural divisions and penance\nindulgences(X, Y, Sum) :- Sum is X + Y.\npenance_days(Base, Severity, Total) :- Total is Base * Severity.\nverses_per_scribe(Total, Scribes, Each) :- Each is Total // Scribes.\n\n:- indulgences(40, 30, R1), write(R1), nl.\n:- penance_days(7, 3, R2), write(R2), nl.\n:- verses_per_scribe(100, 4, R3), write(R3), nl.\n",
+      "variables": "% Establishing theological premises\nmajor_premise(X) :- X = \"omnis homo mortalis\".\nminor_premise(Y) :- Y = \"socrates homo\".\nconclusion(Z) :- Z = \"ergo socrates mortalis\".\n\n:- major_premise(P), write(P), nl.\n:- minor_premise(Q), write(Q), nl.\n:- conclusion(R), write(R), nl.\n",
+      "conditionals": "% Judging orthodoxy versus heresy\njudge_doctrine(verum) :- write(\"orthodox\"), nl.\njudge_doctrine(falsum) :- write(\"heretical\"), nl.\n\nassess_claim(Assertion, verum) :- write(Assertion), write(\": orthodox\"), nl.\nassess_claim(Assertion, falsum) :- write(Assertion), write(\": heretical\"), nl.\n\n:- judge_doctrine(verum).\n:- judge_doctrine(falsum).\n:- assess_claim(\"trinity\", verum).\n",
+      "loops": "% Reciting canonical hours via recursion\nrecite_hours(0) :- write(\"completorium\"), nl.\nrecite_hours(N) :-\n    N > 0,\n    write(\"hora \"), write(N), nl,\n    N1 is N - 1,\n    recite_hours(N1).\n\n:- recite_hours(5).\n",
+      "functions": "% Syllogistic derivation predicates\ndouble_penance(Days, Result) :- Result is Days * 2.\n\nfactorial_verses(0, 1).\nfactorial_verses(N, F) :-\n    N > 0,\n    N1 is N - 1,\n    factorial_verses(N1, F1),\n    F is N * F1.\n\n:- double_penance(7, R), write(R), nl.\n:- factorial_verses(5, F), write(F), nl.\n",
+      "closures": "% Higher-order theological reasoning\napply_rule(Rule, Argument, Result) :- call(Rule, Argument, Result).\nvenial_calc(Days, Penance) :- Penance is Days * 2.\nmortal_calc(Days, Penance) :- Penance is Days * 10.\n\n:- apply_rule(venial_calc, 3, R1), write(R1), nl.\n:- apply_rule(mortal_calc, 3, R2), write(R2), nl.\n",
+      "strings": "% Analyzing scriptural verses\nverse_proclamation :-\n    Text = \"sanctus sanctus sanctus\",\n    write(Text), nl.\n\nverse_composition :-\n    Gloria = \"gloria\",\n    Patri = \"patri\",\n    write(Gloria), write(\" \"), write(Patri), nl.\n\n:- verse_proclamation.\n:- verse_composition.\n"
+    },
+    "examples": [
+      {
+        "name": "heresy_detector",
+        "description": "Detect heretical propositions by checking for logical contradictions with established dogma.",
+        "body": "% Heresy detection via logical contradiction\n% Established dogmatic truths\ndogma(trinity_unity).\ndogma(virgin_birth).\ndogma(resurrection).\ndogma(divine_providence).\n\n% Propositions that contradict dogma\ncontradicts(trinity_denial, trinity_unity).\ncontradicts(naturalist_birth, virgin_birth).\ncontradicts(mortality_final, resurrection).\ncontradicts(fate_alone, divine_providence).\n\n% Determine if a proposition is heretical\nis_heresy(Proposition) :-\n    contradicts(Proposition, Dogma),\n    dogma(Dogma),\n    write(\"HAERESIS: \"), write(Proposition),\n    write(\" contradicit \"), write(Dogma), nl.\n\n% Determine if a proposition is orthodox\nis_orthodox(Proposition) :-\n    \\+ contradicts(Proposition, _),\n    write(\"Orthodoxum: \"), write(Proposition), nl.\n\n% Test various propositions\n:- is_heresy(trinity_denial).\n:- is_heresy(naturalist_birth).\n:- is_heresy(mortality_final).\n:- is_orthodox(immaculate_conception).\n:- is_orthodox(transubstantiation).\n"
+      },
+      {
+        "name": "penance_calculator",
+        "description": "Calculate penance duration according to monastic penitential rules.",
+        "body": "% Computing penance per the Penitential codex\n\n% Base penance in days for each sin\nsin_base(furtum, 40).      % theft\nsin_base(mendacium, 20).   % falsehood\nsin_base(gula, 7).         % gluttony  \nsin_base(acedia, 3).       % sloth\nsin_base(ira, 14).         % wrath\nsin_base(superbia, 30).    % pride\n\n% Severity classifications\nseveritas(venialis, 1).    % venial sin\nseveritas(mortalis, 10).   % mortal sin\n\n% Calculate total penance days\ncompute_poenitentia(Peccatum, Gravitas, Dies) :-\n    sin_base(Peccatum, Basis),\n    severitas(Gravitas, Multiplicator),\n    Dies is Basis * Multiplicator.\n\n% Report penance judgment\nreport_poenitentia(Peccatum, Gravitas) :-\n    compute_poenitentia(Peccatum, Gravitas, Dies),\n    write(Peccatum), write(\" (\"), write(Gravitas), write(\"): \"),\n    write(Dies), write(\" dies poenitentiae\"), nl.\n\n% Assess various sins\n:- report_poenitentia(furtum, venialis).\n:- report_poenitentia(mendacium, mortalis).\n:- report_poenitentia(gula, venialis).\n:- report_poenitentia(superbia, mortalis).\n"
+      },
+      {
+        "name": "syllogism_validator",
+        "description": "Validate scholastic syllogisms using modus ponens inference.",
+        "body": "% Validating syllogistic arguments in scholastic tradition\n\n% Major premises (universal truths)\npraemissa_maior(homo, mortalis).\npraemissa_maior(rationalis, anima_habens).\npraemissa_maior(virtuosus, beatus).\npraemissa_maior(peccator, poenitens).\n\n% Minor premises (particular instances)\npraemissa_minor(socrates, homo).\npraemissa_minor(plato, rationalis).\npraemissa_minor(aristoteles, rationalis).\npraemissa_minor(augustinus, virtuosus).\npraemissa_minor(pelagius, peccator).\n\n% Derive conclusion via modus ponens\nderivatio(Subiectum, Praedicatum) :-\n    praemissa_minor(Subiectum, Terminus),\n    praemissa_maior(Terminus, Praedicatum),\n    write(\"Ergo: \"), write(Subiectum),\n    write(\" est \"), write(Praedicatum), nl.\n\n% Validate all derivable conclusions\n:- derivatio(socrates, mortalis).\n:- derivatio(plato, anima_habens).\n:- derivatio(aristoteles, anima_habens).\n:- derivatio(augustinus, beatus).\n:- derivatio(pelagius, poenitens).\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "functions",
+        "closures"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "variables",
+        "conditionals",
+        "loops",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "heresy_detector",
+        "penance_calculator",
+        "syllogism_validator"
+      ]
+    }
+  }
+}

@@ -1,0 +1,333 @@
+{
+  "lang_name": "slot_lgc_004",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "block",
+    "string_literals": "double",
+    "numeric_literals": "c_style",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [
+      "while",
+      "c_for"
+    ],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": null,
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "is",
+    "mod",
+    "not",
+    "true",
+    "false",
+    "fail",
+    "if",
+    "then",
+    "else",
+    "while",
+    "for",
+    "break",
+    "continue",
+    "return"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal, hex (0x), octal (0o), binary (0b)",
+    "integer_form": "c_style",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)",
+    "list": "[1, 2, 3] or [H | T]"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": ":-",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "=",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "true",
+    "false": "false"
+  },
+  "null_keyword": "[]",
+  "null_keyword_status": "active",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "Hybrid logic-imperative language: adds while and c-style for loops to clause-based syntax, diverging from pure logic programming's recursion-only iteration model.",
+    "Empty list [] serves as the null sentinel under nullable model, overloading Prolog's standard empty-list literal.",
+    "Imperative stdlib (mutating list/dict operations, push/pop/set) supports the procedural loop constructs; atypical for logic family but consistent with extended options.",
+    "Logical operators (comma for conjunction, semicolon for disjunction) use short-circuit evaluation per boolean_evaluation setting.",
+    "Block comments /* */ non-nesting per logic_like family convention; no line-comment syntax.",
+    "Transpiles to Python; memory_model.kind=host_gc documents reliance on Python's GC, not observable refcount semantics."
+  ],
+  "error_handling": {
+    "kind": "panic_only",
+    "syntax": "Runtime errors terminate the program; no exception handling or result types in v1."
+  },
+  "loop_forms": [
+    "while",
+    "c_for"
+  ],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "customization": {
+    "era": "1970s"
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#0c0a06",
+      "bg_2": "#15110a",
+      "card": "#0c0a06",
+      "card_2": "#1a1610",
+      "line": "#3a2a14",
+      "line_2": "#4a3520",
+      "text": "#ffb000",
+      "text_2": "#cc8800",
+      "muted": "#886000",
+      "accent": "#ffaa00",
+      "accent_2": "#ffd060",
+      "font_family": "'Courier New', monospace",
+      "mono_font": "'Courier New', monospace",
+      "radius": "0px",
+      "decoration": "scanlines",
+      "name_treatment": "uppercase-tracked"
+    },
+    "sources": {
+      "persona": null,
+      "era": "1970s",
+      "keyword_theme": null,
+      "phrasebook": null
+    }
+  },
+  "origin_story": "Emerged from a 1974 Edinburgh attempt to make Prolog digestible for ALGOL programmers. The team grafted imperative loops onto clause syntax before the grant expired. Survived in one PDP-11 user manual.",
+  "creative": {
+    "readme_intro": "slot_lgc_004 grafts imperative loop constructs onto a clause-based syntax, a compromise born from a 1974 Edinburgh research group's attempt to make logic programming palatable to ALGOL veterans. The result is a hybrid that accepts both traditional clause definitions (head :- body.) and procedural control flow (while, for). Variables unify, predicates succeed or fail, and yet you can mutate lists and iterate with familiar loop forms. It transpiles to Python, relying on host garbage collection rather than implementing its own runtime. The language retains logic programming's structural clarity for defining relations while offering an escape hatch for programmers who think in loops rather than recursion. It's a bridge language, frozen in the amber of a single PDP-11 user manual, never refined beyond its initial scope.",
+    "design_philosophy": "The designers faced ALGOL-trained programmers who balked at recursion-only iteration. Rather than evangelize the virtues of tail calls and backtracking, they grafted while and c-style for loops directly into the clause syntax. Mutable-by-default semantics and panic-only error handling simplified the implementation - no exception machinery, no immutability tracking. Dynamic typing avoided the complexity of Hindley-Milner inference, keeping the transpiler tractable for a small team on a short grant. The empty list [] doubles as the null sentinel, a pragmatic overload that saved introducing another literal form. Every choice prioritized implementation speed over theoretical purity, aiming to ship before funding dried up.",
+    "what_its_good_at": "Small utilities that need both pattern-based dispatch and traditional iteration. Programs where clause structure clarifies the problem domain but recursion feels unnatural - parsing formats with known loop counts, processing fixed-size records, traversing arrays with index arithmetic. The imperative stdlib (push, pop, mutating set) supports straightforward data manipulation without threading accumulators through recursive calls. Short scripts that benefit from clause modularity without committing to full logic programming discipline.",
+    "what_its_bad_at": "Anything requiring real backtracking or constraint solving - the imperative loops break the search model. Large programs where the hybrid syntax becomes confusing rather than clarifying; past a few hundred lines, the mix of declarative clauses and procedural loops fragments into inconsistent styles. Performance-critical code, since the Python transpilation layer adds overhead. Programs that would benefit from static typing, as the dynamic model offers no compile-time safety net.",
+    "example_commentary": "The :- operator separates the clause head from its body, maintaining logic syntax. The is operator evaluates arithmetic expressions, a necessary distinction in logic languages where = performs unification rather than computation. Notice the statement terminator . ending each clause - borrowed from Prolog, it signals clause completion. While the language supports traditional loops, this example stays declarative, demonstrating that clause-based definitions remain the primary mode. The block comment /* */ syntax is the only comment form; no line comments exist in the v1 design.",
+    "common_mistake": "Using = when you need is for arithmetic. Writing X = 2 + 3 binds X to the compound term 2 + 3, not the value 5. You want X is 2 + 3 to force evaluation. This trips up newcomers who expect = to compute. Another pitfall: mixing backtracking expectations with imperative loops. A while loop doesn't retry on predicate failure - it's purely procedural. Once you enter a loop, you've left the logic model."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": "/* DEC PDP-11 TTY initialization */\n:- write(\"READY\"), nl.\n",
+      "arithmetic": "/* CPU cycle allocation for batch jobs */\n:- Total = 1000,\n   Jobs = 8,\n   Per_Job is Total // Jobs,\n   Remainder is Total mod Jobs,\n   write(Per_Job), nl,\n   write(Remainder), nl.\n",
+      "variables": "/* Terminal session accounting */\n:- User_Id = 1974,\n   Port = 23,\n   Minutes = 45,\n   write(User_Id), nl,\n   write(Port), nl,\n   write(Minutes), nl.\n",
+      "conditionals": "/* Batch job priority assignment */\ncheck_priority(T) :- T < 60, write(\"HIGH\"), nl.\ncheck_priority(T) :- T >= 60, write(\"LOW\"), nl.\n\n:- check_priority(45),\n   check_priority(90).\n",
+      "loops": "/* Mainframe shutdown sequence */\n:- N = 5,\n   while (N > 0) (\n     write(N), nl,\n     N is N - 1\n   ).\n",
+      "functions": "/* Student grade averaging */\naverage(Sum, Count, Result) :- Result is Sum // Count.\n\n:- average(270, 3, Avg),\n   write(Avg), nl.\n",
+      "closures": "/* Resource allocation with base quota */\nmake_allocator(Base, Alloc) :- Alloc = quota(Base).\napply_quota(quota(Base), Request, Total) :- Total is Base + Request.\n\n:- make_allocator(100, Q),\n   apply_quota(Q, 50, T1), write(T1), nl,\n   apply_quota(Q, 75, T2), write(T2), nl.\n",
+      "strings": "/* Terminal status message formatting */\n:- Sys = \"DEC\",\n   Model = \"PDP-11\",\n   Msg = join(\" \", list(Sys, Model, \"ONLINE\")),\n   write(Msg), nl,\n   Low = lower(Msg),\n   write(Low), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "student_grade_report",
+        "description": "Batch processing of student records to compute course statistics.",
+        "body": "/* University registrar batch job - compute course statistics */\n\ngrade_point(Grade, Points) :- Grade =:= 90, Points is 4.\ngrade_point(Grade, Points) :- Grade >= 80, Grade < 90, Points is 3.\ngrade_point(Grade, Points) :- Grade >= 70, Grade < 80, Points is 2.\ngrade_point(Grade, Points) :- Grade < 70, Points is 1.\n\nprocess_grades :- \n  Grades = list(85, 92, 78, 88),\n  Total = 0,\n  Count = 0,\n  for (I = 0; I < len(Grades); I is I + 1) (\n    G = get(Grades, I),\n    grade_point(G, Pts),\n    write(\"Grade \"), write(G), write(\" = \"), write(Pts), write(\" points\"), nl,\n    Total is Total + Pts,\n    Count is Count + 1\n  ),\n  Avg is Total // Count,\n  write(\"Average GPA: \"), write(Avg), nl.\n\n:- process_grades.\n"
+      },
+      {
+        "name": "cpu_scheduler",
+        "description": "Time-sharing system job scheduler with round-robin allocation.",
+        "body": "/* Minicomputer time-sharing scheduler */\n\nschedule_job(Job_Id, Time_Slice) :-\n  write(\"JOB \"), write(Job_Id), write(\" ALLOCATED \"),\n  write(Time_Slice), write(\" MS\"), nl.\n\nrun_scheduler :-\n  Jobs = list(101, 102, 103, 104),\n  Quantum = 50,\n  Idx = 0,\n  while (Idx < len(Jobs)) (\n    Job = get(Jobs, Idx),\n    schedule_job(Job, Quantum),\n    Idx is Idx + 1\n  ),\n  write(\"SCHEDULER COMPLETE\"), nl.\n\n:- run_scheduler.\n"
+      },
+      {
+        "name": "terminal_session_log",
+        "description": "Session time accounting for university computing lab terminals.",
+        "body": "/* Computing lab terminal usage logger */\n\nlog_entry(User, Port, Duration) :-\n  Msg = join(\"\", list(\"USER=\", str(User))),\n  write(Msg),\n  write(\" PORT=\"), write(Port),\n  write(\" TIME=\"), write(Duration), write(\"MIN\"),\n  nl.\n\nprocess_log :-\n  Sessions = dict(\"port1\", 45, \"port2\", 120, \"port3\", 30),\n  Ports = keys(Sessions),\n  Total = 0,\n  for (I = 0; I < len(Ports); I is I + 1) (\n    Port = get(Ports, I),\n    Duration = get(Sessions, Port),\n    log_entry(1974, Port, Duration),\n    Total is Total + Duration\n  ),\n  write(\"TOTAL LAB TIME: \"), write(Total), write(\" MIN\"), nl.\n\n:- process_log.\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "variables",
+        "functions",
+        "closures"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "conditionals",
+        "loops",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "student_grade_report",
+        "cpu_scheduler",
+        "terminal_session_log"
+      ]
+    }
+  }
+}
