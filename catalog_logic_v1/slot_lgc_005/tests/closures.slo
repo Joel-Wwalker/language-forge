@@ -1,0 +1,10 @@
+% Canonical: closures. Pure Prolog has no first-class closures - the
+% standard idiom is to build a goal as a term and invoke it with
+% call/N. `call(add(5), 3, R)` builds the goal `add(5, 3, R)` and
+% solves it; the "captured" value 5 lives in the partial goal `add(5)`.
+add(N, X, Y) :- Y is X + N.
+
+:- call(add(5), 3, R), write(R), nl.
+:- call(add(10), 3, R), write(R), nl.
+:- call(add(5), 100, R), write(R), nl.
+:- call(add(5), 0, A), call(add(10), A, R), write(R), nl.

@@ -1,0 +1,2 @@
+{"event": "run_started", "timestamp": "2026-05-16T01:02:08Z", "lang_name": "slot_lgc_007", "seed": 9007, "started_at": "2026-05-16T01:02:08Z", "generator_version": "0.4.0"}
+{"event": "llm_call", "timestamp": "2026-05-16T01:04:43Z", "tag": "resolver", "model": "claude-sonnet-4-5", "input_tokens": 0, "output_tokens": 0, "duration_seconds": 154.256, "attempts": 1, "success": true, "error": null}

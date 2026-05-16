@@ -1,0 +1,6 @@
+% Theatrical calculations
+:- Act_one is 45 + 30, write(Act_one), nl.
+:- Intermission is 90 - 75, write(Intermission), nl.
+:- Speeches is 3 * 4, write(Speeches), nl.
+:- Scenes is 21 / 3, write(Scenes), nl.
+:- Remaining is 17 mod 5, write(Remaining), nl.

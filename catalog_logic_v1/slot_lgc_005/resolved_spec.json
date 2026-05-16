@@ -1,0 +1,326 @@
+{
+  "lang_name": "slot_lgc_005",
+  "options": {
+    "syntax": "logic_like",
+    "typing": "dynamic",
+    "memory": "host_gc",
+    "comment_style": "both",
+    "string_literals": "double",
+    "numeric_literals": "decimal_only",
+    "default_mutability": "mutable",
+    "error_handling": "panic_only",
+    "loop_forms": [],
+    "multiple_returns": "none",
+    "boolean_evaluation": "short_circuit",
+    "naming_convention": "snake_case",
+    "null_model": "nullable"
+  },
+  "file_extension": ".slo",
+  "comment_syntax": {
+    "line": "%",
+    "block_open": "/*",
+    "block_close": "*/",
+    "nestable": false
+  },
+  "keywords": [
+    "fail",
+    "is",
+    "mod",
+    "naught",
+    "not",
+    "verily"
+  ],
+  "operators": {
+    "arithmetic": [
+      "+",
+      "-",
+      "*",
+      "/",
+      "//",
+      "mod",
+      "**"
+    ],
+    "comparison": [
+      "=:=",
+      "=\\=",
+      "<",
+      ">",
+      "=<",
+      ">="
+    ],
+    "logical": [
+      ",",
+      ";",
+      "\\+"
+    ],
+    "assignment": []
+  },
+  "literals": {
+    "integer": "decimal digits",
+    "integer_form": "decimal_only",
+    "float": "decimal digits with '.'",
+    "string": "\"hello\"",
+    "string_form": "double",
+    "boolean": "true / false (atoms)"
+  },
+  "statement_terminator": ".",
+  "block_style": "clause-based",
+  "function_definition": {
+    "keyword": "summon",
+    "syntax_example": "double(X, Y) :- Y is X * 2.",
+    "type_annotations": null
+  },
+  "variable_declaration": {
+    "keyword": "thy",
+    "syntax_example": "X = 10",
+    "type_annotations": null,
+    "mutability": "mutable_by_default"
+  },
+  "print_form": "write(<args>), nl.",
+  "boolean_keywords": {
+    "true": "verily",
+    "false": "naught"
+  },
+  "null_keyword": "nothing",
+  "null_keyword_status": "active",
+  "memory_model": {
+    "kind": "host_gc",
+    "notes": "Transpiles to Python; relies on Python's reference-counting + cycle GC. Documented as host_gc since the user program cannot observe GC behavior directly."
+  },
+  "stdlib": {
+    "functions": [
+      {
+        "name": "print",
+        "description": "Print to stdout with newline.",
+        "signature": "print(value, ...) -> void"
+      },
+      {
+        "name": "input",
+        "description": "Read one line from stdin (no trailing newline).",
+        "signature": "input(prompt) -> string"
+      },
+      {
+        "name": "list",
+        "description": "Build a list from arguments. `list(1, 2, 3)`.",
+        "signature": "list(...) -> list"
+      },
+      {
+        "name": "len",
+        "description": "Length of a string, list, or dict.",
+        "signature": "len(coll) -> int"
+      },
+      {
+        "name": "get",
+        "description": "Read element by index (list) or key (dict). Returns null if absent.",
+        "signature": "get(coll, k) -> any"
+      },
+      {
+        "name": "set",
+        "description": "Mutate element by index or key. Returns the collection.",
+        "signature": "set(coll, k, v) -> coll"
+      },
+      {
+        "name": "push",
+        "description": "Append to the end of a list. Returns the list.",
+        "signature": "push(lst, x) -> list"
+      },
+      {
+        "name": "pop",
+        "description": "Remove and return the last element of a list.",
+        "signature": "pop(lst) -> any"
+      },
+      {
+        "name": "dict",
+        "description": "Build a dict from alternating key, value arguments.",
+        "signature": "dict(k1, v1, k2, v2, ...) -> dict"
+      },
+      {
+        "name": "has",
+        "description": "True if a dict has the key, or list has the index.",
+        "signature": "has(coll, k) -> bool"
+      },
+      {
+        "name": "keys",
+        "description": "List of keys in a dict (insertion order).",
+        "signature": "keys(d) -> list"
+      },
+      {
+        "name": "range",
+        "description": "List of integers. `range(n)` is 0..n-1; `range(a, b)` is a..b-1.",
+        "signature": "range(stop) | range(start, stop) -> list"
+      },
+      {
+        "name": "str",
+        "description": "Convert any value to its printable string.",
+        "signature": "str(v) -> string"
+      },
+      {
+        "name": "split",
+        "description": "Split a string on a separator, return list of pieces.",
+        "signature": "split(s, sep) -> list"
+      },
+      {
+        "name": "join",
+        "description": "Join a list of strings with a separator.",
+        "signature": "join(sep, lst) -> string"
+      },
+      {
+        "name": "upper",
+        "description": "Uppercase a string.",
+        "signature": "upper(s) -> string"
+      },
+      {
+        "name": "lower",
+        "description": "Lowercase a string.",
+        "signature": "lower(s) -> string"
+      },
+      {
+        "name": "replace",
+        "description": "Replace every occurrence of `old` with `new` in `s`.",
+        "signature": "replace(s, old, new) -> string"
+      },
+      {
+        "name": "int",
+        "description": "Convert string or float to int.",
+        "signature": "int(v) -> int"
+      },
+      {
+        "name": "float",
+        "description": "Convert string or int to float.",
+        "signature": "float(v) -> float"
+      },
+      {
+        "name": "read_file",
+        "description": "Read a UTF-8 text file as a string.",
+        "signature": "read_file(path) -> string"
+      },
+      {
+        "name": "write_file",
+        "description": "Write a string to a file (overwrites). Returns null.",
+        "signature": "write_file(path, s) -> null"
+      },
+      {
+        "name": "argv",
+        "description": "List of command-line arguments after the program name.",
+        "signature": "argv() -> list"
+      },
+      {
+        "name": "exit",
+        "description": "Exit the program with an integer status code.",
+        "signature": "exit(code) -> never"
+      }
+    ]
+  },
+  "design_notes": [
+    "logic_like syntax with dynamic typing follows Prolog's model; clause-based structure with backtracking semantics.",
+    "loop_forms is empty; iteration via recursion and pattern matching on list structure, as is standard for logic languages.",
+    "Shakespearean keyword theme overlays traditional logic syntax with theatrical vocabulary ('summon', 'verily', 'naught').",
+    "stdlib includes imperative operations (mutating collections) atypical for pure logic languages but necessary for practical programs."
+  ],
+  "error_handling": {
+    "kind": "panic_only"
+  },
+  "loop_forms": [],
+  "multiple_returns": "none",
+  "boolean_evaluation": "short_circuit",
+  "naming_convention": "snake_case",
+  "null_model": "nullable",
+  "customization": {
+    "keyword_overrides": {
+      "var": "thy",
+      "func": "summon",
+      "return": "yieldeth",
+      "if": "perchance",
+      "else": "otherwise",
+      "while": "whilst",
+      "true": "verily",
+      "false": "naught",
+      "null": "nothing"
+    },
+    "keyword_theme": "shakespearean"
+  },
+  "theme": {
+    "tokens": {
+      "bg": "#f7f0e0",
+      "bg_2": "#efe6cf",
+      "card": "#fbf6e8",
+      "card_2": "#f0e8d0",
+      "line": "#c4ad88",
+      "line_2": "#9a8460",
+      "text": "#2a1f10",
+      "text_2": "#4a3a20",
+      "muted": "#8a7050",
+      "accent": "#702010",
+      "accent_2": "#9a3020",
+      "font_family": "'IM Fell English', 'EB Garamond', Georgia, serif",
+      "mono_font": "'EB Garamond', Georgia, serif",
+      "radius": "2px",
+      "decoration": "parchment",
+      "name_treatment": "calligraphic"
+    },
+    "sources": {
+      "persona": null,
+      "era": null,
+      "keyword_theme": "shakespearean",
+      "phrasebook": null
+    }
+  },
+  "origin_story": "Unearthed from the Blackfriars Theatre library during renovations, circa 1608. Elizabethan playwrights encoded character motivations as logical predicates before committing scenes to parchment, verifying plot coherence through mechanical reasoning.",
+  "creative": {
+    "readme_intro": "slot_lgc_005 emerged from a peculiar theatrical practice: before quill touched parchment, playwrights at the Blackfriars encoded character motivations and plot constraints as logical predicates, then queried them to ensure no hero could betray an oath whilst pursuing revenge, no timeline could permit both the king's death and his later appearance. The language you see here transpiles to Python but thinks in clauses and unification\u2014facts and rules terminated by the period, uppercase variables that bind through backtracking, predicates that succeed or fail rather than return. The Shakespearean keywords (`summon` for predicates, `verily` and `naught` for truth values) aren't mere costume; they mark the language's theatrical lineage, where every rule is a constraint on what may transpire, every query a test of narrative coherence. It's logic programming with the Globe's dusty urgency, dynamically typed because character traits shift, recursion-only because iteration feels too mechanical for drama.",
+    "design_philosophy": "The decision to forbid loops in favor of recursion reflects theatrical structure: a scene unfolds through recursive descent into memory and motive, not mechanical repetition. Dynamic typing follows the playwright's reality\u2014Hamlet's madness is real, then feigned, then real again; types shift as the plot demands. Panic-only error handling mirrors stage catastrophe: when a constraint fails, the play cannot continue. The clause-based syntax (`:-` separating head from body, `.` terminating each declaration) enforces clarity\u2014every rule must stand alone, legible to the dramaturg who verifies it. Shakespearean keywords (`summon`, `verily`, `naught`) aren't decoration; they bridge the 1608 mindset where logic was incantation, not computation.",
+    "what_its_good_at": "Verifying complex relational constraints\u2014family trees, plot timelines, character obligations\u2014through declarative rules rather than imperative checks. Recursive list processing shines because the `[H | T]` pattern decomposes naturally without loops. Backtracking search problems (pathfinding, puzzle solving) map directly to multiple clause definitions with differing guards. Short programs that compose predicates like theatrical scenes, each clause a self-contained constraint, queried together to prove narrative consistency.",
+    "what_its_bad_at": "The theatrical keywords grow tiresome past the first act\u2014writing `verily` for true and `naught` for false is charming in a 50-line script, wearisome in 500. Dynamic typing means arithmetic bugs lurk until runtime; `is` evaluates expressions but type mismatches panic rather than warn. The stdlib's imperative operations (`set`, `push`, mutating collections) clash with the logic paradigm's declarative purity, forcing hybrid thinking. Backtracking's search overhead makes tight loops (when hand-coded via recursion) slower than languages with native iteration.",
+    "example_commentary": "The clause above defines a zero-arity predicate\u2014when parameters vanish, so do the parentheses. The `:-` operator separates head from body; the comma conjoins `write` and `nl` as 'and' (sequential goals proved left-to-right). The period terminates the clause like a sentence in the 1608 manuscript. Notice `write` and `nl` aren't functions returning values but predicates that succeed by side-effect\u2014logic programming blurs proving and doing. To execute, query `?- main.` at the prompt, asking the engine to prove the goal holds.",
+    "common_mistake": "Confusing `is` with `=`: writing `X = 2 + 3` binds X to the compound term `2 + 3`, not 5. Use `is` for arithmetic evaluation (`X is 2 + 3`). Second pitfall: lowercase identifiers are atoms (constants), uppercase are variables. Writing `parent(Tom, bob)` means atom `Tom` and variable `bob`, the reverse of Python's convention. Finally, attempting mutation\u2014binding X twice in one clause fails, since variables unify once and stay bound."
+  },
+  "idioms": {
+    "canonical_test_bodies": {
+      "hello_world": ":- write(\"Hark! The stage is set.\"), nl.\n",
+      "arithmetic": "% Theatrical calculations\n:- Act_one is 45 + 30, write(Act_one), nl.\n:- Intermission is 90 - 75, write(Intermission), nl.\n:- Speeches is 3 * 4, write(Speeches), nl.\n:- Scenes is 21 / 3, write(Scenes), nl.\n:- Remaining is 17 mod 5, write(Remaining), nl.\n",
+      "variables": "% Assigning theatrical elements\n:- Play = \"The Tragedy of Hamlet\", write(Play), nl.\n:- Troupe_size = 12, write(Troupe_size), nl.\n:- Year is 1599 + 9, write(Year), nl.\n",
+      "conditionals": "% Judging a performance\njudge_show(Lines, Applause, Verdict) :-\n    (Lines > 100, Applause > 50 -> Verdict = \"Most excellent\" ; Verdict = \"Requires rehearsal\").\n\n:- judge_show(120, 60, V1), write(V1), nl.\n:- judge_show(80, 30, V2), write(V2), nl.\n",
+      "loops": "% Reciting the five acts\nrecite_act(5) :- write(\"Act V\"), nl.\nrecite_act(N) :- N < 5, write(\"Act \"), write(N), nl, N1 is N + 1, recite_act(N1).\n\n:- recite_act(1).\n",
+      "functions": "% Calculate lines spoken across scenes\nlines_spoken(0, 0).\nlines_spoken(Scenes, Total) :-\n    Scenes > 0,\n    Scenes1 is Scenes - 1,\n    lines_spoken(Scenes1, Subtotal),\n    Total is Subtotal + 15.\n\n:- lines_spoken(5, Result), write(Result), nl.\n",
+      "closures": "% Accumulating dramatic tension\nbuild_tension(0, Acc, Acc).\nbuild_tension(N, Acc, Final) :-\n    N > 0,\n    Acc1 is Acc + 10,\n    write(\"Tension: \"), write(Acc1), nl,\n    N1 is N - 1,\n    build_tension(N1, Acc1, Final).\n\n:- build_tension(3, 0, _).\n",
+      "strings": "% Manipulating dramatic dialogue\n:- Speech = \"To be or not to be\", write(Speech), nl.\n:- Loud = upper(\"hark\"), write(Loud), nl.\n:- Soft = lower(\"FORSOOTH\"), write(Soft), nl.\n:- Revised = replace(\"Good morrow\", \"morrow\", \"evening\"), write(Revised), nl.\n"
+    },
+    "examples": [
+      {
+        "name": "character_relationships",
+        "description": "Maps alliances and enmities between dramatic characters.",
+        "body": "% Tracking relationships in the play\nfriend(hamlet, horatio).\nfriend(rosencrantz, guildenstern).\nenemy(hamlet, claudius).\nenemy(hamlet, laertes).\n\ntrusted(X, Y) :- friend(X, Y).\ntrusted(X, Y) :- friend(Y, X).\n\ncheck_bond(X, Y) :-\n    (trusted(X, Y) -> write(\"Allied\") ; write(\"Estranged\")),\n    nl.\n\n:- write(\"Hamlet and Horatio: \"), check_bond(hamlet, horatio).\n:- write(\"Hamlet and Claudius: \"), check_bond(hamlet, claudius).\n"
+      },
+      {
+        "name": "scene_duration",
+        "description": "Calculates total performance time by summing scene lengths.",
+        "body": "% Performance timing calculations\nscene_length(1, 1, 450).\nscene_length(1, 2, 380).\nscene_length(2, 1, 520).\nscene_length(2, 2, 445).\n\ntotal_act(Act, 0, 0).\ntotal_act(Act, Scene, Total) :-\n    Scene > 0,\n    scene_length(Act, Scene, Duration),\n    Scene1 is Scene - 1,\n    total_act(Act, Scene1, Subtotal),\n    Total is Subtotal + Duration.\n\n:- write(\"Act I: \"), total_act(1, 2, T1), write(T1), write(\" seconds\"), nl.\n:- write(\"Act II: \"), total_act(2, 2, T2), write(T2), write(\" seconds\"), nl.\n"
+      },
+      {
+        "name": "soliloquy_classifier",
+        "description": "Categorizes speeches by length into epic, major, or brief monologues.",
+        "body": "% Classifying speeches by line count\nfamous_speech(to_be, 33).\nfamous_speech(seven_ages, 28).\nfamous_speech(tomorrow, 27).\nfamous_speech(friends_romans, 43).\n\ncategorize(Lines, Category) :-\n    (Lines > 40 -> Category = \"Epic soliloquy\" ;\n     Lines > 30 -> Category = \"Major speech\" ;\n     Lines > 25 -> Category = \"Brief monologue\" ;\n     Category = \"Short verse\").\n\nanalyze(Name) :-\n    famous_speech(Name, Lines),\n    categorize(Lines, Cat),\n    write(Name), write(\": \"), write(Lines), write(\" lines - \"), write(Cat), nl.\n\n:- analyze(to_be).\n:- analyze(seven_ages).\n:- analyze(friends_romans).\n"
+      }
+    ],
+    "overlay_result": {
+      "tests_accepted": [
+        "arithmetic",
+        "functions"
+      ],
+      "tests_rejected": [
+        "hello_world",
+        "variables",
+        "conditionals",
+        "loops",
+        "closures",
+        "strings"
+      ],
+      "examples_accepted": [],
+      "examples_rejected": [
+        "character_relationships",
+        "scene_duration",
+        "soliloquy_classifier"
+      ]
+    }
+  }
+}

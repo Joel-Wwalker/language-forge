@@ -1,0 +1,7 @@
+/* Resource allocation with base quota */
+make_allocator(Base, Alloc) :- Alloc = quota(Base).
+apply_quota(quota(Base), Request, Total) :- Total is Base + Request.
+
+:- make_allocator(100, Q),
+   apply_quota(Q, 50, T1), write(T1), nl,
+   apply_quota(Q, 75, T2), write(T2), nl.
